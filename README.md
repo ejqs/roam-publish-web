@@ -1,4 +1,4 @@
-# roam-publish-server
+# roam-publish-web
 
 Publish and share roam pages and blocks.
 
