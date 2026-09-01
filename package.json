@@ -9,15 +9,21 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.2",
+    "@better-auth/infra": "^0.4.5",
+    "drizzle-orm": "^1.0.0-rc.4",
     "next": "16.3.0",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20.19.43",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
+    "drizzle-kit": "^1.0.0-rc.4",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.0",
     "tailwindcss": "^4.3.3",
