@@ -9,6 +9,20 @@ import { admin } from "better-auth/plugins"
 export const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
+
+		// https://better-auth.com/docs/authentication/email-password#plugins-that-add-user-fields
+		customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
+			...coreFields,
+			// Admin plugin fields (in schema order)
+			role: "user",
+			banned: false,
+			banReason: null,
+			banExpires: null,
+			// Your additional fields
+			...additionalFields,
+			// ID must be last to match database output order
+			id,
+		}),
 	},
 	database: drizzleAdapter(db, {
 		provider: "pg",
