@@ -5,6 +5,7 @@ import * as schema from "@/db/schema/auth-schema";
 
 import { apiKey } from "@better-auth/api-key"
 import { admin } from "better-auth/plugins"
+import { nextCookies } from "better-auth/next-js";
 
 export const auth = betterAuth({
 	emailAndPassword: {
@@ -30,6 +31,7 @@ export const auth = betterAuth({
 	}),
 	plugins: [
 		apiKey(),
-		admin()
+		admin(),
+		nextCookies(),
 	]
 });
