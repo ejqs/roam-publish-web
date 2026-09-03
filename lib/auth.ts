@@ -7,6 +7,9 @@ import { apiKey } from "@better-auth/api-key"
 import { admin } from "better-auth/plugins"
 
 export const auth = betterAuth({
+	emailAndPassword: {
+		enabled: true,
+	},
 	database: drizzleAdapter(db, {
 		provider: "pg",
 		schema,
