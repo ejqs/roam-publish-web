@@ -1,26 +1,49 @@
-import { Link } from "@blueprintjs/core";
-import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col w-full h-screen items-center justify-center">
-
-      <div className="flex flex-row justify-between px-20 py-5 gap-10 sticky absolute top-0 border-b-2 bg-[#343A40] text-white">
-        <div>Roam.pub</div>
-        <div>share your <Link href="https://roamresearch.com" color="inherit">roam research</Link> <b>pages</b> and <b>blocks</b></div>
-        <div className="flex gap-5">
-          <Link href="/auth/signin" underline="hover" color="inherit">Sign in</Link>
-          <Link href="/auth/signup" underline="hover" color="inherit">Sign up</Link>
+    <div className="flex min-h-svh w-full flex-col items-center justify-center">
+      <header className="flex flex-row items-center justify-between gap-10 border-b-2 bg-[#343a40] px-20 py-5 text-base text-white">
+        <div>Roam Publish</div>
+        <div>
+          share your{" "}
+          <Button
+            variant="link"
+            className="h-auto p-0 text-base text-inherit"
+            nativeButton={false}
+            render={<a href="https://roamresearch.com" />}
+          >
+            roam research
+          </Button>{" "}
+          <strong>pages</strong> and <strong>blocks</strong>
         </div>
-      </div>
-      <div className="flex flex-row justify-end gap-2 p-5 items-end sticky translate-y-0  text-gray-400">
+        <nav className="flex gap-5" aria-label="Account">
+          <Button
+            variant="link"
+            className="h-auto p-0 text-base text-inherit"
+            nativeButton={false}
+            render={<Link href="/auth/sign-in" />}
+          >
+            Sign in
+          </Button>
+          <Button
+            variant="link"
+            className="h-auto p-0 text-base text-inherit"
+            nativeButton={false}
+            render={<Link href="/auth/sign-up" />}
+          >
+            Sign up
+          </Button>
+        </nav>
+      </header>
+
+      <footer className="flex flex-row items-end justify-end gap-2 p-5 text-base text-gray-400">
         this is a third-party service made by
-        <Link href="https://ejqs.net" underline="hover" color="inherit">@ejqs</Link>
-        <Link href="https://github.com/ejqs/roam-publish-web" underline="hover" color="inherit">github</Link>
-        <Link href="/about/coffee" underline="hover" color="inherit">coffee</Link>
-      </div>
-
+        <Button variant="link" className="h-auto p-0 text-base text-inherit" nativeButton={false} render={<a href="https://ejqs.net" />}>@ejqs</Button>
+        <Button variant="link" className="h-auto p-0 text-base text-inherit" nativeButton={false} render={<a href="https://github.com/ejqs/roam-publish-web" />}>github</Button>
+        <Button variant="link" className="h-auto p-0 text-base text-inherit" nativeButton={false} render={<Link href="/about/coffee" />}>coffee</Button>
+      </footer>
     </div>
-
   );
 }

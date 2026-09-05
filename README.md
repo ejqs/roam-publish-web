@@ -12,5 +12,5 @@ This project will not be "vibe coded" but AI assistance will be used. I'll try t
 - [Drizzle](https://orm.drizzle.team) as ORM (whatever that means)
 - [Better-auth](https://better-auth.com) for auth
 - [Umami.is](https://umami.is) as privacy focused analytics
-- [Blueprint.js](https://blueprintjs.com) as component library?
+- [shadcn/ui](https://ui.shadcn.com) as component library
 - [Railway](https://railway.com) as Cloud Provider
