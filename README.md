@@ -11,5 +11,5 @@ This repository interacts with [roam-publish](https://github.com/ejqs/roam-publi
 - [Drizzle](https://orm.drizzle.team) as ORM (whatever that means)
 - [Better-auth](https://better-auth.com) for auth
 - [Umami.is](https://umami.is) as privacy focused analytics
-- [Blueprint.js](https://blueprintjs.com) as component library?
+- [shadcn/ui](https://ui.shadcn.com) as component library
 - [Railway](https://railway.com) as Cloud Provider
