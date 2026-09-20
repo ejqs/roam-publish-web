@@ -26,6 +26,24 @@ await client.query(`
   );
 `);
 
+// Production already has Better Auth tables from earlier deploys, but no
+// _sql_migrations bookkeeping. Mark those folders applied if present.
+const authTables = await client.query(
+	`SELECT to_regclass('public.user') AS user_table, to_regclass('public.apikey') AS apikey_table`,
+);
+if (authTables.rows[0]?.user_table) {
+	await client.query(
+		`INSERT INTO "_sql_migrations" (id) VALUES ($1) ON CONFLICT DO NOTHING`,
+		["20260901123448_init better auth"],
+	);
+}
+if (authTables.rows[0]?.apikey_table) {
+	await client.query(
+		`INSERT INTO "_sql_migrations" (id) VALUES ($1) ON CONFLICT DO NOTHING`,
+		["20260901130417_add api-key and admin plugin"],
+	);
+}
+
 for (const dir of dirs) {
 	const id = dir;
 	const already = await client.query(
