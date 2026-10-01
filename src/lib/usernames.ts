@@ -4,8 +4,8 @@ import { db } from "@/db";
 import { profile, usernameAlias } from "@/db/schema";
 
 const RESERVED = new Set([
-  "admin", "api", "app", "auth", "dashboard", "forgot-password", "help", "login", "logout",
-  "me", "onboarding", "reset-password", "root", "roam", "settings", "signup", "support",
+  "admin", "api", "app", "auth", "dashboard", "discover", "forgot-password", "help", "login", "logout",
+  "me", "onboarding", "reset-password", "root", "roam", "settings", "setup", "signup", "support",
   "u", "verify-email", "www",
 ]);
 

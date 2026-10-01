@@ -1,12 +1,13 @@
 "use server";
 
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
 import { graph, profile, publication, usernameAlias, type Visibility } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { DISCOVER_TAG } from "@/lib/discover";
 import { Username, usernameTakenByOther } from "@/lib/usernames";
 
 async function getSession() {
@@ -30,6 +31,7 @@ export async function unpublish(publicationId: string) {
       ),
     );
   revalidatePath("/dashboard");
+  updateTag(DISCOVER_TAG);
 }
 
 export async function setVisibility(publicationId: string, visibility: Visibility) {
@@ -48,6 +50,7 @@ export async function setVisibility(publicationId: string, visibility: Visibilit
   revalidatePath("/dashboard");
   revalidatePath("/[graph]", "page");
   revalidatePath("/");
+  updateTag(DISCOVER_TAG);
 }
 
 export type FormState = { ok: boolean; message: string } | null;
@@ -115,5 +118,6 @@ export async function updateGraphSettings(graphId: string, input: GraphSettings)
   revalidatePath("/[graph]", "layout");
   revalidatePath("/u/[username]", "page");
   revalidatePath("/");
+  updateTag(DISCOVER_TAG);
   return { ok: true, message: "Settings saved." };
 }

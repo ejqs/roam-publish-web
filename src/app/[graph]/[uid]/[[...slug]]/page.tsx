@@ -8,6 +8,7 @@ import type { PageLinks } from "@/components/roam/markup";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
 import { SiteFooter } from "@/components/site-footer";
+import { ViewBeacon } from "@/components/view-beacon";
 import { db } from "@/db";
 import { publication } from "@/db/schema";
 import { graphPath, loadGraph } from "@/lib/graphs";
@@ -91,6 +92,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
             Last updated {pub.updatedAt.toLocaleDateString("en-US", { dateStyle: "medium" })}
           </p>
         </article>
+        {pub.visibility === "public" && <ViewBeacon publicationId={pub.id} />}
       </main>
       <SiteFooter className="bg-card" />
     </>

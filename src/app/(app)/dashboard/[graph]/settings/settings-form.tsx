@@ -64,11 +64,11 @@ export function GraphSettingsForm({
           <FieldSeparator />
           <SettingSwitch
             id="featured"
-            label="Feature on roam.pub"
+            label="List on Discover"
             description={
               settings.frontPage
-                ? "List this graph and its recent public pages on the roam.pub home page."
-                : "Turn on the front page to feature this graph."
+                ? "Show this graph's public pages on roam.pub/discover and in the home page's trending list."
+                : "Turn on the front page to list this graph on Discover."
             }
             checked={settings.featured && settings.frontPage}
             disabled={!settings.frontPage}

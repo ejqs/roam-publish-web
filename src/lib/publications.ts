@@ -1,5 +1,9 @@
 import { slugify } from "./slug";
 
+export function graphPath(graphName: string) {
+  return `/${encodeURIComponent(graphName)}`;
+}
+
 /** Path is keyed by the Roam uid; the trailing slug is decorative and never read. */
 export function publicationPath(graphName: string, rootUid: string, title: string) {
   return `/${encodeURIComponent(graphName)}/${encodeURIComponent(rootUid)}/${slugify(title)}`;
