@@ -11,13 +11,20 @@ import { sha256 } from "@/lib/content-hash";
 import { rateLimit } from "@/lib/rate-limit";
 import { appendToDailyNote } from "@/lib/roam-append";
 
+// Top-level routes that would shadow /{graph}.
+const ROUTES = new Set([
+  "admin", "api", "dashboard", "forgot-password", "login", "onboarding", "report",
+  "reset-password", "signup", "u", "verify-email",
+]);
+
 const Input = z.object({
   graphName: z
     .string()
     .trim()
     .min(1, "Enter your graph name")
     .max(200)
-    .regex(/^[A-Za-z0-9_-]+$/, "Graph names only contain letters, numbers, - and _"),
+    .regex(/^[A-Za-z0-9_-]+$/, "Graph names only contain letters, numbers, - and _")
+    .refine((n) => !ROUTES.has(n.toLowerCase()), "This graph name can't be published on roam.pub."),
   token: z.string().trim().startsWith("roam-graph-token-", "Tokens start with roam-graph-token-"),
   date: z.string().regex(/^\d{2}-\d{2}-\d{4}$/),
 });

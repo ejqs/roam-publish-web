@@ -1,5 +1,6 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -26,10 +27,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { db } from "@/db";
-import { graph, publication } from "@/db/schema";
+import { graph, profile, publication } from "@/db/schema";
+import { graphPath } from "@/lib/graphs";
 import { publicationPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
-import { unpublish } from "./actions";
+import { setVisibility, unpublish } from "./actions";
+import { ProfileCard } from "./profile-card";
 
 export default async function DashboardPage() {
   const session = await requireSession("/dashboard");
@@ -45,10 +48,19 @@ export default async function DashboardPage() {
         .where(inArray(publication.graphId, graphs.map((g) => g.id)))
         .orderBy(desc(publication.updatedAt))
     : [];
+  const me = await db.query.profile.findFirst({ where: eq(profile.userId, session.user.id) });
+  const profileCard = (
+    <ProfileCard
+      username={me?.username ?? null}
+      isPublic={me?.isPublic ?? false}
+      appUrl={process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}
+    />
+  );
 
   if (graphs.length === 0) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-12">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-12">
+        {profileCard}
         <Empty className="border">
           <EmptyHeader>
             <EmptyTitle>No graphs connected yet</EmptyTitle>
@@ -72,6 +84,7 @@ export default async function DashboardPage() {
           Connect another graph
         </Link>
       </div>
+      {profileCard}
       {graphs.map((g) => {
         const rows = pubs.filter((p) => p.graphId === g.id);
         return (
@@ -79,13 +92,35 @@ export default async function DashboardPage() {
             <CardHeader>
               <CardTitle>{g.name}</CardTitle>
               <CardDescription>
-                {rows.length} published · verified {g.verifiedAt.toLocaleDateString()}
+                {rows.length} published · {rows.filter((p) => p.visibility === "public").length} public
+                {g.frontPage && (
+                  <>
+                    {" · "}
+                    <Link href={graphPath(g.name)} className="text-link hover:underline">
+                      View front page
+                    </Link>
+                  </>
+                )}
               </CardDescription>
               <CardAction>
-                <Badge variant="secondary">Connected</Badge>
+                <Link
+                  href={`/dashboard/${encodeURIComponent(g.name)}/settings`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  Settings
+                </Link>
               </CardAction>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
+              {g.suspendedAt && (
+                <Alert variant="destructive">
+                  <AlertTitle>This graph was suspended by a moderator</AlertTitle>
+                  <AlertDescription>
+                    Its pages are hidden and publishing is turned off.
+                    {g.suspendedReason && <> Reason: {g.suspendedReason}</>}
+                  </AlertDescription>
+                </Alert>
+              )}
               {rows.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Nothing published yet. Right-click a page or block in Roam and choose Publish.
@@ -96,6 +131,7 @@ export default async function DashboardPage() {
                     <TableRow>
                       <TableHead>Title</TableHead>
                       <TableHead>Type</TableHead>
+                      <TableHead>Visibility</TableHead>
                       <TableHead>Updated</TableHead>
                       <TableHead />
                     </TableRow>
@@ -114,15 +150,45 @@ export default async function DashboardPage() {
                         <TableCell>
                           <Badge variant="outline">{p.kind}</Badge>
                         </TableCell>
+                        <TableCell>
+                          {p.removedAt ? (
+                            <Badge variant="destructive" title={p.removedReason ?? undefined}>
+                              Removed by moderator
+                            </Badge>
+                          ) : (
+                            <form
+                              action={setVisibility.bind(
+                                null,
+                                p.id,
+                                p.visibility === "public" ? "unlisted" : "public",
+                              )}
+                              className="flex items-center gap-1.5"
+                            >
+                              <Badge variant={p.visibility === "public" ? "secondary" : "outline"}>
+                                {p.visibility}
+                              </Badge>
+                              <Button type="submit" variant="link" size="sm" className="h-auto px-0">
+                                {p.visibility === "public" ? "Unlist" : "Make public"}
+                              </Button>
+                            </form>
+                          )}
+                          {p.removedAt && p.removedReason && (
+                            <p className="mt-1 max-w-xs text-xs whitespace-normal text-muted-foreground">
+                              {p.removedReason}
+                            </p>
+                          )}
+                        </TableCell>
                         <TableCell className="text-muted-foreground">
                           {p.updatedAt.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          <form action={unpublish.bind(null, p.id)}>
-                            <Button type="submit" variant="ghost" size="sm">
-                              Unpublish
-                            </Button>
-                          </form>
+                          {!p.removedAt && (
+                            <form action={unpublish.bind(null, p.id)}>
+                              <Button type="submit" variant="ghost" size="sm">
+                                Unpublish
+                              </Button>
+                            </form>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
