@@ -24,8 +24,8 @@ export const graph = pgTable("graph", {
   /** Lets search engines index the front page and public publications. */
   indexable: boolean("indexable").notNull().default(true),
   /**
-   * Default for listing public pages on /discover and the home page's trending list. Each
-   * publication can override it (publication.discoverable).
+   * Starting value of publication.discoverable for newly published pages. Changing it never
+   * touches pages that already exist.
    */
   featured: boolean("featured").notNull().default(false),
   /** Short plain-text description shown on the front page. */
@@ -75,8 +75,11 @@ export const publication = pgTable(
     kind: text("kind", { enum: ["page", "block"] }).notNull(),
     /** Unlisted items are reachable by link only; public ones also appear on the front page. */
     visibility: text("visibility", { enum: ["public", "unlisted"] }).notNull().default("unlisted"),
-    /** Discover listing for this page: null follows the graph's default (graph.featured). */
-    discoverable: boolean("discoverable"),
+    /**
+     * Listed on /discover and the home page's trending list (when also public). Set from the
+     * graph's default (graph.featured) when first published, then only changed per page.
+     */
+    discoverable: boolean("discoverable").notNull().default(false),
     title: text("title").notNull(),
     tree: jsonb("tree").$type<Node>().notNull(),
     contentHash: text("content_hash").notNull(),

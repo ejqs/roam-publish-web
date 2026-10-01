@@ -16,9 +16,9 @@ export type DiscoverRow = {
   createdAt: string;
 };
 
-// Public pages the owner chose to list: the page's own setting, else the graph's default.
+// Public pages the owner chose to list.
 const listed = and(
-  sql`coalesce(${publication.discoverable}, ${graph.featured})`,
+  eq(publication.discoverable, true),
   eq(graph.frontPage, true),
   eq(graph.indexable, true),
   liveGraph,

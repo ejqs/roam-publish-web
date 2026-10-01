@@ -1,7 +1,7 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { type Node, publication } from "@/db/schema";
+import { graph, type Node, publication } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
 import { json, preflight } from "@/lib/cors";
 import { removedResponse, requireExtKey } from "@/lib/ext-auth";
@@ -97,6 +97,8 @@ export async function POST(req: Request) {
     title,
     tree: p.tree,
     contentHash: hash,
+    // New pages start from the graph's Discover default; later changes to it don't apply.
+    discoverable: sql`(select ${graph.featured} from ${graph} where ${graph.id} = ${ctx.graphId})`,
   }).returning({ visibility: publication.visibility });
   return json(req, {
     status: "created",

@@ -89,13 +89,13 @@ export function GraphSettingsForm({
           <FieldSeparator />
           <SettingSwitch
             id="featured"
-            label="List pages on Discover by default"
+            label="List new pages on Discover"
             description={
               !settings.frontPage
                 ? "Turn on the front page to list this graph's pages on Discover."
                 : !settings.indexable
                   ? "Turn on search engines to list this graph's pages on Discover."
-                  : "Public pages appear on roam.pub/discover and in the home page's trending list unless you change them one by one on the dashboard. Off by default."
+                  : "Pages you publish from now on start out listed on roam.pub/discover once public. Existing pages keep their own setting; change those on the dashboard."
             }
             checked={settings.featured && settings.frontPage}
             disabled={!settings.frontPage || !settings.indexable}
