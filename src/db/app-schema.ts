@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   jsonb,
   pgTable,
@@ -23,6 +25,10 @@ export const graph = pgTable("graph", {
   indexable: boolean("indexable").notNull().default(true),
   /** Opt-in listing on /discover and the home page's trending list. */
   featured: boolean("featured").notNull().default(false),
+  /** Short plain-text description shown on the front page. */
+  description: text("description").notNull().default(""),
+  /** Breadcrumbs on the front page and publications link back to the owner's public profile. */
+  showOwner: boolean("show_owner").notNull().default(true),
   /** Set by a moderator: the whole graph is hidden and its API key stops working. */
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   suspendedReason: text("suspended_reason"),
@@ -109,6 +115,8 @@ export const profile = pgTable("profile", {
     .references(() => user.id, { onDelete: "cascade" }),
   username: text("username").notNull().unique(),
   isPublic: boolean("is_public").notNull().default(false),
+  /** Short plain-text description shown on /u/{username}. */
+  bio: text("bio").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -122,14 +130,16 @@ export const usernameAlias = pgTable("username_alias", {
 });
 
 
-/** Abuse reports from visitors. A null publicationId means the graph as a whole was reported. */
+/**
+ * Abuse reports from visitors. A report targets a graph (publicationId null: the whole graph,
+ * otherwise one page) or a user's public profile (profileUserId set, graphId null).
+ */
 export const report = pgTable(
   "report",
   {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-    graphId: text("graph_id")
-      .notNull()
-      .references(() => graph.id, { onDelete: "cascade" }),
+    graphId: text("graph_id").references(() => graph.id, { onDelete: "cascade" }),
+    profileUserId: text("profile_user_id").references(() => user.id, { onDelete: "cascade" }),
     publicationId: text("publication_id").references(() => publication.id, { onDelete: "cascade" }),
     reason: text("reason", { enum: reportReasons }).notNull(),
     details: text("details").notNull().default(""),
@@ -145,6 +155,8 @@ export const report = pgTable(
     index("report_status_created_idx").on(t.status, t.createdAt),
     index("report_graph_idx").on(t.graphId),
     index("report_publication_idx").on(t.publicationId),
+    index("report_profile_user_idx").on(t.profileUserId),
+    check("report_target_check", sql`(${t.graphId} is null) <> (${t.profileUserId} is null)`),
   ],
 );
 
@@ -159,7 +171,7 @@ export const moderationAction = pgTable(
     action: text("action", {
       enum: [
         "remove", "restore", "suspend", "unsuspend", "ban", "unban", "dismiss",
-        "rename_username", "clear_username", "release_username",
+        "rename_username", "clear_username", "release_username", "clear_bio", "clear_description",
       ],
     }).notNull(),
     reason: text("reason").notNull().default(""),

@@ -72,7 +72,7 @@ export function UserActions({ owner }: { owner: Owner }) {
       op="ban"
       targetId={owner.id}
       subject={owner.email}
-      description="Signs the user out everywhere, blocks sign-in and publishing, and hides all their graphs. All open reports on their graphs are marked actioned."
+      description="Signs the user out everywhere, blocks sign-in and publishing, and hides all their graphs and their profile. All open reports on their graphs and profile are marked actioned."
       notice={{ kind: "account_banned" }}
       replyTo={replyTo()}
     />

@@ -45,7 +45,7 @@ export function ModerateDialog({
 }: {
   op: ModerationOp;
   targetId: string;
-  targetType?: "publication" | "graph";
+  targetType?: "publication" | "graph" | "profile";
   /** What's being acted on, e.g. a page title or email. */
   subject: string;
   description: string;

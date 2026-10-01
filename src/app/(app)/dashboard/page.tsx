@@ -32,6 +32,7 @@ import { graphPath } from "@/lib/graphs";
 import { publicationPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { setVisibility, unpublish } from "./actions";
+import { AttentionBanners, attentionItems } from "./attention-banners";
 import { ProfileCard } from "./profile-card";
 
 export default async function DashboardPage() {
@@ -49,10 +50,13 @@ export default async function DashboardPage() {
         .orderBy(desc(publication.updatedAt))
     : [];
   const me = await db.query.profile.findFirst({ where: eq(profile.userId, session.user.id) });
+  const banners = <AttentionBanners items={attentionItems({ graphs, pubs, me })} />;
   const profileCard = (
     <ProfileCard
       username={me?.username ?? null}
       isPublic={me?.isPublic ?? false}
+      bio={me?.bio ?? ""}
+      hasGraph={graphs.some((g) => !g.suspendedAt)}
       appUrl={process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}
     />
   );
@@ -60,7 +64,6 @@ export default async function DashboardPage() {
   if (graphs.length === 0) {
     return (
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-12">
-        {profileCard}
         <Empty className="border">
           <EmptyHeader>
             <EmptyTitle>No graphs connected yet</EmptyTitle>
@@ -72,6 +75,7 @@ export default async function DashboardPage() {
             </Link>
           </EmptyContent>
         </Empty>
+        {profileCard}
       </div>
     );
   }
@@ -84,11 +88,12 @@ export default async function DashboardPage() {
           Connect another graph
         </Link>
       </div>
+      {banners}
       {profileCard}
       {graphs.map((g) => {
         const rows = pubs.filter((p) => p.graphId === g.id);
         return (
-          <Card key={g.id}>
+          <Card key={g.id} id={`graph-${g.id}`} className="scroll-mt-4">
             <CardHeader>
               <CardTitle>{g.name}</CardTitle>
               <CardDescription>
@@ -138,7 +143,7 @@ export default async function DashboardPage() {
                   </TableHeader>
                   <TableBody>
                     {rows.map((p) => (
-                      <TableRow key={p.id}>
+                      <TableRow key={p.id} id={`pub-${p.id}`} className="scroll-mt-4">
                         <TableCell className="max-w-xs truncate">
                           <Link
                             href={publicationPath(g.name, p.rootUid, p.title)}

@@ -1,12 +1,14 @@
 import { and, eq, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
+import { ReportAbuseButton } from "@/components/report-abuse-button";
 import { SiteFooter } from "@/components/site-footer";
 import { db } from "@/db";
 import { graph, profile, user, usernameAlias } from "@/db/schema";
 import { graphPath } from "@/lib/graphs";
+import { hasVerifiedGraph } from "@/lib/profiles";
 
 /** Current username for a former one, if it was renamed. */
 const resolveAlias = cache(async (username: string) => {
@@ -21,6 +23,8 @@ const load = cache(async (username: string) => {
   if (!p?.isPublic) return null;
   const owner = await db.query.user.findFirst({ where: eq(user.id, p.userId), columns: { banned: true } });
   if (owner?.banned) return null;
+  // Profiles need a live, verified graph behind them; the name stays reserved meanwhile.
+  if (!(await hasVerifiedGraph(p.userId))) return null;
   const graphs = await db
     .select({ name: graph.name, indexable: graph.indexable })
     .from(graph)
@@ -35,6 +39,7 @@ export async function generateMetadata(props: PageProps<"/u/[username]">): Promi
   if (!data) return { title: "Not found" };
   return {
     title: `@${data.p.username}`,
+    description: data.p.bio || undefined,
     robots: data.graphs.some((g) => g.indexable) ? undefined : { index: false },
   };
 }
@@ -49,14 +54,18 @@ export default async function ProfilePage(props: PageProps<"/u/[username]">) {
   }
   const { p, graphs } = data;
 
-  // One graph: the profile is just a short link to it.
-  if (graphs.length === 1) redirect(graphPath(graphs[0].name));
-
   return (
     <>
-      <main className="flex-1 bg-card">
+      <main className="relative flex-1 bg-card">
+        <div className="absolute top-3 right-4">
+          <ReportAbuseButton target={{ username: p.username }} />
+        </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
-          <h1 className="mb-8 text-[42px] leading-tight font-semibold break-words">@{p.username}</h1>
+          <h1 className="text-[42px] leading-tight font-semibold break-words">@{p.username}</h1>
+          {p.bio && <p className="mt-2 text-muted-foreground break-words">{p.bio}</p>}
+          <h2 className="mt-8 mb-2 text-sm font-medium text-muted-foreground">
+            {graphs.length === 1 ? "Graph" : "Graphs"}
+          </h2>
           {graphs.length === 0 ? (
             <p className="text-muted-foreground">No public graphs yet.</p>
           ) : (

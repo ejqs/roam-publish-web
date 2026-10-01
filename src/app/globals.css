@@ -12,6 +12,7 @@
   --font-heading: var(--font-sans);
   --color-primary-hover: var(--primary-hover);
   --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-link: var(--link);
   --color-roam-ref: var(--roam-ref);
   --color-roam-bullet: var(--roam-bullet);
@@ -73,6 +74,7 @@
   --accent-foreground: #1c2127;
   --destructive: #cd4246;
   --success: #238551;
+  --warning: #935610;
   --border: #dce0e5;
   --input: #7c8797;
   --ring: #4c90f0;
@@ -114,6 +116,7 @@
   --accent-foreground: #f6f7f9;
   --destructive: #e76a6e;
   --success: #32a467;
+  --warning: #fbb360;
   --border: #383e47;
   --input: #738091;
   --ring: #4c90f0;

@@ -43,6 +43,13 @@
       "when": 1790873125467,
       "tag": "0005_publication_views",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790880283348,
+      "tag": "0006_profile_graph_descriptions",
+      "breakpoints": true
     }
   ]
 }

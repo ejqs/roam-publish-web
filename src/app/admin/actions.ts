@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -77,8 +77,9 @@ export async function moderate(_prev: ActionState, formData: FormData): Promise<
   let owner: { email: string } | undefined;
   let notice: ModerationNotice | undefined;
   let targetType: "publication" | "graph" | "user";
+  const formTargetType = formData.get("targetType");
 
-  if (op === "remove" || op === "restore" || (op === "dismiss" && formData.get("targetType") === "publication")) {
+  if (op === "remove" || op === "restore" || (op === "dismiss" && formTargetType === "publication")) {
     targetType = "publication";
     const [row] = await db
       .select({ pub: publication, graphName: graph.name, email: user.email })
@@ -109,6 +110,9 @@ export async function moderate(_prev: ActionState, formData: FormData): Promise<
     } else {
       await resolveReports(eq(report.publicationId, targetId), "dismissed", adminId);
     }
+  } else if (op === "dismiss" && formTargetType === "profile") {
+    targetType = "user";
+    await resolveReports(eq(report.profileUserId, targetId), "dismissed", adminId);
   } else if (op === "suspend" || op === "unsuspend" || op === "dismiss") {
     targetType = "graph";
     const [row] = await db
@@ -153,7 +157,11 @@ export async function moderate(_prev: ActionState, formData: FormData): Promise<
       // Sign them out everywhere; the admin plugin blocks new sign-ins while banned.
       await db.delete(sessionTable).where(eq(sessionTable.userId, targetId));
       const theirGraphs = db.select({ id: graph.id }).from(graph).where(eq(graph.userId, targetId));
-      await resolveReports(inArray(report.graphId, theirGraphs), "actioned", adminId);
+      await resolveReports(
+        or(inArray(report.graphId, theirGraphs), eq(report.profileUserId, targetId)),
+        "actioned",
+        adminId,
+      );
       notice = { kind: "account_banned" };
     } else {
       await db
@@ -212,6 +220,7 @@ export async function adminClearUsername(userId: string): Promise<ActionState> {
     return p.username;
   });
   if (!cleared) return { ok: false, message: "That user has no username." };
+  await resolveReports(eq(report.profileUserId, userId), "actioned", admin.user.id);
   await db.insert(moderationAction).values({
     adminId: admin.user.id,
     targetType: "user",
@@ -223,6 +232,54 @@ export async function adminClearUsername(userId: string): Promise<ActionState> {
   revalidatePath("/dashboard");
   revalidatePath("/u/[username]", "page");
   return { ok: true, message: `Cleared @${cleared}.` };
+}
+
+/** For abusive profile descriptions: blanks the bio. The owner can write a new one. */
+export async function adminClearBio(userId: string): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const [cleared] = await db
+    .update(profile)
+    .set({ bio: "" })
+    .where(eq(profile.userId, userId))
+    .returning({ username: profile.username });
+  if (!cleared) return { ok: false, message: "That user has no profile." };
+  await resolveReports(eq(report.profileUserId, userId), "actioned", admin.user.id);
+  await db.insert(moderationAction).values({
+    adminId: admin.user.id,
+    targetType: "user",
+    targetId: userId,
+    action: "clear_bio",
+    reason: cleared.username,
+  });
+  revalidatePath("/admin", "layout");
+  revalidatePath("/dashboard");
+  revalidatePath("/u/[username]", "page");
+  return { ok: true, message: `Cleared the description on @${cleared.username}.` };
+}
+
+/** For abusive graph descriptions: blanks the front page description. */
+export async function adminClearGraphDescription(graphId: string): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const [cleared] = await db
+    .update(graph)
+    .set({ description: "" })
+    .where(eq(graph.id, graphId))
+    .returning({ name: graph.name });
+  if (!cleared) return { ok: false, message: "That graph no longer exists." };
+  await resolveReports(
+    and(eq(report.graphId, graphId), isNull(report.publicationId)),
+    "actioned",
+    admin.user.id,
+  );
+  await db.insert(moderationAction).values({
+    adminId: admin.user.id,
+    targetType: "graph",
+    targetId: graphId,
+    action: "clear_description",
+    reason: cleared.name,
+  });
+  revalidatePublic();
+  return { ok: true, message: `Cleared the description on ${cleared.name}.` };
 }
 
 /**

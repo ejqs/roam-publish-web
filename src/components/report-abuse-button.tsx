@@ -21,8 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { type ReportState, submitReport } from "@/app/report/actions";
 import { REPORT_REASONS } from "@/lib/report-reasons";
 
-/** Top-right "Report abuse" for a published page (with rootUid) or a whole graph (without). */
-export function ReportAbuseButton({ graphName, rootUid }: { graphName: string; rootUid?: string }) {
+export type ReportTarget = { graphName: string; rootUid?: string } | { username: string };
+
+/** Top-right "Report abuse" for a published page, a whole graph, or a user's profile. */
+export function ReportAbuseButton({ target }: { target: ReportTarget }) {
+  const what = "username" in target ? "this profile" : target.rootUid ? "this page" : "this graph";
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(async (prev: ReportState, formData: FormData) => {
     const res = await submitReport(prev, formData);
@@ -46,14 +49,20 @@ export function ReportAbuseButton({ graphName, rootUid }: { graphName: string; r
       <DialogContent className="sm:max-w-md">
         <form action={action} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>Report {rootUid ? "this page" : "this graph"}</DialogTitle>
+            <DialogTitle>Report {what}</DialogTitle>
             <DialogDescription>
               Tell us what&apos;s wrong. Reports are reviewed by the roam.pub moderators and are not
               shared with the author.
             </DialogDescription>
           </DialogHeader>
-          <input type="hidden" name="graphName" value={graphName} />
-          {rootUid && <input type="hidden" name="rootUid" value={rootUid} />}
+          {"username" in target ? (
+            <input type="hidden" name="username" value={target.username} />
+          ) : (
+            <>
+              <input type="hidden" name="graphName" value={target.graphName} />
+              {target.rootUid && <input type="hidden" name="rootUid" value={target.rootUid} />}
+            </>
+          )}
           {/* Honeypot for bots; hidden from people and assistive tech. */}
           <input
             type="text"

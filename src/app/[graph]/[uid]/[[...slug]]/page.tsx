@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { BlockList } from "@/components/roam/block-tree";
 import type { PageLinks } from "@/components/roam/markup";
 import { RemovedNotice } from "@/components/removed-notice";
@@ -13,6 +13,7 @@ import { db } from "@/db";
 import { publication } from "@/db/schema";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { livePublication } from "@/lib/moderation";
+import { publicProfile } from "@/lib/profiles";
 import { publicationPath } from "@/lib/publications";
 import { plainText, slugify } from "@/lib/slug";
 
@@ -55,10 +56,13 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
     redirect(publicationPath(g.name, pub.rootUid, pub.title));
   }
 
-  const pages = await db
-    .select({ title: publication.title, rootUid: publication.rootUid })
-    .from(publication)
-    .where(and(eq(publication.graphId, g.id), eq(publication.kind, "page"), livePublication));
+  const [pages, owner] = await Promise.all([
+    db
+      .select({ title: publication.title, rootUid: publication.rootUid })
+      .from(publication)
+      .where(and(eq(publication.graphId, g.id), eq(publication.kind, "page"), livePublication)),
+    g.showOwner ? publicProfile(g.userId) : null,
+  ]);
   const links: PageLinks = new Map(
     pages.map((p) => [p.title.toLowerCase(), publicationPath(g.name, p.rootUid, p.title)]),
   );
@@ -68,18 +72,16 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4">
-          <ReportAbuseButton graphName={g.name} rootUid={pub.rootUid} />
+          <ReportAbuseButton target={{ graphName: g.name, rootUid: pub.rootUid }} />
         </div>
         <article className="mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
-          <p className="mb-2 text-sm text-muted-foreground">
-            {g.frontPage ? (
-              <Link href={graphPath(g.name)} className="hover:text-foreground hover:underline">
-                {g.name}
-              </Link>
-            ) : (
-              g.name
-            )}
-          </p>
+          <Breadcrumbs
+            items={[
+              ...(owner ? [{ label: `@${owner.username}`, href: `/u/${owner.username}` }] : []),
+              { label: g.name, href: g.frontPage ? graphPath(g.name) : undefined },
+              { label: plainText(pub.title) },
+            ]}
+          />
           {pub.kind === "page" ? (
             <>
               <h1 className="mb-6 text-[42px] leading-tight font-semibold break-words">{pub.title}</h1>
