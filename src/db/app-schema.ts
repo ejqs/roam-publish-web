@@ -56,6 +56,12 @@ export type Node = {
   uid: string;
   string: string;
   heading?: 1 | 2 | 3;
+  /** How this block's children are shown; omitted for bullets. */
+  viewType?: "bullet" | "numbered" | "document";
+  /** Omitted for left. */
+  align?: "left" | "center" | "right" | "justify";
+  /** The block or page this block embeds with `{{embed: …}}`. */
+  embed?: Node;
   children: Node[];
 };
 

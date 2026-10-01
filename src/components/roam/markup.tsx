@@ -1,74 +1,228 @@
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { CodeBlock } from "./code-block";
 
 /** Published pages in the same graph: lowercase title → href. */
 export type PageLinks = Map<string, string>;
 
+type Match = { index: number; length: number; groups: string[] };
+
 type Rule = {
-  re: RegExp;
-  render: (m: RegExpExecArray, ctx: Ctx) => ReactNode;
+  find: (s: string) => Match | null;
+  render: (g: string[], ctx: Ctx) => ReactNode;
 };
 
 type Ctx = { links: PageLinks; key: () => string };
 
 const safeUrl = (u: string) => (/^https?:\/\//i.test(u) ? u : null);
 
-function PageRef({ title, ctx, tag }: { title: string; ctx: Ctx; tag?: boolean }) {
+const re =
+  (r: RegExp) =>
+  (s: string): Match | null => {
+    const m = r.exec(s);
+    return m && { index: m.index, length: m[0].length, groups: [...m] };
+  };
+
+/** `[[Title]]` (or `#[[Title]]`) with nested refs balanced, e.g. `[[a [[b]] c]]`. */
+const pageRef =
+  (prefix: string) =>
+  (s: string): Match | null => {
+    for (let from = 0; ; ) {
+      const start = s.indexOf(`${prefix}[[`, from);
+      if (start < 0) return null;
+      const open = start + prefix.length;
+      let depth = 0;
+      for (let i = open; i < s.length - 1; i++) {
+        if (s.startsWith("[[", i)) {
+          depth++;
+          i++;
+        } else if (s.startsWith("]]", i)) {
+          depth--;
+          i++;
+          if (depth === 0) {
+            return { index: start, length: i + 1 - start, groups: [s.slice(start, i + 1), s.slice(open + 2, i - 1)] };
+          }
+        }
+      }
+      from = start + 1;
+    }
+  };
+
+// A URL that may contain one level of balanced parentheses, like Wikipedia's `Foo_(bar)`.
+const URL_IN_PARENS = String.raw`((?:[^()\s]|\([^()\s]*\))+)`;
+
+function PageRef({ title, ctx, tag, label }: { title: string; ctx: Ctx; tag?: boolean; label?: ReactNode }) {
   const href = ctx.links.get(title.toLowerCase());
-  const label = tag ? `#${title}` : title;
+  const text = label ?? (tag ? `#${title}` : title);
   return href ? (
     <Link href={href} className="text-roam-ref hover:underline">
-      {label}
+      {text}
     </Link>
   ) : (
-    <span className={tag ? "text-roam-ref" : undefined}>{label}</span>
+    <span className={tag || label ? "text-roam-ref" : undefined}>{text}</span>
   );
+}
+
+function TeX({ tex, display }: { tex: string; display?: boolean }) {
+  const html = katex.renderToString(tex, { displayMode: display, throwOnError: false });
+  return display ? (
+    <div className="overflow-x-auto overflow-y-hidden py-1" dangerouslySetInnerHTML={{ __html: html }} />
+  ) : (
+    <span dangerouslySetInnerHTML={{ __html: html }} />
+  );
+}
+
+function Placeholder({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-block rounded-sm border border-dashed border-border px-1.5 text-xs leading-5 text-muted-foreground whitespace-normal">
+      {children}
+    </span>
+  );
+}
+
+function LinkCard({ url, label }: { url: string; label: string }) {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      className="inline-flex max-w-full items-center gap-1.5 rounded-sm border border-border px-2 py-0.5 text-link hover:underline"
+    >
+      <span className="text-xs text-muted-foreground uppercase">{label}</span>
+      <span className="truncate">{url}</span>
+    </a>
+  );
+}
+
+/** `{{name: arg}}` / `{{[[name]]: arg}}` → lowercase name and trimmed arg. */
+export function parseComponent(inner: string) {
+  const m = /^\s*(?:\[\[([^\]]+)\]\]|([^:]+?))\s*(?::\s*([\s\S]*))?$/.exec(inner);
+  if (!m) return { name: "", arg: "" };
+  return { name: (m[1] ?? m[2]).trim().toLowerCase(), arg: (m[3] ?? "").trim() };
+}
+
+const COMPONENT = /\{\{((?:[^{}]|\{[^{}]*\})*)\}\}/;
+const DIAGRAMS = new Set(["mermaid", "diagram", "drawing", "excalidraw"]);
+
+/** The Roam component that decides how a block's children render, if any. */
+export function blockComponent(text: string): "table" | "diagram" | null {
+  const all = new RegExp(COMPONENT.source, "g");
+  for (const m of text.matchAll(all)) {
+    const { name } = parseComponent(m[1]);
+    if (name === "table") return "table";
+    if (DIAGRAMS.has(name)) return "diagram";
+  }
+  return null;
+}
+
+function videoEmbedSrc(url: string) {
+  let m = /(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/.exec(url);
+  if (m) return `https://www.youtube-nocookie.com/embed/${m[1]}`;
+  m = /vimeo\.com\/(?:video\/)?(\d+)/.exec(url);
+  if (m) return `https://player.vimeo.com/video/${m[1]}`;
+  m = /loom\.com\/(?:share|embed)\/(\w+)/.exec(url);
+  if (m) return `https://www.loom.com/embed/${m[1]}`;
+  return null;
+}
+
+const VIDEO_FILE = /\.(mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i;
+const AUDIO_FILE = /\.(mp3|m4a|wav|ogg|oga|aac|flac|opus)(?:[?#]|$)/i;
+
+function Component({ inner }: { inner: string }) {
+  const { name, arg } = parseComponent(inner);
+  const url = safeUrl(/https?:\/\/[^\s)\]}]+/.exec(arg)?.[0] ?? "");
+
+  if (DIAGRAMS.has(name)) return <Placeholder>Diagram not shown</Placeholder>;
+  if (name === "query" || name === "mentions") return <Placeholder>Query results aren&apos;t published</Placeholder>;
+
+  if ((name === "youtube" || name === "video") && url) {
+    const src = videoEmbedSrc(url);
+    if (src)
+      return (
+        <iframe
+          src={src}
+          title="Embedded video"
+          className="my-1 block aspect-video w-full rounded-sm border-0"
+          allow="encrypted-media; picture-in-picture; fullscreen"
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
+      );
+    if (VIDEO_FILE.test(url)) return <video src={url} controls preload="metadata" className="my-1 block w-full rounded-sm" />;
+    if (AUDIO_FILE.test(url)) return <audio src={url} controls preload="metadata" className="my-1 block w-full" />;
+    return <LinkCard url={url} label="Video" />;
+  }
+  if (name === "audio" && url) return <audio src={url} controls preload="metadata" className="my-1 block w-full" />;
+  if (name === "pdf" && url) return <LinkCard url={url} label="PDF" />;
+  if (name === "iframe" && url) return <LinkCard url={url} label="Link" />;
+  if ((name === "tweet" || name === "twitter") && url) return <LinkCard url={url} label="Post" />;
+
+  // Tables and embeds render at the block level; everything else (buttons, sliders,
+  // timers, counters, roam/js…) has no published form.
+  return null;
 }
 
 // Order matters: earlier rules win when two match at the same index.
 const rules: Rule[] = [
-  { re: /`([^`]+)`/, render: (m) => <code className="rounded-sm bg-muted px-1 font-mono text-[0.9em]">{m[1]}</code> },
+  { find: re(/\$\$([\s\S]+?)\$\$/), render: (g) => <TeX tex={g[1]} /> },
   {
-    re: /\{\{\[\[(TODO|DONE)\]\]\}\}\s?/,
-    render: (m) => (
-      <input type="checkbox" checked={m[1] === "DONE"} readOnly disabled className="mr-1.5 align-middle" />
-    ),
+    find: re(/`([^`]+)`/),
+    render: (g) => <code className="rounded-sm bg-muted px-1 font-mono text-[0.9em]">{g[1]}</code>,
   },
-  { re: /\{\{[^}]*\}\}/, render: () => null }, // other roam components are dropped
   {
-    re: /!\[([^\]]*)\]\(([^)\s]+)\)/,
-    render: (m) => {
-      const src = safeUrl(m[2]);
+    find: re(/\{\{(?:\[\[)?(TODO|DONE)(?:\]\])?\}\}\s?/),
+    render: (g) => <input type="checkbox" checked={g[1] === "DONE"} readOnly disabled className="mr-1.5 align-middle" />,
+  },
+  { find: re(COMPONENT), render: (g) => <Component inner={g[1]} /> },
+  {
+    find: re(new RegExp(String.raw`!\[([^\]]*)\]\(${URL_IN_PARENS}\)`)),
+    render: (g) => {
+      const src = safeUrl(g[2]);
       // eslint-disable-next-line @next/next/no-img-element
-      return src ? <img src={src} alt={m[1]} className="my-1 max-w-full rounded-sm" /> : m[0];
+      return src ? <img src={src} alt={g[1]} className="my-1 max-w-full rounded-sm" /> : g[0];
     },
   },
+  // Aliases: [label](((block-uid))) and [label]([[Page]])
   {
-    re: /\[([^\]]+)\]\(([^)\s]+)\)/,
-    render: (m, ctx) => {
-      const href = safeUrl(m[2]);
+    find: re(/\[([^\]]+)\]\(\(\(([\w-]{9,})\)\)\)/),
+    render: (g, ctx) => <span className="text-roam-ref">{renderInline(g[1], ctx)}</span>,
+  },
+  {
+    find: re(/\[([^\]]+)\]\(\[\[([^\]]+)\]\]\)/),
+    render: (g, ctx) => <PageRef title={g[2]} ctx={ctx} label={renderInline(g[1], ctx)} />,
+  },
+  {
+    find: re(new RegExp(String.raw`\[([^\]]+)\]\(${URL_IN_PARENS}\)`)),
+    render: (g, ctx) => {
+      const href = safeUrl(g[2]);
       return href ? (
         <a href={href} target="_blank" rel="noopener noreferrer nofollow" className="text-link hover:underline">
-          {renderInline(m[1], ctx)}
+          {renderInline(g[1], ctx)}
         </a>
       ) : (
-        renderInline(m[1], ctx)
+        renderInline(g[1], ctx)
       );
     },
   },
-  { re: /#\[\[([^\]]+)\]\]/, render: (m, ctx) => <PageRef title={m[1]} ctx={ctx} tag /> },
-  { re: /\[\[([^\]]+)\]\]/, render: (m, ctx) => <PageRef title={m[1]} ctx={ctx} /> },
-  { re: /(?<![\w&])#([\w-]+)/, render: (m, ctx) => <PageRef title={m[1]} ctx={ctx} tag /> },
-  { re: /\(\(([\w-]{9,})\)\)/, render: () => null }, // unresolved block refs
-  { re: /\*\*(.+?)\*\*/, render: (m, ctx) => <strong>{renderInline(m[1], ctx)}</strong> },
-  { re: /__(.+?)__/, render: (m, ctx) => <em>{renderInline(m[1], ctx)}</em> },
-  { re: /\^\^(.+?)\^\^/, render: (m, ctx) => <mark className="bg-roam-highlight px-0.5">{renderInline(m[1], ctx)}</mark> },
-  { re: /~~(.+?)~~/, render: (m, ctx) => <del>{renderInline(m[1], ctx)}</del> },
+  { find: pageRef("#"), render: (g, ctx) => <PageRef title={g[1]} ctx={ctx} tag /> },
+  { find: pageRef(""), render: (g, ctx) => <PageRef title={g[1]} ctx={ctx} /> },
+  { find: re(/(?<![\w&])#([\p{L}\p{N}_\-/]+)/u), render: (g, ctx) => <PageRef title={g[1]} ctx={ctx} tag /> },
+  { find: re(/\(\(([\w-]{9,})\)\)/), render: () => null }, // unresolved block refs
+  { find: re(/\*\*([\s\S]+?)\*\*/), render: (g, ctx) => <strong>{renderInline(g[1], ctx)}</strong> },
+  { find: re(/__([\s\S]+?)__/), render: (g, ctx) => <em>{renderInline(g[1], ctx)}</em> },
   {
-    re: /https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"]/,
-    render: (m) => (
-      <a href={m[0]} target="_blank" rel="noopener noreferrer nofollow" className="text-link hover:underline">
-        {m[0]}
+    find: re(/\^\^([\s\S]+?)\^\^/),
+    render: (g, ctx) => <mark className="bg-roam-highlight px-0.5 text-inherit">{renderInline(g[1], ctx)}</mark>,
+  },
+  { find: re(/~~([\s\S]+?)~~/), render: (g, ctx) => <del>{renderInline(g[1], ctx)}</del> },
+  {
+    find: re(/https?:\/\/(?:[^\s<>()]|\([^\s<>()]*\))+(?<![.,;:!?'"])/),
+    render: (g) => (
+      <a href={g[0]} target="_blank" rel="noopener noreferrer nofollow" className="text-link hover:underline">
+        {g[0]}
       </a>
     ),
   },
@@ -78,9 +232,9 @@ function renderInline(text: string, ctx: Ctx): ReactNode[] {
   const out: ReactNode[] = [];
   let rest = text;
   while (rest.length) {
-    let best: { m: RegExpExecArray; rule: Rule } | null = null;
+    let best: { m: Match; rule: Rule } | null = null;
     for (const rule of rules) {
-      const m = rule.re.exec(rest);
+      const m = rule.find(rest);
       if (m && (!best || m.index < best.m.index)) best = { m, rule };
     }
     if (!best) {
@@ -88,22 +242,50 @@ function renderInline(text: string, ctx: Ctx): ReactNode[] {
       break;
     }
     if (best.m.index > 0) out.push(rest.slice(0, best.m.index));
-    out.push(<span key={ctx.key()}>{best.rule.render(best.m, ctx)}</span>);
-    rest = rest.slice(best.m.index + best.m[0].length);
+    out.push(<span key={ctx.key()}>{best.rule.render(best.m.groups, ctx)}</span>);
+    rest = rest.slice(best.m.index + best.m.length);
   }
   return out;
 }
+
+const FENCE = /```(?:([^\n`]*)\n)?([\s\S]*?)```/g;
+
+/** Inline text with fenced code blocks anywhere in it. */
+function renderRich(text: string, ctx: Ctx): ReactNode[] {
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(FENCE)) {
+    // Drop the line break hugging each fence; the code block already starts a new line.
+    const before = text.slice(last, m.index).replace(/\n$/, "");
+    if (before) out.push(...renderInline(before, ctx));
+    out.push(<CodeBlock key={ctx.key()} code={m[2]} lang={m[1] ?? ""} />);
+    last = m.index + m[0].length;
+    if (text[last] === "\n") last++;
+  }
+  const after = text.slice(last);
+  if (after) out.push(...renderInline(after, ctx));
+  return out;
+}
+
+/** A block that is only a horizontal rule: `---`, or dashes typed as `——` by autocorrect. */
+export const isRule = (text: string) => /^(?:-{3,}|(?=.*[—–―])[-—–―]{2,})$/.test(text.trim());
 
 export function RoamText({ text, links }: { text: string; links: PageLinks }) {
   let i = 0;
   const ctx: Ctx = { links, key: () => `k${i++}` };
 
-  const code = /^```(\w*)\n?([\s\S]*?)```\s*$/.exec(text);
-  if (code) {
+  if (isRule(text)) return <hr className="my-2 border-border" />;
+
+  const display = /^\s*\$\$([\s\S]+?)\$\$\s*$/.exec(text);
+  if (display) return <TeX tex={display[1]} display />;
+
+  // Quote: "> text" (or Roam's "[[>]] text")
+  const quote = /^(?:>|\[\[>\]\])\s?([\s\S]*)$/.exec(text);
+  if (quote) {
     return (
-      <pre className="my-1 overflow-x-auto rounded-sm bg-muted p-3 font-mono text-[13px]">
-        <code>{code[2]}</code>
-      </pre>
+      <blockquote className="my-0.5 border-l-[3px] border-border pl-3 text-muted-foreground">
+        {renderRich(quote[1], ctx)}
+      </blockquote>
     );
   }
 
@@ -112,10 +294,10 @@ export function RoamText({ text, links }: { text: string; links: PageLinks }) {
   if (attr) {
     return (
       <>
-        <strong>{attr[1]}:</strong> {renderInline(attr[2], ctx)}
+        <strong>{attr[1]}:</strong> {renderRich(attr[2], ctx)}
       </>
     );
   }
 
-  return <>{renderInline(text, ctx)}</>;
+  return <>{renderRich(text, ctx)}</>;
 }

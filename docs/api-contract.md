@@ -5,15 +5,25 @@ Both `roam-publish` (extension) and `roam-publish-web` (server) implement this. 
 ## Canonical content + hash
 
 ```ts
-type Node = { uid: string; string: string; heading?: 1 | 2 | 3; children: Node[] };
+type Node = {
+  uid: string;
+  string: string;
+  heading?: 1 | 2 | 3;
+  viewType?: "bullet" | "numbered" | "document"; // how this block's children are shown
+  align?: "left" | "center" | "right" | "justify";
+  embed?: Node; // what `{{embed: …}}` in this block's string embeds
+  children: Node[];
+};
 type PublishPayload = { rootUid: string; kind: "page" | "block"; title: string; tree: Node };
 ```
 
 - `children` ordered by `:block/order` ascending.
-- `heading` omitted when absent/0.
+- `heading` omitted when absent/0. `viewType` omitted for bullets and `align` for left, so older trees hash the same.
+- `{{embed: ((uid))}}`, `{{embed: [[Page]]}}`, `{{embed-path: …}}` and `{{embed-children: …}}` (with or without `[[ ]]` around the name) keep their text unchanged; the embedded tree goes in `embed` (max embed depth 2, cycles skipped). A block embed is that block; a page embed is `{ uid, string: "[[Title]]", children }`; an `embed-children` embed has `string: ""`.
 - For a **page**, the root node is `{ uid: pageUid, string: "", children: [top-level blocks] }`.
 - For a **block**, the root node is the block itself (with its string) and its children.
-- Block refs `((uid))` are **inlined** by the extension before hashing (resolved text, max depth 3; unknown refs stay as-is).
+- Block refs `((uid))` are **inlined** by the extension before hashing (resolved text, max depth 3; unknown refs stay as-is). Refs inside code, embeds and block-ref aliases `[label](((uid)))` are left as-is.
+- The server accepts the optional fields above before the extension sends them, so ship server changes first: unknown keys are stripped before hashing and would fail the hash check.
 - `contentHash = hex(sha256(stableStringify({ kind, title, tree })))`.
 - `stableStringify`: JSON with object keys sorted recursively, no whitespace, `undefined` keys dropped. Implementation lives in `stable-stringify.ts` in each repo (identical copies).
 

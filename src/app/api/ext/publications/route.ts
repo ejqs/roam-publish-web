@@ -13,6 +13,9 @@ const NodeSchema: z.ZodType<Node> = z.lazy(() =>
     uid: z.string().min(1).max(64),
     string: z.string().max(100_000),
     heading: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+    viewType: z.enum(["bullet", "numbered", "document"]).optional(),
+    align: z.enum(["left", "center", "right", "justify"]).optional(),
+    embed: NodeSchema.optional(),
     children: z.array(NodeSchema),
   }),
 );
