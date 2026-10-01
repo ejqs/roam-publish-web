@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { db } from "@/db";
 import { graph, publication } from "@/db/schema";
+import { publicationPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { unpublish } from "./actions";
 
@@ -104,7 +105,7 @@ export default async function DashboardPage() {
                       <TableRow key={p.id}>
                         <TableCell className="max-w-xs truncate">
                           <Link
-                            href={`/${encodeURIComponent(g.name)}/${p.slug}`}
+                            href={publicationPath(g.name, p.rootUid, p.title)}
                             className="text-link hover:underline"
                           >
                             {p.title}

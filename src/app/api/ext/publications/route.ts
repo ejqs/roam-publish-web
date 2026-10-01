@@ -5,7 +5,7 @@ import { type Node, publication } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
 import { json, preflight } from "@/lib/cors";
 import { verifyExtKey } from "@/lib/ext-auth";
-import { publicationUrl, uniqueSlug } from "@/lib/publications";
+import { publicationUrl } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
 
 const NodeSchema: z.ZodType<Node> = z.lazy(() =>
@@ -42,7 +42,7 @@ export async function GET(req: Request) {
       rootUid: p.rootUid,
       kind: p.kind,
       title: p.title,
-      url: publicationUrl(ctx.graphName, p.slug),
+      url: publicationUrl(ctx.graphName, p.rootUid, p.title),
       contentHash: p.contentHash,
       updatedAt: p.updatedAt,
     })),
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
   });
 
   if (existing) {
-    const url = publicationUrl(ctx.graphName, existing.slug);
+    const url = publicationUrl(ctx.graphName, p.rootUid, title);
     if (existing.contentHash === hash) return json(req, { status: "unchanged", url, contentHash: hash });
     await db
       .update(publication)
@@ -85,15 +85,13 @@ export async function POST(req: Request) {
     return json(req, { status: "updated", url, contentHash: hash });
   }
 
-  const slug = await uniqueSlug(ctx.graphId, title);
   await db.insert(publication).values({
     graphId: ctx.graphId,
     rootUid: p.rootUid,
     kind: p.kind,
     title,
-    slug,
     tree: p.tree,
     contentHash: hash,
   });
-  return json(req, { status: "created", url: publicationUrl(ctx.graphName, slug), contentHash: hash });
+  return json(req, { status: "created", url: publicationUrl(ctx.graphName, p.rootUid, title), contentHash: hash });
 }

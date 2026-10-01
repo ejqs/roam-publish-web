@@ -51,7 +51,6 @@ export const publication = pgTable(
     rootUid: text("root_uid").notNull(),
     kind: text("kind", { enum: ["page", "block"] }).notNull(),
     title: text("title").notNull(),
-    slug: text("slug").notNull(),
     tree: jsonb("tree").$type<Node>().notNull(),
     contentHash: text("content_hash").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -59,6 +58,5 @@ export const publication = pgTable(
   },
   (t) => [
     uniqueIndex("publication_graph_root_idx").on(t.graphId, t.rootUid),
-    uniqueIndex("publication_graph_slug_idx").on(t.graphId, t.slug),
   ],
 );

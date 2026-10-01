@@ -7,37 +7,42 @@ import type { PageLinks } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
 import { db } from "@/db";
 import { graph, publication } from "@/db/schema";
+import { publicationPath } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
 
-const load = cache(async (graphName: string, slug: string) => {
+// Only graph + uid identify a publication; the optional trailing slug is decorative.
+const load = cache(async (graphName: string, rootUid: string) => {
   const g = await db.query.graph.findFirst({ where: eq(graph.name, graphName) });
   if (!g) return null;
   const pub = await db.query.publication.findFirst({
-    where: and(eq(publication.graphId, g.id), eq(publication.slug, slug)),
+    where: and(eq(publication.graphId, g.id), eq(publication.rootUid, rootUid)),
   });
   if (!pub) return null;
   return { g, pub };
 });
 
-export async function generateMetadata(props: PageProps<"/[graph]/[slug]">): Promise<Metadata> {
-  const { graph: graphName, slug } = await props.params;
-  const data = await load(decodeURIComponent(graphName), slug);
+export async function generateMetadata(props: PageProps<"/[graph]/[uid]/[[...slug]]">): Promise<Metadata> {
+  const { graph: graphName, uid } = await props.params;
+  const data = await load(decodeURIComponent(graphName), decodeURIComponent(uid));
   if (!data) return { title: "Not found" };
-  return { title: `${plainText(data.pub.title)} · ${data.g.name}` };
+  return {
+    title: `${plainText(data.pub.title)} · ${data.g.name}`,
+    alternates: { canonical: publicationPath(data.g.name, data.pub.rootUid, data.pub.title) },
+  };
 }
 
-export default async function PublishedPage(props: PageProps<"/[graph]/[slug]">) {
-  const { graph: graphName, slug } = await props.params;
-  const data = await load(decodeURIComponent(graphName), slug);
+export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[...slug]]">) {
+  const { graph: graphName, uid } = await props.params;
+  const data = await load(decodeURIComponent(graphName), decodeURIComponent(uid));
   if (!data) notFound();
   const { g, pub } = data;
 
   const pages = await db
-    .select({ title: publication.title, slug: publication.slug })
+    .select({ title: publication.title, rootUid: publication.rootUid })
     .from(publication)
     .where(and(eq(publication.graphId, g.id), eq(publication.kind, "page")));
   const links: PageLinks = new Map(
-    pages.map((p) => [p.title.toLowerCase(), `/${encodeURIComponent(g.name)}/${p.slug}`]),
+    pages.map((p) => [p.title.toLowerCase(), publicationPath(g.name, p.rootUid, p.title)]),
   );
 
   const tree = pub.tree;

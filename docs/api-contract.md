@@ -54,4 +54,5 @@ Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. A
 
 ## Public URLs
 
-`{server}/{graphName}/{slug}` — slug unique per graph, stable across republishes.
+`{server}/{graphName}/{rootUid}/{slug}` — e.g. `roam.pub/ejqs/xyz123123/this-is-why-something`.
+Only `graphName` + `rootUid` identify the publication; the trailing slug is derived from the current title, is purely decorative, and is optional (any value resolves). Links therefore survive page renames.
