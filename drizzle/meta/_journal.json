@@ -57,6 +57,13 @@
       "when": 1790881837219,
       "tag": "0007_page_discover_unlisted_breadcrumbs",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790882111700,
+      "tag": "0008_publication_votes",
+      "breakpoints": true
     }
   ]
 }

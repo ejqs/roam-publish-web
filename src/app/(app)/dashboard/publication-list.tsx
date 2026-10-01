@@ -15,10 +15,13 @@ const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { dateStyle: "medium"
 export function PublicationList({
   g,
   rows,
+  votes,
   discoverBlocked,
 }: {
   g: typeof graph.$inferSelect;
   rows: (typeof publication.$inferSelect)[];
+  /** Upvotes per publication id, for pages on Discover. */
+  votes: Map<string, number>;
   discoverBlocked?: string;
 }) {
   return (
@@ -67,6 +70,12 @@ export function PublicationList({
                     indexable={g.indexable}
                     discoverBlocked={discoverBlocked}
                   />
+                )}
+                {!p.removedAt && p.discoverable && p.visibility === "public" && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {(votes.get(p.id) ?? 0).toLocaleString("en-US")}{" "}
+                    {votes.get(p.id) === 1 ? "upvote" : "upvotes"}
+                  </p>
                 )}
               </div>
               <span className="hidden text-muted-foreground sm:block">{fmtDate(p.updatedAt)}</span>

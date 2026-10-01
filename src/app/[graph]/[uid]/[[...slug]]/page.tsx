@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
@@ -8,9 +8,11 @@ import type { PageLinks } from "@/components/roam/markup";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
 import { SiteFooter } from "@/components/site-footer";
+import { UpvoteButton } from "@/components/upvote-button";
 import { ViewBeacon } from "@/components/view-beacon";
 import { db } from "@/db";
-import { publication } from "@/db/schema";
+import { publication, publicationVote } from "@/db/schema";
+import { isListed } from "@/lib/discover";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { livePublication } from "@/lib/moderation";
 import { publicProfile } from "@/lib/profiles";
@@ -57,12 +59,21 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
   }
 
   const showBreadcrumbs = pub.visibility === "public" || !g.hideUnlistedBreadcrumbs;
-  const [pages, owner] = await Promise.all([
+  // Only pages listed on Discover can be upvoted.
+  const listed = isListed(g, pub);
+  const [pages, owner, votes] = await Promise.all([
     db
       .select({ title: publication.title, rootUid: publication.rootUid })
       .from(publication)
       .where(and(eq(publication.graphId, g.id), eq(publication.kind, "page"), livePublication)),
     showBreadcrumbs && g.showOwner ? publicProfile(g.userId) : null,
+    listed
+      ? db
+          .select({ n: count() })
+          .from(publicationVote)
+          .where(eq(publicationVote.publicationId, pub.id))
+          .then(([r]) => r.n)
+      : 0,
   ]);
   const links: PageLinks = new Map(
     pages.map((p) => [p.title.toLowerCase(), publicationPath(g.name, p.rootUid, p.title)]),
@@ -93,9 +104,12 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           ) : (
             <BlockList nodes={[tree]} links={links} />
           )}
-          <p className="mt-12 text-xs text-muted-foreground">
-            Last updated {pub.updatedAt.toLocaleDateString("en-US", { dateStyle: "medium" })}
-          </p>
+          <div className="mt-12 flex items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground">
+              Last updated {pub.updatedAt.toLocaleDateString("en-US", { dateStyle: "medium" })}
+            </p>
+            {listed && <UpvoteButton publicationId={pub.id} initialCount={votes} />}
+          </div>
         </article>
         {pub.visibility === "public" && <ViewBeacon publicationId={pub.id} />}
       </main>
