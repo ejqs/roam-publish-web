@@ -29,6 +29,8 @@ export const graph = pgTable("graph", {
   description: text("description").notNull().default(""),
   /** Breadcrumbs on the front page and publications link back to the owner's public profile. */
   showOwner: boolean("show_owner").notNull().default(true),
+  /** Unlisted publications show no breadcrumbs, so a shared link doesn't lead back to the graph. */
+  hideUnlistedBreadcrumbs: boolean("hide_unlisted_breadcrumbs").notNull().default(true),
   /** Set by a moderator: the whole graph is hidden and its API key stops working. */
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   suspendedReason: text("suspended_reason"),

@@ -1,5 +1,5 @@
 {
-  "id": "3021a531-2783-416a-b9ca-5c605b40f948",
+  "id": "1ef334b6-b1dd-494e-b639-9002dc6560a4",
   "prevId": "21f9a358-bbfd-48ff-a4d4-5eba086ec093",
   "version": "7",
   "dialect": "postgresql",
@@ -639,6 +639,13 @@
         },
         "show_owner": {
           "name": "show_owner",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "hide_unlisted_breadcrumbs": {
+          "name": "hide_unlisted_breadcrumbs",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

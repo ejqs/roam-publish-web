@@ -35,6 +35,7 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
           indexable: g.indexable,
           featured: g.featured,
           showOwner: g.showOwner,
+          hideUnlistedBreadcrumbs: g.hideUnlistedBreadcrumbs,
           description: g.description,
         }}
       />

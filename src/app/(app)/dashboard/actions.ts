@@ -126,6 +126,7 @@ const GraphSettings = z.object({
   indexable: z.boolean(),
   featured: z.boolean(),
   showOwner: z.boolean(),
+  hideUnlistedBreadcrumbs: z.boolean(),
   description: Description,
 });
 export type GraphSettings = z.input<typeof GraphSettings>;

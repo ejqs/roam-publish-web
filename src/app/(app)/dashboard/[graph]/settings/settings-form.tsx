@@ -107,6 +107,14 @@ export function GraphSettingsForm({
             checked={settings.showOwner}
             onChange={set("showOwner")}
           />
+          <FieldSeparator />
+          <SettingSwitch
+            id="hideUnlistedBreadcrumbs"
+            label="Hide breadcrumbs on unlisted pages"
+            description="Unlisted pages won't link back to this graph or your profile, so a shared link stays on its own page."
+            checked={settings.hideUnlistedBreadcrumbs}
+            onChange={set("hideUnlistedBreadcrumbs")}
+          />
         </FieldGroup>
       </CardContent>
       <CardFooter className="justify-end">
