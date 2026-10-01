@@ -23,12 +23,17 @@ export const graph = pgTable("graph", {
   frontPage: boolean("front_page").notNull().default(true),
   /** Lets search engines index the front page and public publications. */
   indexable: boolean("indexable").notNull().default(true),
-  /** Opt-in listing on /discover and the home page's trending list. */
+  /**
+   * Starting value of publication.discoverable for newly published pages. Changing it never
+   * touches pages that already exist.
+   */
   featured: boolean("featured").notNull().default(false),
   /** Short plain-text description shown on the front page. */
   description: text("description").notNull().default(""),
   /** Breadcrumbs on the front page and publications link back to the owner's public profile. */
   showOwner: boolean("show_owner").notNull().default(true),
+  /** Unlisted publications show no breadcrumbs, so a shared link doesn't lead back to the graph. */
+  hideUnlistedBreadcrumbs: boolean("hide_unlisted_breadcrumbs").notNull().default(true),
   /** Set by a moderator: the whole graph is hidden and its API key stops working. */
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   suspendedReason: text("suspended_reason"),
@@ -70,6 +75,11 @@ export const publication = pgTable(
     kind: text("kind", { enum: ["page", "block"] }).notNull(),
     /** Unlisted items are reachable by link only; public ones also appear on the front page. */
     visibility: text("visibility", { enum: ["public", "unlisted"] }).notNull().default("unlisted"),
+    /**
+     * Listed on /discover and the home page's trending list (when also public). Set from the
+     * graph's default (graph.featured) when first published, then only changed per page.
+     */
+    discoverable: boolean("discoverable").notNull().default(false),
     title: text("title").notNull(),
     tree: jsonb("tree").$type<Node>().notNull(),
     contentHash: text("content_hash").notNull(),

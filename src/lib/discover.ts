@@ -16,9 +16,9 @@ export type DiscoverRow = {
   createdAt: string;
 };
 
-// Public pages from graphs whose owners opted in (the `featured` setting).
+// Public pages the owner chose to list.
 const listed = and(
-  eq(graph.featured, true),
+  eq(publication.discoverable, true),
   eq(graph.frontPage, true),
   eq(graph.indexable, true),
   liveGraph,

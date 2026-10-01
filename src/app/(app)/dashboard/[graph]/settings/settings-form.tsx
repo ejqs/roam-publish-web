@@ -89,14 +89,16 @@ export function GraphSettingsForm({
           <FieldSeparator />
           <SettingSwitch
             id="featured"
-            label="List on Discover"
+            label="List new pages on Discover"
             description={
-              settings.frontPage
-                ? "Show this graph's public pages on roam.pub/discover and in the home page's trending list."
-                : "Turn on the front page to list this graph on Discover."
+              !settings.frontPage
+                ? "Turn on the front page to list this graph's pages on Discover."
+                : !settings.indexable
+                  ? "Turn on search engines to list this graph's pages on Discover."
+                  : "Pages you publish from now on start out listed on roam.pub/discover once public. Existing pages keep their own setting; change those on the dashboard."
             }
             checked={settings.featured && settings.frontPage}
-            disabled={!settings.frontPage}
+            disabled={!settings.frontPage || !settings.indexable}
             onChange={set("featured")}
           />
           <FieldSeparator />
@@ -106,6 +108,14 @@ export function GraphSettingsForm({
             description="Show your @username in the breadcrumbs on the front page and every published page. Only applies while your profile is public."
             checked={settings.showOwner}
             onChange={set("showOwner")}
+          />
+          <FieldSeparator />
+          <SettingSwitch
+            id="hideUnlistedBreadcrumbs"
+            label="Hide breadcrumbs on unlisted pages"
+            description="Unlisted pages won't link back to this graph or your profile, so a shared link stays on its own page."
+            checked={settings.hideUnlistedBreadcrumbs}
+            onChange={set("hideUnlistedBreadcrumbs")}
           />
         </FieldGroup>
       </CardContent>
