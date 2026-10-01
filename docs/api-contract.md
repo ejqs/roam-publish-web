@@ -55,4 +55,4 @@ Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. A
 ## Public URLs
 
 `{server}/{graphName}/{rootUid}/{slug}` — e.g. `roam.pub/ejqs/xyz123123/this-is-why-something`.
-Only `graphName` + `rootUid` identify the publication; the trailing slug is derived from the current title, is purely decorative, and is optional (any value resolves). Links therefore survive page renames.
+Only `graphName` + `rootUid` identify the publication; the trailing slug is derived from the current title, is purely decorative, and is optional. Any other value (or none) 307-redirects to the slug for the current title, so links survive page renames and the address bar always shows the current title.

@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { BlockList } from "@/components/roam/block-tree";
 import type { PageLinks } from "@/components/roam/markup";
@@ -8,7 +8,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { db } from "@/db";
 import { graph, publication } from "@/db/schema";
 import { publicationPath } from "@/lib/publications";
-import { plainText } from "@/lib/slug";
+import { plainText, slugify } from "@/lib/slug";
 
 // Only graph + uid identify a publication; the optional trailing slug is decorative.
 const load = cache(async (graphName: string, rootUid: string) => {
@@ -32,10 +32,16 @@ export async function generateMetadata(props: PageProps<"/[graph]/[uid]/[[...slu
 }
 
 export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[...slug]]">) {
-  const { graph: graphName, uid } = await props.params;
+  const { graph: graphName, uid, slug } = await props.params;
   const data = await load(decodeURIComponent(graphName), decodeURIComponent(uid));
   if (!data) notFound();
   const { g, pub } = data;
+
+  // The slug is decorative: whatever was requested, show the one for the current title.
+  // Temporary redirect, since the title (and so the slug) can change on republish.
+  if (slug?.length !== 1 || slug[0] !== slugify(pub.title)) {
+    redirect(publicationPath(g.name, pub.rootUid, pub.title));
+  }
 
   const pages = await db
     .select({ title: publication.title, rootUid: publication.rootUid })
