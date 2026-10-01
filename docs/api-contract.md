@@ -12,6 +12,7 @@ type Node = {
   viewType?: "bullet" | "numbered" | "document"; // how this block's children are shown
   align?: "left" | "center" | "right" | "justify";
   embed?: Node; // what `{{embed: …}}` in this block's string embeds
+  title?: string; // only on an embedded page's root
   children: Node[];
 };
 type PublishPayload = { rootUid: string; kind: "page" | "block"; title: string; tree: Node };
@@ -19,7 +20,7 @@ type PublishPayload = { rootUid: string; kind: "page" | "block"; title: string; 
 
 - `children` ordered by `:block/order` ascending.
 - `heading` omitted when absent/0. `viewType` omitted for bullets and `align` for left, so older trees hash the same.
-- `{{embed: ((uid))}}`, `{{embed: [[Page]]}}`, `{{embed-path: …}}` and `{{embed-children: …}}` (with or without `[[ ]]` around the name) keep their text unchanged; the embedded tree goes in `embed` (max embed depth 2, cycles skipped). A block embed is that block; a page embed is `{ uid, string: "[[Title]]", children }`; an `embed-children` embed has `string: ""`.
+- `{{embed: ((uid))}}`, `{{embed: [[Page]]}}`, `{{embed-path: …}}` and `{{embed-children: …}}` (with or without `[[ ]]` around the name) keep their text unchanged; the embedded tree goes in `embed` (max embed depth 2, cycles skipped). A block embed is that block; a page embed is `{ uid, string: "", title, children }`; an `embed-children` embed has `string: ""`.
 - For a **page**, the root node is `{ uid: pageUid, string: "", children: [top-level blocks] }`.
 - For a **block**, the root node is the block itself (with its string) and its children.
 - Block refs `((uid))` are **inlined** by the extension before hashing (resolved text, max depth 3; unknown refs stay as-is). Refs inside code, embeds and block-ref aliases `[label](((uid)))` are left as-is.

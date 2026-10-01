@@ -62,6 +62,8 @@ export type Node = {
   align?: "left" | "center" | "right" | "justify";
   /** The block or page this block embeds with `{{embed: …}}`. */
   embed?: Node;
+  /** Set on an embedded page's root, whose string is "". */
+  title?: string;
   children: Node[];
 };
 

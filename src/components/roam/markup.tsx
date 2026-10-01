@@ -65,10 +65,11 @@ function PageRef({ title, ctx, tag, label }: { title: string; ctx: Ctx; tag?: bo
   );
 }
 
-function TeX({ tex, display }: { tex: string; display?: boolean }) {
-  const html = katex.renderToString(tex, { displayMode: display, throwOnError: false });
-  return display ? (
-    <div className="overflow-x-auto overflow-y-hidden py-1" dangerouslySetInnerHTML={{ __html: html }} />
+// Roam renders all math inline, even when it's the whole block.
+function TeX({ tex, alone }: { tex: string; alone?: boolean }) {
+  const html = katex.renderToString(tex, { throwOnError: false });
+  return alone ? (
+    <div className="overflow-x-auto overflow-y-hidden" dangerouslySetInnerHTML={{ __html: html }} />
   ) : (
     <span dangerouslySetInnerHTML={{ __html: html }} />
   );
@@ -107,15 +108,18 @@ const COMPONENT = /\{\{((?:[^{}]|\{[^{}]*\})*)\}\}/;
 const DIAGRAMS = new Set(["mermaid", "diagram", "drawing", "excalidraw"]);
 
 /** The Roam component that decides how a block's children render, if any. */
-export function blockComponent(text: string): "table" | "diagram" | null {
+export function blockComponent(text: string): "table" | "kanban" | "diagram" | null {
   const all = new RegExp(COMPONENT.source, "g");
   for (const m of text.matchAll(all)) {
     const { name } = parseComponent(m[1]);
-    if (name === "table") return "table";
+    if (name === "table" || name === "kanban") return name;
     if (DIAGRAMS.has(name)) return "diagram";
   }
   return null;
 }
+
+/** True when the block is a single `{{…}}` component, which Roam draws in place of the text. */
+export const isOnlyComponent = (text: string) => new RegExp(`^\\s*${COMPONENT.source}\\s*$`).test(text);
 
 function videoEmbedSrc(url: string) {
   let m = /(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/.exec(url);
@@ -126,6 +130,8 @@ function videoEmbedSrc(url: string) {
   if (m) return `https://www.loom.com/embed/${m[1]}`;
   return null;
 }
+
+const APP_HOST = new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").host;
 
 const VIDEO_FILE = /\.(mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i;
 const AUDIO_FILE = /\.(mp3|m4a|wav|ogg|oga|aac|flac|opus)(?:[?#]|$)/i;
@@ -156,8 +162,27 @@ function Component({ inner }: { inner: string }) {
     return <LinkCard url={url} label="Video" />;
   }
   if (name === "audio" && url) return <audio src={url} controls preload="metadata" className="my-1 block w-full" />;
-  if (name === "pdf" && url) return <LinkCard url={url} label="PDF" />;
-  if (name === "iframe" && url) return <LinkCard url={url} label="Link" />;
+  if (name === "pdf" && url) {
+    return (
+      <object data={url} type="application/pdf" className="my-1 block h-[500px] w-full rounded-sm border border-border">
+        <LinkCard url={url} label="PDF" />
+      </object>
+    );
+  }
+  if (name === "iframe" && url) {
+    // A sandboxed page on our own origin could lift its own sandbox, so link to those instead.
+    if (new URL(url).host === APP_HOST) return <LinkCard url={url} label="Link" />;
+    return (
+      <iframe
+        src={url}
+        title="Embedded page"
+        className="my-1 block h-[400px] w-full rounded-sm border border-border"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        loading="lazy"
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    );
+  }
   if ((name === "tweet" || name === "twitter") && url) return <LinkCard url={url} label="Post" />;
 
   // Tables and embeds render at the block level; everything else (buttons, sliders,
@@ -276,8 +301,8 @@ export function RoamText({ text, links }: { text: string; links: PageLinks }) {
 
   if (isRule(text)) return <hr className="my-2 border-border" />;
 
-  const display = /^\s*\$\$([\s\S]+?)\$\$\s*$/.exec(text);
-  if (display) return <TeX tex={display[1]} display />;
+  const math = /^\s*\$\$([\s\S]+?)\$\$\s*$/.exec(text);
+  if (math) return <TeX tex={math[1]} alone />;
 
   // Quote: "> text" (or Roam's "[[>]] text")
   const quote = /^(?:>|\[\[>\]\])\s?([\s\S]*)$/.exec(text);

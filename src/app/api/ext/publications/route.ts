@@ -16,6 +16,7 @@ const NodeSchema: z.ZodType<Node> = z.lazy(() =>
     viewType: z.enum(["bullet", "numbered", "document"]).optional(),
     align: z.enum(["left", "center", "right", "justify"]).optional(),
     embed: NodeSchema.optional(),
+    title: z.string().max(1000).optional(),
     children: z.array(NodeSchema),
   }),
 );

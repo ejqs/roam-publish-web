@@ -1,6 +1,6 @@
 import type { Node } from "@/db/app-schema";
 import { cn } from "@/lib/utils";
-import { blockComponent, type PageLinks, RoamText } from "./markup";
+import { blockComponent, isOnlyComponent, type PageLinks, RoamText } from "./markup";
 
 type ViewType = Node["viewType"];
 
@@ -81,9 +81,38 @@ function Table({ rows, links }: { rows: Node[]; links: PageLinks }) {
   );
 }
 
+function Kanban({ columns, links }: { columns: Node[]; links: PageLinks }) {
+  return (
+    <div className="my-1 flex gap-3 overflow-x-auto pb-1">
+      {columns.map((col) => (
+        <div key={col.uid} className="w-60 shrink-0 rounded-sm bg-muted p-2">
+          <div className="mb-2 px-1 font-semibold break-words whitespace-pre-wrap">
+            <RoamText text={col.string} links={links} />
+          </div>
+          <div className="flex flex-col gap-2">
+            {col.children.map((card) => (
+              <div
+                key={card.uid}
+                className="rounded-sm border border-border bg-card px-2 py-1.5 leading-[1.6] break-words whitespace-pre-wrap"
+              >
+                <RoamText text={card.string} links={links} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Embed({ node, links }: { node: Node; links: PageLinks }) {
   return (
-    <div className="my-1 rounded-sm border border-border bg-muted/40 py-1 pr-2">
+    <div className="my-0.5 rounded-sm border border-border bg-muted/40 py-1 pr-2">
+      {node.title !== undefined && (
+        <div className="px-3 pt-1 pb-2 text-[28px] leading-tight font-semibold break-words">
+          <RoamText text={`[[${node.title}]]`} links={links} />
+        </div>
+      )}
       {node.string ? (
         <BlockList nodes={[node]} links={links} />
       ) : (
@@ -95,19 +124,28 @@ function Embed({ node, links }: { node: Node; links: PageLinks }) {
 
 function Block({ node, links, viewType, n }: { node: Node; links: PageLinks; viewType: ViewType; n: number }) {
   const kind = blockComponent(node.string);
+  // Tables and kanban boards are drawn from the block's children; a diagram's children are its source.
+  const special =
+    kind === "table" ? (
+      <Table rows={node.children} links={links} />
+    ) : kind === "kanban" ? (
+      <Kanban columns={node.children} links={links} />
+    ) : null;
+  const embed = node.embed && <Embed node={node.embed} links={links} />;
+  // Like Roam, a block that is only a table, board or embed shows it in place of its text.
+  const showText = !(isOnlyComponent(node.string) && (special || embed));
   return (
     <li className="relative pl-6">
       <Marker node={node} viewType={viewType} n={n} />
-      <div className={cn("py-0.5 leading-[1.6]", textClass(node))}>
-        <RoamText text={node.string} links={links} />
-      </div>
-      {node.embed && <Embed node={node.embed} links={links} />}
-      {/* A table's children are its cells; a diagram's children are its source. */}
-      {kind === "table" ? (
-        <Table rows={node.children} links={links} />
-      ) : (
-        kind !== "diagram" &&
-        node.children.length > 0 && <BlockList nodes={node.children} links={links} viewType={node.viewType} nested />
+      {showText && (
+        <div className={cn("py-0.5 leading-[1.6]", textClass(node))}>
+          <RoamText text={node.string} links={links} />
+        </div>
+      )}
+      {embed}
+      {special}
+      {!kind && node.children.length > 0 && (
+        <BlockList nodes={node.children} links={links} viewType={node.viewType} nested />
       )}
     </li>
   );
