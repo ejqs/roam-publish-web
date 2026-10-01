@@ -42,6 +42,7 @@ export function SignupForm() {
   return (
     <AuthCard
       title="Create your account"
+      description="You'll need an active Roam Research account to publish."
       footer={
         <span>
           Already have an account?{" "}

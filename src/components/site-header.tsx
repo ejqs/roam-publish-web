@@ -9,14 +9,17 @@ export async function SiteHeader() {
   const session = await auth.api.getSession({ headers: await headers() });
   return (
     <header className="border-b bg-card shadow-[0_1px_1px_rgba(17,20,24,0.06)]">
-      <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-4 px-4">
+      <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-2 px-4 sm:gap-4">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span className="flex size-6 items-center justify-center rounded-sm bg-primary text-xs text-primary-foreground">
-            RP
+          <span aria-hidden className="shrink-0 text-lg leading-none tracking-[-2px] whitespace-nowrap">
+            🌐📝
           </span>
-          Roam Publish
+          <span className="sr-only sm:not-sr-only">Roam Publish</span>
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex min-w-0 items-center gap-0 whitespace-nowrap sm:gap-1">
+          <Link href="/discover" className={buttonVariants({ variant: "ghost" })}>
+            Discover
+          </Link>
           {session ? (
             <>
               {isAdmin(session.user) && (

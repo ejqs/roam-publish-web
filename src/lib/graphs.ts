@@ -18,6 +18,4 @@ export const loadGraph = cache(async (name: string) => {
   return { ...row.g, takenDown: !!row.g.suspendedAt || !!row.banned };
 });
 
-export function graphPath(graphName: string) {
-  return `/${encodeURIComponent(graphName)}`;
-}
+export { graphPath } from "./publications";

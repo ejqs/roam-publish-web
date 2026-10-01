@@ -3,6 +3,7 @@ import {
   index,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -20,7 +21,7 @@ export const graph = pgTable("graph", {
   frontPage: boolean("front_page").notNull().default(true),
   /** Lets search engines index the front page and public publications. */
   indexable: boolean("indexable").notNull().default(true),
-  /** Opt-in listing on the roam.pub home page. */
+  /** Opt-in listing on /discover and the home page's trending list. */
   featured: boolean("featured").notNull().default(false),
   /** Set by a moderator: the whole graph is hidden and its API key stops working. */
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
@@ -75,6 +76,28 @@ export const publication = pgTable(
   (t) => [
     uniqueIndex("publication_graph_root_idx").on(t.graphId, t.rootUid),
     index("publication_graph_visibility_idx").on(t.graphId, t.visibility),
+  ],
+);
+
+/**
+ * One row per reader per publication, ever. Only signed-in users with a graph count, and never the
+ * publication's own owner; see /api/views.
+ */
+export const publicationView = pgTable(
+  "publication_view",
+  {
+    publicationId: text("publication_id")
+      .notNull()
+      .references(() => publication.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.publicationId, t.userId] }),
+    // Covers the trending window: range on created_at, grouped by publication.
+    index("publication_view_created_idx").on(t.createdAt, t.publicationId),
   ],
 );
 

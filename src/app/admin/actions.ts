@@ -1,7 +1,7 @@
 "use server";
 
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -15,6 +15,7 @@ import {
   usernameAlias,
 } from "@/db/schema";
 import { isAdmin, requireAdmin } from "@/lib/admin";
+import { DISCOVER_TAG } from "@/lib/discover";
 import { graphPath } from "@/lib/graphs";
 import type { ModerationNotice } from "@/lib/moderation-email-templates";
 import { notifyOwner } from "@/lib/moderation-emails";
@@ -42,6 +43,7 @@ function revalidatePublic() {
   revalidatePath("/[graph]", "layout");
   revalidatePath("/u/[username]", "page");
   revalidatePath("/");
+  updateTag(DISCOVER_TAG);
   revalidatePath("/dashboard", "layout");
   revalidatePath("/admin", "layout");
 }
