@@ -8,10 +8,12 @@ export async function sendEmail({
   to,
   subject,
   text,
+  replyTo,
 }: {
   to: string;
   subject: string;
   text: string;
+  replyTo?: string;
 }) {
   if (!resend) {
     console.log(`\n[email] to=${to} subject=${subject}\n${text}\n`);
@@ -22,6 +24,7 @@ export async function sendEmail({
     to,
     subject,
     text,
+    replyTo,
   });
   if (error) console.error("[email] send failed", error);
 }

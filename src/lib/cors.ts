@@ -13,7 +13,7 @@ export function corsHeaders(req: Request): Record<string, string> {
   if (!origin) return {};
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "content-type, x-api-key",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
