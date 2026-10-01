@@ -38,11 +38,6 @@ const PREREQUISITES = [
     label: "I've installed the Roam Publish extension",
     description: "In Roam: Settings → Roam Depot → search for Roam Publish → Install. Do this in the graph you're connecting.",
   },
-  {
-    id: "logged-in",
-    label: "I've logged in from the extension's settings",
-    description: "Open the Roam Publish tab in Roam's settings and log in with this account.",
-  },
 ] as const;
 
 type State =
@@ -167,7 +162,7 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
                 </Button>
                 {!ready && (
                   <FieldDescription className="-mt-3 text-center">
-                    Check off the steps above to continue.
+                    Confirm you&apos;ve installed the extension to continue.
                   </FieldDescription>
                 )}
               </FieldGroup>
