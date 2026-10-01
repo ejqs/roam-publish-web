@@ -1,8 +1,7 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -18,23 +17,13 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { db } from "@/db";
 import { graph, profile, publication } from "@/db/schema";
 import { graphPath } from "@/lib/graphs";
-import { publicationPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
-import { unpublish } from "./actions";
-import { AccessMenu } from "./access-menu";
 import { AttentionBanners, attentionItems } from "./attention-banners";
 import { ProfileCard } from "./profile-card";
+import { PublicationList } from "./publication-list";
 
 export default async function DashboardPage() {
   const session = await requireSession("/dashboard");
@@ -139,68 +128,7 @@ export default async function DashboardPage() {
                   Nothing published yet. Right-click a page or block in Roam and choose Publish.
                 </p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Visibility</TableHead>
-                      <TableHead>Updated</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((p) => (
-                      <TableRow key={p.id} id={`pub-${p.id}`} className="scroll-mt-4">
-                        <TableCell className="max-w-xs truncate">
-                          <Link
-                            href={publicationPath(g.name, p.rootUid, p.title)}
-                            className="text-link hover:underline"
-                          >
-                            {p.title}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{p.kind}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {p.removedAt ? (
-                            <Badge variant="destructive" title={p.removedReason ?? undefined}>
-                              Removed by moderator
-                            </Badge>
-                          ) : (
-                            <AccessMenu
-                              publicationId={p.id}
-                              access={
-                                p.visibility === "unlisted" ? "unlisted" : p.discoverable ? "discover" : "public"
-                              }
-                              frontPage={g.frontPage}
-                              indexable={g.indexable}
-                              discoverBlocked={notListable}
-                            />
-                          )}
-                          {p.removedAt && p.removedReason && (
-                            <p className="mt-1 max-w-xs text-xs whitespace-normal text-muted-foreground">
-                              {p.removedReason}
-                            </p>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {p.updatedAt.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {!p.removedAt && (
-                            <form action={unpublish.bind(null, p.id)}>
-                              <Button type="submit" variant="ghost" size="sm">
-                                Unpublish
-                              </Button>
-                            </form>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <PublicationList g={g} rows={rows} discoverBlocked={notListable} />
               )}
             </CardContent>
           </Card>
