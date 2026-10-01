@@ -16,6 +16,11 @@ export const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "")
 export const auth = betterAuth({
   appName: "Roam Publish",
   database: drizzleAdapter(db, { provider: "pg", schema }),
+  advanced: {
+    // Behind Railway's edge proxy; without a resolvable IP, rate limiting
+    // collapses into one shared bucket per path.
+    ipAddress: { ipAddressHeaders: ["x-real-ip", "x-forwarded-for"] },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
