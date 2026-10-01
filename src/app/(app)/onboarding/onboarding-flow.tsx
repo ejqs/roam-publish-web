@@ -157,10 +157,8 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
                   <ShieldCheckIcon />
                   <AlertTitle>How we use this token</AlertTitle>
                   <AlertDescription>
-                    The server uses it once to confirm you own the graph by adding a block like{" "}
-                    <code>verify-roam-publish (deletable after onboarding): …</code> to today&apos;s
-                    daily note. The token is never stored. Once setup is done you can delete both the
-                    token and that block.
+                    Used once to add a verification block to today&apos;s daily note, then
+                    discarded. You can delete the token and the block after setup.
                   </AlertDescription>
                 </Alert>
                 <Button type="submit" disabled={pending || !ready}>
