@@ -33,7 +33,7 @@ export async function unpublish(publicationId: string) {
         isNull(publication.removedAt),
       ),
     );
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
   updateTag(DISCOVER_TAG);
 }
 
@@ -64,7 +64,7 @@ export async function setAccess(publicationId: string, access: Access) {
         isNull(publication.removedAt),
       ),
     );
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
   revalidatePath("/[graph]", "page");
   revalidatePath("/");
   updateTag(DISCOVER_TAG);

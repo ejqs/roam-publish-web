@@ -2,7 +2,8 @@ import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
-import type { graph, profile, publication } from "@/db/schema";
+import type { graph, profile } from "@/db/schema";
+import { type AccessCounts, graphPagesPath } from "./filters";
 
 type Severity = "destructive" | "warning" | "default";
 type Item = { id: string; severity: Severity; title: string; body: string; action?: { label: string; href: string } };
@@ -12,14 +13,15 @@ const RANK: Record<Severity, number> = { destructive: 0, warning: 1, default: 2 
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** Everything on the account that needs the owner's attention, worst first. Uses the dashboard's own rows. */
+/** Everything on the account that needs the owner's attention, worst first. Uses the dashboard's own counts. */
 export function attentionItems({
   graphs,
-  pubs,
+  counts,
   me,
 }: {
   graphs: (typeof graph.$inferSelect)[];
-  pubs: (typeof publication.$inferSelect)[];
+  /** Pages per setting, by graph id. */
+  counts: Map<string, AccessCounts>;
   me: typeof profile.$inferSelect | undefined;
 }): Item[] {
   const items: Item[] = [];
@@ -39,14 +41,15 @@ export function attentionItems({
     });
   }
 
-  const removed = pubs.filter((p) => p.removedAt);
-  if (removed.length) {
+  const withRemoved = graphs.filter((g) => counts.get(g.id)?.removed);
+  const removed = withRemoved.reduce((n, g) => n + counts.get(g.id)!.removed, 0);
+  if (removed) {
     items.push({
       id: "removed",
       severity: "destructive",
-      title: `${plural(removed.length, "page")} removed by a moderator`,
+      title: `${plural(removed, "page")} removed by a moderator`,
       body: "Removed pages are hidden from readers and can't be republished.",
-      action: { label: "View", href: `#pub-${removed[0].id}` },
+      action: { label: "View", href: `${graphPagesPath(withRemoved[0].name)}?access=removed` },
     });
   }
 
@@ -75,7 +78,7 @@ export function attentionItems({
     (g) =>
       !g.suspendedAt &&
       !g.frontPage &&
-      pubs.some((p) => p.graphId === g.id && p.visibility === "public" && !p.removedAt),
+      !!(counts.get(g.id)?.public || counts.get(g.id)?.discover),
   );
   for (const g of hiddenFrontPages) {
     items.push({
