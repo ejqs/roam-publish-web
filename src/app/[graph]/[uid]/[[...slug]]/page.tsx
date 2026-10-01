@@ -37,9 +37,9 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
   if (!data) notFound();
   const { g, pub } = data;
 
-  // The slug is decorative: whatever was requested, show the one for the current title.
-  // Temporary redirect, since the title (and so the slug) can change on republish.
-  if (slug?.length !== 1 || slug[0] !== slugify(pub.title)) {
+  // The slug is decorative. A bare /{graph}/{uid} stays as-is; any slug that doesn't match the
+  // current title is corrected. Temporary redirect, since the title can change on republish.
+  if (slug && (slug.length !== 1 || slug[0] !== slugify(pub.title))) {
     redirect(publicationPath(g.name, pub.rootUid, pub.title));
   }
 
