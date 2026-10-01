@@ -99,7 +99,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           {pub.kind === "page" ? (
             <>
               <h1 className="mb-6 text-[42px] leading-tight font-semibold break-words">{pub.title}</h1>
-              <BlockList nodes={tree.children} links={links} />
+              <BlockList nodes={tree.children} links={links} viewType={tree.viewType} />
             </>
           ) : (
             <BlockList nodes={[tree]} links={links} />

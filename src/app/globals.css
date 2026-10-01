@@ -153,3 +153,11 @@
     @apply font-sans;
   }
 }
+/* Shiki code blocks: light colors are inline, dark ones come from its CSS variables. */
+.roam-code pre {
+  background-color: transparent !important;
+}
+
+.dark .roam-code span {
+  color: var(--shiki-dark) !important;
+}
