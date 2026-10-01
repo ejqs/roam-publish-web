@@ -8,6 +8,9 @@ import { db } from "@/db";
 import { graph, profile, publication, usernameAlias, type Visibility } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { DISCOVER_TAG } from "@/lib/discover";
+import { Bio } from "@/lib/bio";
+import { hasVerifiedGraph } from "@/lib/profiles";
+import { rateLimit } from "@/lib/rate-limit";
 import { Username, usernameTakenByOther } from "@/lib/usernames";
 
 async function getSession() {
@@ -55,9 +58,12 @@ export async function setVisibility(publicationId: string, visibility: Visibilit
 
 export type FormState = { ok: boolean; message: string } | null;
 
+const NEEDS_GRAPH = "Connect a Roam graph first.";
+
 export async function claimUsername(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await getSession();
   if (!session) return { ok: false, message: "Your session expired. Please log in again." };
+  if (!(await hasVerifiedGraph(session.user.id))) return { ok: false, message: NEEDS_GRAPH };
   const parsed = Username.safeParse(formData.get("username"));
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const username = parsed.data;
@@ -87,9 +93,32 @@ export async function claimUsername(_prev: FormState, formData: FormData): Promi
 export async function setProfilePublic(isPublic: boolean) {
   const session = await getSession();
   if (!session) return;
+  // Going private is always allowed; going public needs a graph behind the profile.
+  if (isPublic && !(await hasVerifiedGraph(session.user.id))) return;
   await db.update(profile).set({ isPublic }).where(eq(profile.userId, session.user.id));
   revalidatePath("/dashboard");
   revalidatePath("/u/[username]", "page");
+}
+
+export async function updateBio(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Your session expired. Please log in again." };
+  const userId = session.user.id;
+  if (!(await hasVerifiedGraph(userId))) return { ok: false, message: NEEDS_GRAPH };
+  const parsed = Bio.safeParse(formData.get("bio") ?? "");
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  if (!rateLimit(`bio:user:${userId}`, 20, 15 * 60 * 1000))
+    return { ok: false, message: "Too many changes. Try again in a few minutes." };
+
+  const updated = await db
+    .update(profile)
+    .set({ bio: parsed.data })
+    .where(eq(profile.userId, userId))
+    .returning({ userId: profile.userId });
+  if (updated.length === 0) return { ok: false, message: "Claim a username first." };
+  revalidatePath("/dashboard");
+  revalidatePath("/u/[username]", "page");
+  return { ok: true, message: "Description saved." };
 }
 
 const GraphSettings = z.object({

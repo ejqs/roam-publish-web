@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
 import { SiteFooter } from "@/components/site-footer";
@@ -9,6 +10,7 @@ import { db } from "@/db";
 import { publication } from "@/db/schema";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { livePublication } from "@/lib/moderation";
+import { publicProfile } from "@/lib/profiles";
 import { PublicationTable } from "./publication-table";
 import { PAGE_SIZE, parsePage, parseSort } from "./sort";
 
@@ -48,7 +50,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
     eq(publication.visibility, "public"),
     livePublication,
   );
-  const [[{ total }], rows] = await Promise.all([
+  const [[{ total }], rows, owner] = await Promise.all([
     db.select({ total: count() }).from(publication).where(visible),
     db
       .select({
@@ -63,6 +65,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
       .orderBy(...ORDER[sort])
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE),
+    publicProfile(g.userId),
   ]);
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -70,9 +73,12 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4">
-          <ReportAbuseButton graphName={g.name} />
+          <ReportAbuseButton target={{ graphName: g.name }} />
         </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
+          {owner && (
+            <Breadcrumbs items={[{ label: `@${owner.username}`, href: `/u/${owner.username}` }, { label: g.name }]} />
+          )}
           <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">{g.name}</h1>
           <p className="mb-8 text-sm text-muted-foreground">
             {total} published {total === 1 ? "page" : "pages"}
