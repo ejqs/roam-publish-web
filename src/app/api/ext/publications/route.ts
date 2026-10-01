@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { type Node, publication } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
 import { json, preflight } from "@/lib/cors";
-import { verifyExtKey } from "@/lib/ext-auth";
+import { removedResponse, requireExtKey } from "@/lib/ext-auth";
 import { publicationUrl } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
 
@@ -30,8 +30,8 @@ const MAX_BYTES = 1_000_000;
 export const OPTIONS = preflight;
 
 export async function GET(req: Request) {
-  const ctx = await verifyExtKey(req);
-  if (!ctx) return json(req, { error: "Invalid API key" }, 401);
+  const ctx = await requireExtKey(req);
+  if (ctx instanceof Response) return ctx;
   const rows = await db
     .select()
     .from(publication)
@@ -44,14 +44,16 @@ export async function GET(req: Request) {
       title: p.title,
       url: publicationUrl(ctx.graphName, p.rootUid, p.title),
       contentHash: p.contentHash,
+      visibility: p.visibility,
+      removed: !!p.removedAt,
       updatedAt: p.updatedAt,
     })),
   });
 }
 
 export async function POST(req: Request) {
-  const ctx = await verifyExtKey(req);
-  if (!ctx) return json(req, { error: "Invalid API key" }, 401);
+  const ctx = await requireExtKey(req);
+  if (ctx instanceof Response) return ctx;
 
   const raw = await req.text();
   if (raw.length > MAX_BYTES) return json(req, { error: "Content too large" }, 413);
@@ -75,23 +77,31 @@ export async function POST(req: Request) {
     where: and(eq(publication.graphId, ctx.graphId), eq(publication.rootUid, p.rootUid)),
   });
 
+  if (existing?.removedAt) return removedResponse(req, existing.removedReason);
   if (existing) {
     const url = publicationUrl(ctx.graphName, p.rootUid, title);
-    if (existing.contentHash === hash) return json(req, { status: "unchanged", url, contentHash: hash });
+    const visibility = existing.visibility;
+    if (existing.contentHash === hash)
+      return json(req, { status: "unchanged", url, contentHash: hash, visibility });
     await db
       .update(publication)
       .set({ title, tree: p.tree, contentHash: hash, kind: p.kind, updatedAt: new Date() })
       .where(eq(publication.id, existing.id));
-    return json(req, { status: "updated", url, contentHash: hash });
+    return json(req, { status: "updated", url, contentHash: hash, visibility });
   }
 
-  await db.insert(publication).values({
+  const [created] = await db.insert(publication).values({
     graphId: ctx.graphId,
     rootUid: p.rootUid,
     kind: p.kind,
     title,
     tree: p.tree,
     contentHash: hash,
+  }).returning({ visibility: publication.visibility });
+  return json(req, {
+    status: "created",
+    url: publicationUrl(ctx.graphName, p.rootUid, title),
+    contentHash: hash,
+    visibility: created.visibility,
   });
-  return json(req, { status: "created", url: publicationUrl(ctx.graphName, p.rootUid, title), contentHash: hash });
 }
