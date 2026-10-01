@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -12,7 +13,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { checkVerification, startVerification } from "./actions";
@@ -22,6 +31,14 @@ function todayMMDDYYYY() {
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getMonth() + 1)}-${p(d.getDate())}-${d.getFullYear()}`;
 }
+
+const PREREQUISITES = [
+  {
+    id: "installed",
+    label: "I've installed the Roam Publish extension",
+    description: "In Roam: Settings → Roam Depot → search for Roam Publish → Install. Do this in the graph you're connecting.",
+  },
+] as const;
 
 type State =
   | { step: "form" }
@@ -33,6 +50,17 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
   const [state, setState] = useState<State>({ step: "form" });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const ready = PREREQUISITES.every((p) => checked.has(p.id));
+
+  function toggle(id: string, on: boolean) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (state.step !== "waiting") return;
@@ -85,6 +113,26 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
+                <FieldSet>
+                  <FieldLegend variant="label">Before you start</FieldLegend>
+                  <FieldGroup data-slot="checkbox-group">
+                    {PREREQUISITES.map((p) => (
+                      <Field key={p.id} orientation="horizontal">
+                        <Checkbox
+                          id={`prereq-${p.id}`}
+                          checked={checked.has(p.id)}
+                          onCheckedChange={(v) => toggle(p.id, !!v)}
+                        />
+                        <FieldContent>
+                          <FieldLabel htmlFor={`prereq-${p.id}`} className="font-normal">
+                            {p.label}
+                          </FieldLabel>
+                          <FieldDescription>{p.description}</FieldDescription>
+                        </FieldContent>
+                      </Field>
+                    ))}
+                  </FieldGroup>
+                </FieldSet>
                 <Field>
                   <FieldLabel htmlFor="graphName">Graph name</FieldLabel>
                   <Input id="graphName" name="graphName" defaultValue={initialGraph} placeholder="my-graph" required />
@@ -104,16 +152,19 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
                   <ShieldCheckIcon />
                   <AlertTitle>How we use this token</AlertTitle>
                   <AlertDescription>
-                    The server uses it once to confirm you own the graph by adding a block like{" "}
-                    <code>verify-roam-publish (deletable after onboarding): …</code> to today&apos;s
-                    daily note. The token is never stored. Once setup is done you can delete both the
-                    token and that block.
+                    Used once to add a verification block to today&apos;s daily note, then
+                    discarded. You can delete the token and the block after setup.
                   </AlertDescription>
                 </Alert>
-                <Button type="submit" disabled={pending}>
+                <Button type="submit" disabled={pending || !ready}>
                   {pending && <Spinner data-icon="inline-start" />}
                   Verify graph
                 </Button>
+                {!ready && (
+                  <FieldDescription className="-mt-3 text-center">
+                    Confirm you&apos;ve installed the extension to continue.
+                  </FieldDescription>
+                )}
               </FieldGroup>
             </form>
           </CardContent>
