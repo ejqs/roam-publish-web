@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { count, desc, eq, inArray } from "drizzle-orm";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { db } from "@/db";
-import { graph, profile, publication } from "@/db/schema";
+import { graph, profile, publication, publicationVote } from "@/db/schema";
 import { graphPath } from "@/lib/graphs";
 import { requireSession } from "@/lib/session";
 import { AttentionBanners, attentionItems } from "./attention-banners";
@@ -39,7 +39,18 @@ export default async function DashboardPage() {
         .where(inArray(publication.graphId, graphs.map((g) => g.id)))
         .orderBy(desc(publication.updatedAt))
     : [];
-  const me = await db.query.profile.findFirst({ where: eq(profile.userId, session.user.id) });
+  const discoverIds = pubs.filter((p) => p.discoverable).map((p) => p.id);
+  const [me, voteRows] = await Promise.all([
+    db.query.profile.findFirst({ where: eq(profile.userId, session.user.id) }),
+    discoverIds.length
+      ? db
+          .select({ id: publicationVote.publicationId, n: count() })
+          .from(publicationVote)
+          .where(inArray(publicationVote.publicationId, discoverIds))
+          .groupBy(publicationVote.publicationId)
+      : [],
+  ]);
+  const votes = new Map(voteRows.map((v) => [v.id, v.n]));
   const banners = <AttentionBanners items={attentionItems({ graphs, pubs, me })} />;
   const profileCard = (
     <ProfileCard
@@ -128,7 +139,7 @@ export default async function DashboardPage() {
                   Nothing published yet. Right-click a page or block in Roam and choose Publish.
                 </p>
               ) : (
-                <PublicationList g={g} rows={rows} discoverBlocked={notListable} />
+                <PublicationList g={g} rows={rows} votes={votes} discoverBlocked={notListable} />
               )}
             </CardContent>
           </Card>

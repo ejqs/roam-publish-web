@@ -117,7 +117,25 @@ export const publicationView = pgTable(
   ],
 );
 
-export type Visibility = (typeof publication.$inferSelect)["visibility"];
+/**
+ * One upvote per reader per publication. Same voters as views: signed-in users with a graph, never
+ * the owner, and only on pages listed on /discover; see /api/votes.
+ */
+export const publicationVote = pgTable(
+  "publication_vote",
+  {
+    publicationId: text("publication_id")
+      .notNull()
+      .references(() => publication.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.publicationId, t.userId] })],
+);
+
+export type Visibility =(typeof publication.$inferSelect)["visibility"];
 
 export const profile = pgTable("profile", {
   userId: text("user_id")

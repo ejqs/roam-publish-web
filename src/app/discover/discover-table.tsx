@@ -31,11 +31,17 @@ const features = tableFeatures({ rowSortingFeature, rowPaginationFeature });
 const helper = createColumnHelper<typeof features, DiscoverRow>();
 
 // Column id -> URL sort value. Sorting and paging happen on the server; the URL is the state.
-const SORT_BY_COLUMN: Record<string, DiscoverSort> = { views: "trending", createdAt: "recent" };
+const SORT_BY_COLUMN: Record<string, DiscoverSort> = {
+  votes: "top",
+  views: "trending",
+  createdAt: "recent",
+};
 const SORT_LABELS: [DiscoverSort, string][] = [
   ["recent", "Recent"],
   ["trending", "Trending"],
+  ["top", "Top"],
 ];
+const SORT_COLUMN: Record<DiscoverSort, string> = { recent: "createdAt", trending: "views", top: "votes" };
 
 const columns = helper.columns([
   helper.accessor("title", {
@@ -57,6 +63,7 @@ const columns = helper.columns([
       </Link>
     ),
   }),
+  helper.accessor("votes", { header: "Votes", cell: (info) => info.getValue().toLocaleString("en-US") }),
   helper.accessor("views", { header: "Views", cell: (info) => info.getValue().toLocaleString("en-US") }),
   helper.accessor("createdAt", {
     header: "Published",
@@ -75,7 +82,10 @@ export function DiscoverTable({
   page: number;
   pageCount: number;
 }) {
-  const sortColumn = sort === "trending" ? "views" : "createdAt";
+  const sortColumn = SORT_COLUMN[sort];
+  // Phones keep one count column: views when sorted by them, otherwise votes.
+  const width = (id: string) =>
+    id === (sort === "trending" ? "votes" : "views") ? `hidden sm:table-cell ${WIDTHS[id]}` : WIDTHS[id];
   const table = useTable({
     features,
     columns,
@@ -119,7 +129,7 @@ export function DiscoverTable({
                   </>
                 );
                 return (
-                  <TableHead key={header.id} className={WIDTHS[id]}>
+                  <TableHead key={header.id} className={width(id)}>
                     <span className="inline-flex items-center gap-1">
                       {sortValue ? (
                         <Link
@@ -131,7 +141,18 @@ export function DiscoverTable({
                       ) : (
                         label
                       )}
-                      {id === "views" && <ViewsHelp />}
+                      {id === "views" && (
+                        <CountHelp label="How views are counted">
+                          Only signed-in users with at least one verified graph count as a view. Each
+                          reader counts once per page. Trending ranks views from the last 7 days.
+                        </CountHelp>
+                      )}
+                      {id === "votes" && (
+                        <CountHelp label="Who can upvote">
+                          Signed-in users with at least one verified graph can upvote a page once, from
+                          the page itself. Top ranks all-time upvotes.
+                        </CountHelp>
+                      )}
                     </span>
                   </TableHead>
                 );
@@ -148,7 +169,7 @@ export function DiscoverTable({
                   className={
                     cell.column.id === "title"
                       ? "max-w-0 truncate whitespace-nowrap"
-                      : `${WIDTHS[cell.column.id]} truncate text-muted-foreground`
+                      : `${width(cell.column.id)} truncate text-muted-foreground`
                   }
                 >
                   <table.FlexRender cell={cell} />
@@ -176,29 +197,27 @@ export function DiscoverTable({
   );
 }
 
-// Phones drop the date so the title keeps room.
+// Phones drop the date and one count column so the title keeps room.
 const WIDTHS: Record<string, string> = {
   title: "",
   graphName: "w-28 sm:w-40",
-  views: "w-20 sm:w-24",
+  votes: "w-16 sm:w-20",
+  views: "w-16 sm:w-20",
   createdAt: "hidden w-32 sm:table-cell",
 };
 
 /** Opens on hover, focus + Enter, and tap, so it works without a mouse. */
-function ViewsHelp() {
+function CountHelp({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Popover>
       <PopoverTrigger
         openOnHover
-        aria-label="How views are counted"
+        aria-label={label}
         className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
         <CircleHelp className="size-3.5" />
       </PopoverTrigger>
-      <PopoverContent className="w-64 text-sm font-normal">
-        Only signed-in users with at least one verified graph count as a view. Each reader counts once
-        per page. Trending ranks views from the last 7 days.
-      </PopoverContent>
+      <PopoverContent className="w-64 text-sm font-normal">{children}</PopoverContent>
     </Popover>
   );
 }

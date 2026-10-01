@@ -1,4 +1,4 @@
-export const DISCOVER_SORTS = ["recent", "trending"] as const;
+export const DISCOVER_SORTS = ["recent", "trending", "top"] as const;
 export type DiscoverSort = (typeof DISCOVER_SORTS)[number];
 
 export const PAGE_SIZE = 20;
