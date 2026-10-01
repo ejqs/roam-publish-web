@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { isAdmin } from "@/lib/admin";
 import { auth } from "@/lib/auth";
 import { SignOutButton } from "./sign-out-button";
 
@@ -18,6 +19,11 @@ export async function SiteHeader() {
         <nav className="flex items-center gap-1">
           {session ? (
             <>
+              {isAdmin(session.user) && (
+                <Link href="/admin" className={buttonVariants({ variant: "ghost" })}>
+                  Admin
+                </Link>
+              )}
               <Link href="/dashboard" className={buttonVariants({ variant: "ghost" })}>
                 Dashboard
               </Link>

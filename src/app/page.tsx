@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { Featured } from "@/components/featured";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
@@ -51,8 +53,11 @@ export default function Home() {
             </Card>
           ))}
         </section>
+        <Suspense>
+          <Featured />
+        </Suspense>
       </main>
-      <SiteFooter />
+      <SiteFooter variant="full" />
     </>
   );
 }
