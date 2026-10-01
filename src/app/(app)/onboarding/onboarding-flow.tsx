@@ -36,7 +36,7 @@ const PREREQUISITES = [
   {
     id: "installed",
     label: "I've installed the Roam Publish extension",
-    description: "In Roam: Settings → Roam Depot → search for Roam Publish → Install. Do this in the graph you're connecting.",
+    description: "Roam Depot → Roam Publish → Install, in this graph.",
   },
 ] as const;
 
@@ -162,7 +162,8 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
                 </Button>
                 {!ready && (
                   <FieldDescription className="-mt-3 text-center">
-                    Confirm you&apos;ve installed the extension to continue.
+                    Install the extension first. It reads the verification code from your daily
+                    note and finishes setup, so it must be in place before you verify.
                   </FieldDescription>
                 )}
               </FieldGroup>
