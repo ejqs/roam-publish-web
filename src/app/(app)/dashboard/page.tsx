@@ -33,6 +33,7 @@ import { publicationPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { setVisibility, unpublish } from "./actions";
 import { AttentionBanners, attentionItems } from "./attention-banners";
+import { DiscoverSelect } from "./discover-select";
 import { ProfileCard } from "./profile-card";
 
 export default async function DashboardPage() {
@@ -92,6 +93,13 @@ export default async function DashboardPage() {
       {profileCard}
       {graphs.map((g) => {
         const rows = pubs.filter((p) => p.graphId === g.id);
+        const notListable = g.suspendedAt
+          ? "This graph is suspended."
+          : !g.frontPage
+            ? "Turn on the graph's front page to list pages on Discover."
+            : !g.indexable
+              ? "Turn on search engines in graph settings to list pages on Discover."
+              : undefined;
         return (
           <Card key={g.id} id={`graph-${g.id}`} className="scroll-mt-4">
             <CardHeader>
@@ -176,6 +184,16 @@ export default async function DashboardPage() {
                                 {p.visibility === "public" ? "Unlist" : "Make public"}
                               </Button>
                             </form>
+                          )}
+                          {p.visibility === "public" && !p.removedAt && (
+                            <div className="mt-1.5">
+                              <DiscoverSelect
+                                publicationId={p.id}
+                                value={p.discoverable === null ? "default" : p.discoverable ? "on" : "off"}
+                                graphDefault={g.featured}
+                                disabledReason={notListable}
+                              />
+                            </div>
                           )}
                           {p.removedAt && p.removedReason && (
                             <p className="mt-1 max-w-xs text-xs whitespace-normal text-muted-foreground">

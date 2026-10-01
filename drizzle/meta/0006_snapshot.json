@@ -1,5 +1,5 @@
 {
-  "id": "1ef334b6-b1dd-494e-b639-9002dc6560a4",
+  "id": "3939e77d-0356-431f-9b87-40302d27e742",
   "prevId": "21f9a358-bbfd-48ff-a4d4-5eba086ec093",
   "version": "7",
   "dialect": "postgresql",
@@ -990,6 +990,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'unlisted'"
+        },
+        "discoverable": {
+          "name": "discoverable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
         },
         "title": {
           "name": "title",
