@@ -5,7 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { graph, profile, publication, usernameAlias, type Visibility } from "@/db/schema";
+import { graph, profile, publication, usernameAlias } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { Description } from "@/lib/descriptions";
@@ -37,12 +37,26 @@ export async function unpublish(publicationId: string) {
   updateTag(DISCOVER_TAG);
 }
 
-export async function setVisibility(publicationId: string, visibility: Visibility) {
+
+/**
+ * Who can find a page: link only, the graph's front page, or also Discover. Unlisting leaves the
+ * Discover flag alone (it has no effect while unlisted), so the extension's "make public" can still
+ * restore what was seeded at publish time.
+ */
+export type Access = "unlisted" | "public" | "discover";
+
+export async function setAccess(publicationId: string, access: Access) {
   const session = await getSession();
   if (!session) return;
+  const set =
+    access === "discover"
+      ? { visibility: "public" as const, discoverable: true }
+      : access === "public"
+        ? { visibility: "public" as const, discoverable: false }
+        : { visibility: "unlisted" as const };
   await db
     .update(publication)
-    .set({ visibility: visibility === "public" ? "public" : "unlisted" })
+    .set(set)
     .where(
       and(
         eq(publication.id, publicationId),
@@ -52,24 +66,6 @@ export async function setVisibility(publicationId: string, visibility: Visibilit
     );
   revalidatePath("/dashboard");
   revalidatePath("/[graph]", "page");
-  revalidatePath("/");
-  updateTag(DISCOVER_TAG);
-}
-
-export async function setDiscoverable(publicationId: string, discoverable: boolean) {
-  const session = await getSession();
-  if (!session) return;
-  await db
-    .update(publication)
-    .set({ discoverable: discoverable === true })
-    .where(
-      and(
-        eq(publication.id, publicationId),
-        inArray(publication.graphId, myGraphIds(session.user.id)),
-        isNull(publication.removedAt),
-      ),
-    );
-  revalidatePath("/dashboard");
   revalidatePath("/");
   updateTag(DISCOVER_TAG);
 }

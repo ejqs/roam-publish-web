@@ -31,9 +31,9 @@ import { graph, profile, publication } from "@/db/schema";
 import { graphPath } from "@/lib/graphs";
 import { publicationPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
-import { setVisibility, unpublish } from "./actions";
+import { unpublish } from "./actions";
+import { AccessMenu } from "./access-menu";
 import { AttentionBanners, attentionItems } from "./attention-banners";
-import { DiscoverSwitch } from "./discover-switch";
 import { ProfileCard } from "./profile-card";
 
 export default async function DashboardPage() {
@@ -96,9 +96,9 @@ export default async function DashboardPage() {
         const notListable = g.suspendedAt
           ? "This graph is suspended."
           : !g.frontPage
-            ? "Turn on the graph's front page to list pages on Discover."
+            ? "Turn on this graph's front page in Settings to use Discover."
             : !g.indexable
-              ? "Turn on search engines in graph settings to list pages on Discover."
+              ? "Turn on search engines in Settings to use Discover."
               : undefined;
         return (
           <Card key={g.id} id={`graph-${g.id}`} className="scroll-mt-4">
@@ -169,30 +169,15 @@ export default async function DashboardPage() {
                               Removed by moderator
                             </Badge>
                           ) : (
-                            <form
-                              action={setVisibility.bind(
-                                null,
-                                p.id,
-                                p.visibility === "public" ? "unlisted" : "public",
-                              )}
-                              className="flex items-center gap-1.5"
-                            >
-                              <Badge variant={p.visibility === "public" ? "secondary" : "outline"}>
-                                {p.visibility}
-                              </Badge>
-                              <Button type="submit" variant="link" size="sm" className="h-auto px-0">
-                                {p.visibility === "public" ? "Unlist" : "Make public"}
-                              </Button>
-                            </form>
-                          )}
-                          {p.visibility === "public" && !p.removedAt && (
-                            <div className="mt-1.5">
-                              <DiscoverSwitch
-                                publicationId={p.id}
-                                discoverable={p.discoverable}
-                                disabledReason={notListable}
-                              />
-                            </div>
+                            <AccessMenu
+                              publicationId={p.id}
+                              access={
+                                p.visibility === "unlisted" ? "unlisted" : p.discoverable ? "discover" : "public"
+                              }
+                              frontPage={g.frontPage}
+                              indexable={g.indexable}
+                              discoverBlocked={notListable}
+                            />
                           )}
                           {p.removedAt && p.removedReason && (
                             <p className="mt-1 max-w-xs text-xs whitespace-normal text-muted-foreground">
