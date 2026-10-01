@@ -61,7 +61,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
       .select({ title: publication.title, rootUid: publication.rootUid })
       .from(publication)
       .where(and(eq(publication.graphId, g.id), eq(publication.kind, "page"), livePublication)),
-    publicProfile(g.userId),
+    g.showOwner ? publicProfile(g.userId) : null,
   ]);
   const links: PageLinks = new Map(
     pages.map((p) => [p.title.toLowerCase(), publicationPath(g.name, p.rootUid, p.title)]),

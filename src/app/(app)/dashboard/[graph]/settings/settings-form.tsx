@@ -13,6 +13,8 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { type GraphSettings, updateGraphSettings } from "../../actions";
 
 export function GraphSettingsForm({
@@ -27,17 +29,22 @@ export function GraphSettingsForm({
   const [settings, setSettings] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [pending, startTransition] = useTransition();
-  const set = (key: keyof GraphSettings) => (value: boolean) =>
+  const set = (key: Exclude<keyof GraphSettings, "description">) => (value: boolean) =>
     setSettings((s) => ({ ...s, [key]: value }));
-  const dirty = (Object.keys(settings) as (keyof GraphSettings)[]).some((k) => settings[k] !== saved[k]);
+  const normalize = (s: GraphSettings): GraphSettings => ({
+    ...s,
+    featured: s.featured && s.frontPage,
+    description: s.description.replace(/\s+/g, " ").trim(),
+  });
+  const current = normalize(settings);
+  const dirty = (Object.keys(current) as (keyof GraphSettings)[]).some((k) => current[k] !== saved[k]);
 
   function save() {
     startTransition(async () => {
       const res = await updateGraphSettings(graphId, settings);
       if (!res?.ok) return void toast.error(res?.message ?? "Couldn't save settings.");
-      const next = { ...settings, featured: settings.featured && settings.frontPage };
-      setSettings(next);
-      setSaved(next);
+      setSettings(current);
+      setSaved(current);
       toast.success(res.message);
     });
   }
@@ -46,6 +53,24 @@ export function GraphSettingsForm({
     <Card>
       <CardContent>
         <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="description">Description</FieldLabel>
+            <Textarea
+              id="description"
+              rows={2}
+              maxLength={DESCRIPTION_MAX}
+              value={settings.description}
+              onChange={(e) => setSettings((s) => ({ ...s, description: e.target.value }))}
+              placeholder="What's in this graph?"
+            />
+            <div className="flex items-start justify-between gap-2">
+              <FieldDescription>Shown under the title on the front page. Plain text.</FieldDescription>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {settings.description.length}/{DESCRIPTION_MAX}
+              </span>
+            </div>
+          </Field>
+          <FieldSeparator />
           <SettingSwitch
             id="frontPage"
             label="Front page"
@@ -73,6 +98,14 @@ export function GraphSettingsForm({
             checked={settings.featured && settings.frontPage}
             disabled={!settings.frontPage}
             onChange={set("featured")}
+          />
+          <FieldSeparator />
+          <SettingSwitch
+            id="showOwner"
+            label="Link to your profile"
+            description="Show your @username in the breadcrumbs on the front page and every published page. Only applies while your profile is public."
+            checked={settings.showOwner}
+            onChange={set("showOwner")}
           />
         </FieldGroup>
       </CardContent>

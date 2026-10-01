@@ -1,5 +1,5 @@
 {
-  "id": "42586bf7-8db7-4ee7-85a0-55cfb8288877",
+  "id": "3021a531-2783-416a-b9ca-5c605b40f948",
   "prevId": "21f9a358-bbfd-48ff-a4d4-5eba086ec093",
   "version": "7",
   "dialect": "postgresql",
@@ -629,6 +629,20 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "show_owner": {
+          "name": "show_owner",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "suspended_at": {
           "name": "suspended_at",

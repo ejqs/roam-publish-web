@@ -32,6 +32,7 @@ export async function generateMetadata(props: PageProps<"/[graph]">): Promise<Me
   if (g.takenDown) return { title: "Removed", robots: { index: false, follow: false } };
   return {
     title: g.name,
+    description: g.description || undefined,
     alternates: { canonical: graphPath(g.name) },
     robots: g.indexable ? undefined : { index: false, follow: false },
   };
@@ -65,7 +66,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
       .orderBy(...ORDER[sort])
       .limit(PAGE_SIZE)
       .offset((page - 1) * PAGE_SIZE),
-    publicProfile(g.userId),
+    g.showOwner ? publicProfile(g.userId) : null,
   ]);
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -80,6 +81,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
             <Breadcrumbs items={[{ label: `@${owner.username}`, href: `/u/${owner.username}` }, { label: g.name }]} />
           )}
           <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">{g.name}</h1>
+          {g.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{g.description}</p>}
           <p className="mb-8 text-sm text-muted-foreground">
             {total} published {total === 1 ? "page" : "pages"}
           </p>

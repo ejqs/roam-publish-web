@@ -25,6 +25,10 @@ export const graph = pgTable("graph", {
   indexable: boolean("indexable").notNull().default(true),
   /** Opt-in listing on /discover and the home page's trending list. */
   featured: boolean("featured").notNull().default(false),
+  /** Short plain-text description shown on the front page. */
+  description: text("description").notNull().default(""),
+  /** Breadcrumbs on the front page and publications link back to the owner's public profile. */
+  showOwner: boolean("show_owner").notNull().default(true),
   /** Set by a moderator: the whole graph is hidden and its API key stops working. */
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   suspendedReason: text("suspended_reason"),
@@ -167,7 +171,7 @@ export const moderationAction = pgTable(
     action: text("action", {
       enum: [
         "remove", "restore", "suspend", "unsuspend", "ban", "unban", "dismiss",
-        "rename_username", "clear_username", "release_username", "clear_bio",
+        "rename_username", "clear_username", "release_username", "clear_bio", "clear_description",
       ],
     }).notNull(),
     reason: text("reason").notNull().default(""),

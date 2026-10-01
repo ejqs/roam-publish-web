@@ -30,7 +30,13 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
       <GraphSettingsForm
         graphId={g.id}
         graphName={g.name}
-        initial={{ frontPage: g.frontPage, indexable: g.indexable, featured: g.featured }}
+        initial={{
+          frontPage: g.frontPage,
+          indexable: g.indexable,
+          featured: g.featured,
+          showOwner: g.showOwner,
+          description: g.description,
+        }}
       />
     </div>
   );

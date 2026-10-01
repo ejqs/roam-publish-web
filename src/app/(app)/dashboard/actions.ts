@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { graph, profile, publication, usernameAlias, type Visibility } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { DISCOVER_TAG } from "@/lib/discover";
-import { Bio } from "@/lib/bio";
+import { Description } from "@/lib/descriptions";
 import { hasVerifiedGraph } from "@/lib/profiles";
 import { rateLimit } from "@/lib/rate-limit";
 import { Username, usernameTakenByOther } from "@/lib/usernames";
@@ -105,7 +105,7 @@ export async function updateBio(_prev: FormState, formData: FormData): Promise<F
   if (!session) return { ok: false, message: "Your session expired. Please log in again." };
   const userId = session.user.id;
   if (!(await hasVerifiedGraph(userId))) return { ok: false, message: NEEDS_GRAPH };
-  const parsed = Bio.safeParse(formData.get("bio") ?? "");
+  const parsed = Description.safeParse(formData.get("bio") ?? "");
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   if (!rateLimit(`bio:user:${userId}`, 20, 15 * 60 * 1000))
     return { ok: false, message: "Too many changes. Try again in a few minutes." };
@@ -125,14 +125,19 @@ const GraphSettings = z.object({
   frontPage: z.boolean(),
   indexable: z.boolean(),
   featured: z.boolean(),
+  showOwner: z.boolean(),
+  description: Description,
 });
-export type GraphSettings = z.infer<typeof GraphSettings>;
+export type GraphSettings = z.input<typeof GraphSettings>;
 
 export async function updateGraphSettings(graphId: string, input: GraphSettings): Promise<FormState> {
   const session = await getSession();
   if (!session) return { ok: false, message: "Your session expired. Please log in again." };
   const parsed = GraphSettings.safeParse(input);
-  if (!parsed.success) return { ok: false, message: "Invalid settings." };
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    return { ok: false, message: issue.path[0] === "description" ? issue.message : "Invalid settings." };
+  }
   const s = parsed.data;
 
   const updated = await db

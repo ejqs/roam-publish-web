@@ -9,7 +9,7 @@ import { publicationPath } from "@/lib/publications";
 import { REPORT_REASONS } from "@/lib/report-reasons";
 import { plainText } from "@/lib/slug";
 import { ModerateDialog } from "./moderate-dialog";
-import { ProfileActions } from "./profile-actions";
+import { GraphDescriptionAction, ProfileActions } from "./description-actions";
 import { GraphActions, PublicationActions, UserActions } from "./target-actions";
 import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage } from "./ui";
 
@@ -109,6 +109,9 @@ export default async function ReportsPage(props: PageProps<"/admin">) {
                   {!g && prof?.bio && (
                     <p className="mt-2 border-l-2 pl-2 text-sm break-words">{prof.bio}</p>
                   )}
+                  {g && !pub && g.description && (
+                    <p className="mt-2 border-l-2 pl-2 text-sm break-words">{g.description}</p>
+                  )}
                 </div>
                 <Badge variant="secondary">
                   {list.length} {list.length === 1 ? "report" : "reports"}
@@ -143,6 +146,7 @@ export default async function ReportsPage(props: PageProps<"/admin">) {
               {status === "open" && (
                 <div className="flex flex-wrap gap-2">
                   {pub && g && <PublicationActions pub={pub} graphName={g.name} />}
+                  {g && !pub && g.description && <GraphDescriptionAction graphId={g.id} graphName={g.name} />}
                   {g && <GraphActions g={g} />}
                   {!g && prof && (
                     <ProfileActions userId={owner.id} username={prof.username} hasBio={!!prof.bio} />

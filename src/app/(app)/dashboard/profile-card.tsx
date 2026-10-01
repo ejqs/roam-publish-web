@@ -14,7 +14,7 @@ import {
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { BIO_MAX } from "@/lib/bio";
+import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { claimUsername, setProfilePublic, updateBio } from "./actions";
 
 export function ProfileCard({
@@ -134,7 +134,7 @@ function BioForm({ bio }: { bio: string }) {
           id="profile-bio"
           name="bio"
           rows={2}
-          maxLength={BIO_MAX}
+          maxLength={DESCRIPTION_MAX}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Add a short description of you or what you publish"
@@ -148,7 +148,7 @@ function BioForm({ bio }: { bio: string }) {
             </FieldDescription>
           )}
           <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-            {value.length}/{BIO_MAX}
+            {value.length}/{DESCRIPTION_MAX}
           </span>
         </div>
       </Field>

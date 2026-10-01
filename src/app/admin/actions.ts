@@ -257,6 +257,31 @@ export async function adminClearBio(userId: string): Promise<ActionState> {
   return { ok: true, message: `Cleared the description on @${cleared.username}.` };
 }
 
+/** For abusive graph descriptions: blanks the front page description. */
+export async function adminClearGraphDescription(graphId: string): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const [cleared] = await db
+    .update(graph)
+    .set({ description: "" })
+    .where(eq(graph.id, graphId))
+    .returning({ name: graph.name });
+  if (!cleared) return { ok: false, message: "That graph no longer exists." };
+  await resolveReports(
+    and(eq(report.graphId, graphId), isNull(report.publicationId)),
+    "actioned",
+    admin.user.id,
+  );
+  await db.insert(moderationAction).values({
+    adminId: admin.user.id,
+    targetType: "graph",
+    targetId: graphId,
+    action: "clear_description",
+    reason: cleared.name,
+  });
+  revalidatePublic();
+  return { ok: true, message: `Cleared the description on ${cleared.name}.` };
+}
+
 /**
  * Frees a former username: /u/{name} stops redirecting and anyone can claim it. Only for names
  * with no links worth keeping.
