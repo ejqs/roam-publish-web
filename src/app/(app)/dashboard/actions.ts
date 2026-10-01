@@ -56,14 +56,12 @@ export async function setVisibility(publicationId: string, visibility: Visibilit
   updateTag(DISCOVER_TAG);
 }
 
-export type Discoverable = "default" | "on" | "off";
-
-export async function setDiscoverable(publicationId: string, value: Discoverable) {
+export async function setDiscoverable(publicationId: string, discoverable: boolean) {
   const session = await getSession();
   if (!session) return;
   await db
     .update(publication)
-    .set({ discoverable: value === "on" ? true : value === "off" ? false : null })
+    .set({ discoverable: discoverable === true })
     .where(
       and(
         eq(publication.id, publicationId),

@@ -33,7 +33,7 @@ import { publicationPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { setVisibility, unpublish } from "./actions";
 import { AttentionBanners, attentionItems } from "./attention-banners";
-import { DiscoverSelect } from "./discover-select";
+import { DiscoverSwitch } from "./discover-switch";
 import { ProfileCard } from "./profile-card";
 
 export default async function DashboardPage() {
@@ -187,10 +187,9 @@ export default async function DashboardPage() {
                           )}
                           {p.visibility === "public" && !p.removedAt && (
                             <div className="mt-1.5">
-                              <DiscoverSelect
+                              <DiscoverSwitch
                                 publicationId={p.id}
-                                value={p.discoverable === null ? "default" : p.discoverable ? "on" : "off"}
-                                graphDefault={g.featured}
+                                discoverable={p.discoverable}
                                 disabledReason={notListable}
                               />
                             </div>
