@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Roam Publish — web
 
-## Getting Started
+Server and website for [Roam Publish](https://github.com/ejqs/roam-publish), a Roam Research extension that publishes
+pages and blocks to the web.
 
-First, run the development server:
+Stack: Bun · Next.js (App Router) · shadcn/ui (Blueprint-styled) · better-auth (+ api-key plugin) · Drizzle · Postgres · Resend.
+
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+bun install
+cp .env.example .env.local   # fill in BETTER_AUTH_SECRET (openssl rand -base64 32)
+bun run db:migrate
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Without `RESEND_API_KEY`, verification and reset emails are printed to the server console.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Schema changes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Edit `src/db/app-schema.ts` (or re-run `bunx auth@latest generate --config src/lib/auth.ts --output src/db/auth-schema.ts`
+after changing better-auth plugins), then `bun run db:generate` and commit the migration in `drizzle/`.
 
-## Learn More
+## Extension API
 
-To learn more about Next.js, take a look at the following resources:
+See [docs/api-contract.md](docs/api-contract.md).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This is a third-party service made by [@ejqs](https://ejqs.net). Not affiliated with Roam Research.
