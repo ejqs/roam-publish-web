@@ -31,18 +31,30 @@ Body `{ graphName, code }` → `200 { apiKey, graphName }`.
 `400` bad body · `404` no matching pending verification (wrong/expired/used) · `429` too many attempts.
 
 ### `GET /api/ext/publications`
-→ `200 { publications: [{ rootUid, kind, title, url, contentHash, updatedAt }] }` for the key's graph.
+→ `200 { publications: [{ rootUid, kind, title, url, contentHash, visibility, removed, updatedAt }] }` for the key's graph.
 
 ### `POST /api/ext/publications`
-Body `PublishPayload & { contentHash }` → `200 { status: "created" | "updated" | "unchanged", url, contentHash }`.
-`400` invalid body or hash mismatch · `401` bad key · `413` payload too large (> 1 MB).
+Body `PublishPayload & { contentHash }` → `200 { status: "created" | "updated" | "unchanged", url, contentHash, visibility }`.
+New publications are `unlisted`. Republishing never changes visibility.
+`400` invalid body or hash mismatch · `401` bad key · `403` removed by a moderator · `413` payload too large (> 1 MB).
+
+### `PATCH /api/ext/publications/:rootUid`
+Body `{ visibility: "public" | "unlisted" }` → `200 { visibility, url }`.
+`400` bad body · `403` removed by a moderator · `404` not published.
 
 ### `DELETE /api/ext/publications/:rootUid`
-→ `200 { deleted: true }` · `404` not published.
+→ `200 { deleted: true }` · `403` removed by a moderator · `404` not published.
+
+## Moderation errors
+
+Moderators can remove a page, suspend a graph, or ban an account. The extension shows `error` (plus `reason` when present) as-is.
+
+- Every authenticated endpoint: `401 { error: "This account has been suspended" }` when the owner is banned, and `403 { error: "This graph was suspended by a moderator", reason }` when the graph is suspended.
+- Publishing, changing visibility, or unpublishing a removed page: `403 { error: "This page was removed by a moderator", reason }`. A removed page can't be deleted, so a republish can't bring it back.
 
 ## CORS
 
-Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. Allowed headers: `content-type, x-api-key`. Methods: `GET, POST, DELETE, OPTIONS`.
+Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. Allowed headers: `content-type, x-api-key`. Methods: `GET, POST, PATCH, DELETE, OPTIONS`.
 
 ## Graph verification
 
@@ -56,3 +68,8 @@ Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. A
 
 `{server}/{graphName}/{rootUid}/{slug}` — e.g. `roam.pub/ejqs/xyz123123/this-is-why-something`.
 Only `graphName` + `rootUid` identify the publication; the trailing slug is derived from the current title, is purely decorative, and is optional. A bare `/{graph}/{rootUid}` is served as-is; any slug that doesn't match the current title 307-redirects to the current one, so links survive page renames.
+
+## Visibility
+
+- `unlisted` (default): reachable by direct link only, always `noindex`.
+- `public`: also listed on the graph's front page at `{server}/{graphName}` (when the graph's front page is on), and indexable unless the graph turned indexing off.
