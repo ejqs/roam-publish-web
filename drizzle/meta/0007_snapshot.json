@@ -1,6 +1,6 @@
 {
-  "id": "3021a531-2783-416a-b9ca-5c605b40f948",
-  "prevId": "21f9a358-bbfd-48ff-a4d4-5eba086ec093",
+  "id": "a41c3a15-49e2-47ab-8ea7-bcd8a3a82ff8",
+  "prevId": "3021a531-2783-416a-b9ca-5c605b40f948",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -644,6 +644,13 @@
           "notNull": true,
           "default": true
         },
+        "hide_unlisted_breadcrumbs": {
+          "name": "hide_unlisted_breadcrumbs",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
         "suspended_at": {
           "name": "suspended_at",
           "type": "timestamp with time zone",
@@ -983,6 +990,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'unlisted'"
+        },
+        "discoverable": {
+          "name": "discoverable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "title": {
           "name": "title",
