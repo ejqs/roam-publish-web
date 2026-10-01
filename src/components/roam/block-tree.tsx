@@ -14,7 +14,7 @@ function Block({ node, links }: { node: Node; links: PageLinks }) {
       <span
         aria-hidden
         className={cn(
-          "absolute left-2 size-[5px] rounded-full bg-[#5c7080]",
+          "absolute left-2 size-[5px] rounded-full bg-roam-bullet",
           node.heading === 1 ? "top-[16px]" : node.heading === 2 ? "top-[13px]" : node.heading === 3 ? "top-[11px]" : "top-[9px]",
         )}
       />

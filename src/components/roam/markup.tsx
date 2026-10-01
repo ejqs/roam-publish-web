@@ -62,7 +62,7 @@ const rules: Rule[] = [
   { re: /\(\(([\w-]{9,})\)\)/, render: () => null }, // unresolved block refs
   { re: /\*\*(.+?)\*\*/, render: (m, ctx) => <strong>{renderInline(m[1], ctx)}</strong> },
   { re: /__(.+?)__/, render: (m, ctx) => <em>{renderInline(m[1], ctx)}</em> },
-  { re: /\^\^(.+?)\^\^/, render: (m, ctx) => <mark className="bg-[#fff3a3] px-0.5 dark:bg-[#5c4a00]">{renderInline(m[1], ctx)}</mark> },
+  { re: /\^\^(.+?)\^\^/, render: (m, ctx) => <mark className="bg-roam-highlight px-0.5">{renderInline(m[1], ctx)}</mark> },
   { re: /~~(.+?)~~/, render: (m, ctx) => <del>{renderInline(m[1], ctx)}</del> },
   {
     re: /https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"]/,
