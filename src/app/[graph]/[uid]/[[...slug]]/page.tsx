@@ -56,12 +56,13 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
     redirect(publicationPath(g.name, pub.rootUid, pub.title));
   }
 
+  const showBreadcrumbs = pub.visibility === "public" || !g.hideUnlistedBreadcrumbs;
   const [pages, owner] = await Promise.all([
     db
       .select({ title: publication.title, rootUid: publication.rootUid })
       .from(publication)
       .where(and(eq(publication.graphId, g.id), eq(publication.kind, "page"), livePublication)),
-    g.showOwner ? publicProfile(g.userId) : null,
+    showBreadcrumbs && g.showOwner ? publicProfile(g.userId) : null,
   ]);
   const links: PageLinks = new Map(
     pages.map((p) => [p.title.toLowerCase(), publicationPath(g.name, p.rootUid, p.title)]),
@@ -75,13 +76,15 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           <ReportAbuseButton target={{ graphName: g.name, rootUid: pub.rootUid }} />
         </div>
         <article className="mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
-          <Breadcrumbs
-            items={[
-              ...(owner ? [{ label: `@${owner.username}`, href: `/u/${owner.username}` }] : []),
-              { label: g.name, href: g.frontPage ? graphPath(g.name) : undefined },
-              { label: plainText(pub.title) },
-            ]}
-          />
+          {showBreadcrumbs && (
+            <Breadcrumbs
+              items={[
+                ...(owner ? [{ label: `@${owner.username}`, href: `/u/${owner.username}` }] : []),
+                { label: g.name, href: g.frontPage ? graphPath(g.name) : undefined },
+                { label: plainText(pub.title) },
+              ]}
+            />
+          )}
           {pub.kind === "page" ? (
             <>
               <h1 className="mb-6 text-[42px] leading-tight font-semibold break-words">{pub.title}</h1>
