@@ -73,3 +73,5 @@ Only `graphName` + `rootUid` identify the publication; the trailing slug is deri
 
 - `unlisted` (default): reachable by direct link only, always `noindex`.
 - `public`: also listed on the graph's front page at `{server}/{graphName}` (when the graph's front page is on), and indexable unless the graph turned indexing off.
+
+Public pages can also be listed on `{server}/discover`. Each page follows its graph's default (off unless the owner turns it on in graph settings) unless the owner overrides it per page on the dashboard. Discover only lists pages from live graphs with the front page and search engine indexing on. The extension API doesn't expose this setting.
