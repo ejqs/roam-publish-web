@@ -1,11 +1,12 @@
 "use client";
 
-import { ChevronDownIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
 import { createContext, use, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { readOptions } from "@/components/manage/labels";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -19,10 +20,13 @@ import type { Access as ReadAccess } from "@/db/schema";
 import { ICONS, LABELS, type Option, Section } from "./access-menu";
 import type { Access } from "./actions";
 import { bulkUpdateEntries, bulkUpdatePublications } from "./place-actions";
+import { bulkSetTags } from "./tag-actions";
 
 type Ctx = {
   selected: Set<string>;
   ids: string[];
+  /** Current tags per selectable id. */
+  tags: Record<string, string[]>;
   toggle: (id: string, on: boolean) => void;
   setAll: (on: boolean) => void;
 };
@@ -35,9 +39,12 @@ const BulkContext = createContext<Ctx | null>(null);
 export function BulkSelect({
   kind = "graph",
   ids,
+  tags = {},
   graphName,
   children,
 }: {
+  /** Current tags per selectable id, for the Tags menu. */
+  tags?: Record<string, string[]>;
   /** A graph's pages (publication ids) or a collection's (entry ids). */
   kind?: "graph" | "collection";
   /** Rows on this page of the list that can be selected. */
@@ -50,6 +57,7 @@ export function BulkSelect({
   const ctx: Ctx = {
     selected,
     ids,
+    tags,
     toggle: (id, on) =>
       setSelected((prev) => {
         const next = new Set(prev);
@@ -97,7 +105,7 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
   const ctx = use(BulkContext)!;
   const [pending, start] = useTransition();
   // A change chosen from a menu waits here until it's confirmed.
-  const [staged, setStaged] = useState<{ reach?: Access; read?: ReadAccess } | null>(null);
+  const [staged, setStaged] = useState<{ reach?: Access; read?: ReadAccess; tags?: TagChange } | null>(null);
   const n = ctx.selected.size;
   const pages = `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
 
@@ -105,8 +113,12 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
     if (!staged) return;
     const change = staged;
     start(async () => {
-      const input = { ids: [...ctx.selected], ...change };
-      const res = kind === "graph" ? await bulkUpdatePublications(input) : await bulkUpdateEntries(input);
+      const ids = [...ctx.selected];
+      const res = change.tags
+        ? await bulkSetTags({ kind, ids, ...change.tags })
+        : kind === "graph"
+          ? await bulkUpdatePublications({ ids, ...change })
+          : await bulkUpdateEntries({ ids, ...change });
       setStaged(null);
       if (!res.ok) return void toast.error(res.message);
       toast.success(res.message);
@@ -177,6 +189,17 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
           />
         )}
       </BulkMenu>
+      <BulkMenu label="Tags" disabled={pending}>
+        {(close) => (
+          <TagsPanel
+            selectedTags={[...ctx.selected].flatMap((id) => ctx.tags[id] ?? [])}
+            onReview={(change) => {
+              close();
+              setStaged({ tags: change });
+            }}
+          />
+        )}
+      </BulkMenu>
       <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={onDone} disabled={pending}>
         <XIcon /> Clear
       </Button>
@@ -185,6 +208,7 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
           <DialogHeader>
             <DialogTitle>Change {pages}?</DialogTitle>
             <DialogDescription>
+              {staged?.tags && <TagChangeSummary change={staged.tags} n={n} />}
               {stagedOption && (
                 <>
                   {staged?.reach ? `Sets where ${n === 1 ? "it's" : "they're"} listed` : `Sets who can read ${n === 1 ? "it" : "them"}`}{" "}
@@ -231,5 +255,94 @@ function BulkMenu({
         {children(() => setOpen(false))}
       </PopoverContent>
     </Popover>
+  );
+}
+
+type TagChange = { add: string[]; remove: string[] };
+
+const parseTags = (text: string) =>
+  [...new Set(text.split(",").map((t) => t.trim().replace(/^#+/, "").replace(/\s+/g, " ").toLowerCase()).filter(Boolean))];
+
+/** Add tags by typing them; remove tags the selected pages have by clicking them. */
+function TagsPanel({ selectedTags, onReview }: { selectedTags: string[]; onReview: (change: TagChange) => void }) {
+  const [draft, setDraft] = useState("");
+  const [remove, setRemove] = useState<Set<string>>(new Set());
+  const counts = new Map<string, number>();
+  for (const t of selectedTags) counts.set(t, (counts.get(t) ?? 0) + 1);
+  const onPages = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const add = parseTags(draft);
+  const ready = add.length > 0 || remove.size > 0;
+  return (
+    <form
+      className="flex flex-col gap-3 p-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (ready) onReview({ add, remove: [...remove] });
+      }}
+    >
+      <label className="flex flex-col gap-1.5 text-sm">
+        <span className="font-medium">Add tags</span>
+        <Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="essay, book club" className="h-8" />
+      </label>
+      <div className="flex flex-col gap-1.5 text-sm">
+        <span className="font-medium">Remove from selected pages</span>
+        {onPages.length === 0 ? (
+          <span className="text-xs text-muted-foreground">The selected pages have no tags.</span>
+        ) : (
+          <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+            {onPages.map(([t, n]) => {
+              const on = remove.has(t);
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() =>
+                    setRemove((prev) => {
+                      const next = new Set(prev);
+                      if (on) next.delete(t);
+                      else next.add(t);
+                      return next;
+                    })
+                  }
+                  className={
+                    on
+                      ? "inline-flex h-6 items-center gap-1 rounded-4xl border border-destructive bg-destructive/10 px-2 text-xs text-destructive line-through"
+                      : "inline-flex h-6 items-center gap-1 rounded-4xl border px-2 text-xs text-roam-ref hover:bg-muted"
+                  }
+                >
+                  #{t} <span className="text-muted-foreground tabular-nums no-underline">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <Button type="submit" size="sm" disabled={!ready} className="self-end">
+        <PlusIcon /> Review changes
+      </Button>
+    </form>
+  );
+}
+
+function TagChangeSummary({ change, n }: { change: TagChange; n: number }) {
+  const list = (ts: string[]) => ts.map((t) => `#${t}`).join(", ");
+  return (
+    <>
+      {change.add.length > 0 && (
+        <>
+          Adds <span className="font-medium text-foreground">{list(change.add)}</span>
+          {change.remove.length > 0 ? " and removes " : ". "}
+        </>
+      )}
+      {change.remove.length > 0 && (
+        <>
+          {change.add.length === 0 && "Removes "}
+          <span className="font-medium text-foreground">{list(change.remove)}</span>.{" "}
+        </>
+      )}
+      Tags belong to the page, so this changes {n === 1 ? "it" : "them"} everywhere {n === 1 ? "it appears" : "they appear"}. Tags
+      removed from the Roam text stay removed when republished.
+    </>
   );
 }

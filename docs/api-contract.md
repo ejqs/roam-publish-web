@@ -194,7 +194,8 @@ sends nothing new and the hash is unchanged.
 - **Website edits**: people who can manage a page add or remove tags in its Manage dialog
   (`src/app/(app)/dashboard/tag-actions.ts`). They're stored as `tags_added` and `tags_hidden` and reapplied
   on every republish, so a Roam `#tag` removed on the website stays removed. `tags` is always
-  (tags from the tree ∪ `tags_added`) − `tags_hidden`.
+  (tags from the tree ∪ `tags_added`) − `tags_hidden`. The dashboard's graph and collection lists can add and
+  remove tags on many pages at once (`bulkSetTags`); pages the viewer can't manage are skipped.
 - After changing `src/lib/tags.ts`, run `bun run search:backfill` to recompute existing rows.
 
 Graph front pages and collection pages take `?q=`, `?tag=` (repeatable, all must match), `?kind=page|block`,
