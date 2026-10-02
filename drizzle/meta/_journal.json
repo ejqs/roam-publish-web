@@ -78,6 +78,13 @@
       "when": 1790907952100,
       "tag": "0010_materialize_page_access",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790910320631,
+      "tag": "0011_rss_feeds",
+      "breakpoints": true
     }
   ]
 }

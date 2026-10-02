@@ -20,10 +20,13 @@ import { type GraphSettings, updateGraphSettings } from "../../actions";
 export function GraphSettingsForm({
   graphId,
   graphName,
+  indexOpen,
   initial,
 }: {
   graphId: string;
   graphName: string;
+  /** Anyone can open the front page; feeds only list open graphs. */
+  indexOpen: boolean;
   initial: GraphSettings;
 }) {
   const [settings, setSettings] = useState(initial);
@@ -34,6 +37,7 @@ export function GraphSettingsForm({
   const normalize = (s: GraphSettings): GraphSettings => ({
     ...s,
     featured: s.featured && s.frontPage,
+    rss: s.rss && s.frontPage,
     description: s.description.replace(/\s+/g, " ").trim(),
   });
   const current = normalize(settings);
@@ -100,6 +104,21 @@ export function GraphSettingsForm({
             checked={settings.featured && settings.frontPage}
             disabled={!settings.frontPage || !settings.indexable}
             onChange={set("featured")}
+          />
+          <FieldSeparator />
+          <SettingSwitch
+            id="rss"
+            label="RSS feed"
+            description={
+              !settings.frontPage
+                ? "Turn on the front page to offer an RSS feed."
+                : !indexOpen
+                  ? "The feed only works while anyone can open the front page. Change who can open it below."
+                  : `Offer a feed of the front page at roam.pub/${graphName}/feed.xml. Only pages open to everyone are included.`
+            }
+            checked={settings.rss && settings.frontPage}
+            disabled={!settings.frontPage}
+            onChange={set("rss")}
           />
           <FieldSeparator />
           <SettingSwitch
