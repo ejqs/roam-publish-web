@@ -1,6 +1,7 @@
 import { and, asc, count, eq, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { AccessLock } from "@/components/access-lock";
 import { GateNotice } from "@/components/gate-notice";
 import { PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
@@ -100,7 +101,9 @@ async function CollectionIndex({ c, slug }: { c: C; slug?: string[] }) {
         </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           <p className="mb-2 text-sm text-muted-foreground">Collection</p>
-          <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">{c.name}</h1>
+          <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">
+            {c.name} <AccessLock access={c.indexAccess} what="collection" />
+          </h1>
           {c.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{c.description}</p>}
           <p className="mb-8 text-sm text-muted-foreground">
             {items.length} {items.length === 1 ? "page" : "pages"}

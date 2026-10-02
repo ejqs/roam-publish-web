@@ -44,7 +44,7 @@ export function ContainerAccessFields({
       <FieldSet>
         <FieldLegend variant="label">Front page</FieldLegend>
         <FieldDescription>Who can open this {kind}&apos;s page and see what&apos;s listed on it.</FieldDescription>
-        <Choice id={`${kind}-index`} value={value.indexAccess} options={options("open it")} onChange={(indexAccess) => set({ indexAccess })} />
+        <Choice id={`${kind}-index`} value={value.indexAccess} options={options("open it")} onChange={(indexAccess) => set({ indexAccess, defaultAccess: indexAccess })} />
       </FieldSet>
       <FieldSeparator />
       <FieldSet>
