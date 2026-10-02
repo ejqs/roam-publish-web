@@ -11,6 +11,7 @@ import { DISCOVER_TAG } from "@/lib/discover";
 import { collectionRole } from "@/lib/collections";
 import { Description } from "@/lib/descriptions";
 import { clearGatedGraphDiscover } from "@/lib/discover-rules";
+import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { hasVerifiedGraph } from "@/lib/profiles";
@@ -214,7 +215,16 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
   for (const id of new Set(s.defaultCollections))
     if (await collectionRole(session.user.id, id)) keep.push(id);
 
+  if (!hasPassword && (await pagesNeedingContainerPassword("graph", g.id)))
+    return { ok: false, message: "Some pages still use the graph password. Change them first." };
+
   await db.transaction(async (tx) => {
+    // The default is for pages published from now on: pages that followed the old one keep it.
+    if (s.defaultAccess !== g.defaultAccess)
+      await tx
+        .update(publication)
+        .set({ access: g.defaultAccess })
+        .where(and(eq(publication.graphId, g.id), eq(publication.access, "inherit")));
     await tx
       .update(graph)
       .set({

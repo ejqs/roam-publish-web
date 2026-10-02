@@ -5,8 +5,8 @@ import { publication } from "@/db/schema";
 export const ACCESS = ["unlisted", "public", "discover", "removed"] as const;
 export type AccessFilter = (typeof ACCESS)[number];
 export const ACCESS_LABELS: Record<AccessFilter, string> = {
-  unlisted: "Unlisted",
-  public: "Public",
+  unlisted: "Not listed",
+  public: "Listed",
   discover: "Discover",
   removed: "Removed",
 };

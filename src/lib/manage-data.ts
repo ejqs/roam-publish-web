@@ -17,6 +17,7 @@ export type ManageData = {
     inGraph: boolean;
     path: string;
     visibility: "public" | "unlisted";
+    discoverable: boolean;
     state: PlaceState;
     container: { label: string; defaultAccess: "open" | "password" | "members"; hasPassword: boolean; showAuthors: boolean };
   };
@@ -70,7 +71,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
       .filter((e) => e.entry.publicationId === pub.id)
       .map(({ entry, c }) => ({
         entryId: entry.id,
-        path: entryPath(entry.entryUid, pub.title),
+        path: entryPath(c.slug, entry.entryUid, pub.title),
         collectionName: c.name,
         collectionSlug: c.slug,
         canManage: !pub.removedAt && canManageEntry(collectionRoles.get(c.id) ?? null, userId, entry),
@@ -105,6 +106,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
         inGraph: pub.inGraph,
         path: publicationPath(g.name, pub.rootUid, pub.title),
         visibility: pub.visibility,
+        discoverable: pub.discoverable,
         state: { access: pub.access, hasOwnPassword: !!pub.passwordHash, showAuthor: pub.showAuthor },
         container: {
           label: g.name,

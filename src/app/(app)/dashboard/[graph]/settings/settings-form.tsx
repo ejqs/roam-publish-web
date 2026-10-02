@@ -82,7 +82,7 @@ export function GraphSettingsForm({
           <SettingSwitch
             id="indexable"
             label="Search engines"
-            description="Allow search engines to index your front page and public pages. Unlisted pages are never indexed."
+            description="Allow search engines to index your front page and listed pages. Pages that aren't listed are never indexed."
             checked={settings.indexable}
             onChange={set("indexable")}
           />
@@ -112,8 +112,8 @@ export function GraphSettingsForm({
           <FieldSeparator />
           <SettingSwitch
             id="hideUnlistedBreadcrumbs"
-            label="Hide breadcrumbs on unlisted pages"
-            description="Unlisted pages won't link back to this graph or your profile, so a shared link stays on its own page."
+            label="Hide breadcrumbs on pages that aren't listed"
+            description="Pages that aren't listed won't link back to this graph or your profile, so a shared link stays on its own page."
             checked={settings.hideUnlistedBreadcrumbs}
             onChange={set("hideUnlistedBreadcrumbs")}
           />

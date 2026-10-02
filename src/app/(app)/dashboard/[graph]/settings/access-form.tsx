@@ -15,11 +15,13 @@ import { updateGraphAccess } from "../../actions";
 export function GraphAccessForm({
   graphId,
   graphName,
+  pageCount,
   initial,
   collections,
 }: {
   graphId: string;
   graphName: string;
+  pageCount: number;
   initial: {
     indexAccess: Access;
     defaultAccess: Access;
@@ -67,7 +69,15 @@ export function GraphAccessForm({
       </CardHeader>
       <CardContent>
         <FieldGroup>
-          <ContainerAccessFields kind="graph" value={access} hasPassword={hasPassword} onChange={setAccess} />
+          <ContainerAccessFields
+            kind="graph"
+            label={graphName}
+            containerId={graphId}
+            pageCount={pageCount}
+            value={access}
+            hasPassword={hasPassword}
+            onChange={setAccess}
+          />
           <FieldSeparator />
           <Field orientation="horizontal">
             <FieldContent>

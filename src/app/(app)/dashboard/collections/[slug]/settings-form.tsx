@@ -29,10 +29,12 @@ export function CollectionSettingsForm({
   collectionId,
   initial,
   hasPassword: initialHasPassword,
+  pageCount,
 }: {
   collectionId: string;
   initial: Initial;
   hasPassword: boolean;
+  pageCount: number;
 }) {
   const router = useRouter();
   const [s, setS] = useState(initial);
@@ -81,7 +83,15 @@ export function CollectionSettingsForm({
             />
           </Field>
           <FieldSeparator />
-          <ContainerAccessFields kind="collection" value={access} hasPassword={hasPassword} onChange={setAccess} />
+          <ContainerAccessFields
+            kind="collection"
+            label={initial.name}
+            containerId={collectionId}
+            pageCount={pageCount}
+            value={access}
+            hasPassword={hasPassword}
+            onChange={setAccess}
+          />
           <FieldSeparator />
           <Toggle id="c-authors" label="Show authors" description="Bylines on pages in this collection. Pages can override it." checked={s.showAuthors} onChange={set("showAuthors")} />
           <FieldSeparator />
@@ -126,7 +136,7 @@ export function CollectionSettingsForm({
             start(async () => {
               const res = await deleteCollection(collectionId);
               if (!res.ok) return void toast.error(res.message);
-              router.push("/dashboard/collections");
+              router.push("/dashboard");
             });
           }}
         >

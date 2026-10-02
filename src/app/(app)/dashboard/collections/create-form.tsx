@@ -1,25 +1,39 @@
 "use client";
 
+import { PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { createCollection } from "./actions";
 
-export function CreateCollectionForm() {
+/** "Add collection" button that opens the create form in a dialog. */
+export function AddCollectionDialog({ variant = "outline" }: { variant?: "outline" | "default" }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [pending, start] = useTransition();
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>New collection</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger
+        render={
+          <Button variant={variant}>
+            <PlusIcon />
+            Add collection
+          </Button>
+        }
+      />
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>New collection</DialogTitle>
+          <DialogDescription>
+            A collection gathers pages from any of your graphs, and from the people you invite, at roam.pub/c/name.
+          </DialogDescription>
+        </DialogHeader>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -27,28 +41,41 @@ export function CreateCollectionForm() {
               const res = await createCollection({ name, slug });
               if (!res.ok) return void toast.error(res.message);
               toast.success(res.message);
+              setOpen(false);
               router.push(`/dashboard/collections/${res.slug}`);
             });
           }}
         >
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="name">Name</FieldLabel>
-              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Reading group" required />
+              <FieldLabel htmlFor="collection-name">Name</FieldLabel>
+              <Input
+                id="collection-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Reading group"
+                required
+              />
             </Field>
             <Field>
-              <FieldLabel htmlFor="slug">Address</FieldLabel>
-              <Input id="slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="TTC0815" required />
+              <FieldLabel htmlFor="collection-slug">Address</FieldLabel>
+              <Input
+                id="collection-slug"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="TTC0815"
+                required
+              />
               <FieldDescription>
                 roam.pub/c/{slug.trim().toLowerCase() || "name"}. Letters, numbers, - and _; not case-sensitive.
               </FieldDescription>
             </Field>
             <Button type="submit" className="self-end" disabled={pending || !name || !slug}>
-              Create
+              {pending ? "Creating…" : "Create"}
             </Button>
           </FieldGroup>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }

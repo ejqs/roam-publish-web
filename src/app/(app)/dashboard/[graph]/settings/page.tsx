@@ -1,10 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { db } from "@/db";
-import { graph, graphDefaultCollection } from "@/db/schema";
+import { graph, graphDefaultCollection, publication } from "@/db/schema";
 import { collectionsOf } from "@/lib/collections";
 import { requireSession } from "@/lib/session";
 import { GraphAccessForm } from "./access-form";
@@ -20,9 +20,10 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
     where: and(eq(graph.name, name), eq(graph.userId, session.user.id)),
   });
   if (!g) notFound();
-  const [collections, defaults] = await Promise.all([
+  const [collections, defaults, [pages]] = await Promise.all([
     collectionsOf(session.user.id),
     db.select().from(graphDefaultCollection).where(eq(graphDefaultCollection.graphId, g.id)),
+    db.select({ n: count() }).from(publication).where(eq(publication.graphId, g.id)),
   ]);
 
   return (
@@ -57,6 +58,7 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
       <GraphAccessForm
         graphId={g.id}
         graphName={g.name}
+        pageCount={pages?.n ?? 0}
         initial={{
           indexAccess: g.indexAccess,
           defaultAccess: g.defaultAccess,

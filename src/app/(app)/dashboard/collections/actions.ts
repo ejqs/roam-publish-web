@@ -11,6 +11,7 @@ import { CollectionName, CollectionSlug, reservePath } from "@/lib/collections";
 import { Description } from "@/lib/descriptions";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { clearGatedCollectionDiscover } from "@/lib/discover-rules";
+import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { hashPassword, Password } from "@/lib/gates";
 import { canReceiveInvite } from "@/lib/graph-access";
 import { rateLimit } from "@/lib/rate-limit";
@@ -81,8 +82,16 @@ export async function updateCollection(collectionId: string, input: CollectionSe
   const hasPassword = s.password ? true : s.clearPassword ? false : !!c.passwordHash;
   if ((s.indexAccess === "password" || s.defaultAccess === "password") && !hasPassword)
     return { ok: false, message: "Set a collection password to use password access." };
+  if (!hasPassword && (await pagesNeedingContainerPassword("collection", c.id)))
+    return { ok: false, message: "Some pages still use the collection password. Change them first." };
   // Discover only takes open, indexable collections; a gate turns it off (see clearGatedCollectionDiscover).
   const open = s.indexAccess === "open" && s.indexable;
+  // The default is for pages added from now on: pages that followed the old one keep it.
+  if (s.defaultAccess !== c.defaultAccess)
+    await db
+      .update(collectionEntry)
+      .set({ access: c.defaultAccess })
+      .where(and(eq(collectionEntry.collectionId, c.id), eq(collectionEntry.access, "inherit")));
   await db
     .update(collection)
     .set({

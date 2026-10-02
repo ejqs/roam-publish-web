@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldGroup, FieldLabel, FieldSeparator, FieldSet, FieldLegend } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { Access, EntryListing, PlaceAccess, ShowAuthor } from "@/db/schema";
-import { ACCESS_DESCRIPTIONS, ACCESS_LABELS, Choice } from "./choice";
+import { Choice, LISTING_LABELS, readOptions } from "./choice";
 
 export type PlaceState = {
   access: PlaceAccess;
@@ -42,7 +42,11 @@ export function PlaceAccessForm({
   };
   onSaved?: () => void;
 }) {
-  const [state, setState] = useState(initial);
+  // Pages store their own access; "inherit" only survives on rows from before that, so show its value.
+  const [state, setState] = useState<PlaceState>({
+    ...initial,
+    access: initial.access === "inherit" ? container.defaultAccess : initial.access,
+  });
   const [password, setPassword] = useState("");
   const [pending, start] = useTransition();
   const effective = state.access === "inherit" ? container.defaultAccess : state.access;
@@ -68,11 +72,11 @@ export function PlaceAccessForm({
   }
 
   const listingOptions = [
-    { value: "unlisted" as const, label: "Unlisted", description: "Only people with the link." },
-    { value: "listed" as const, label: "Listed", description: `Shown on ${container.label}'s page to everyone who can open it.` },
+    { value: "unlisted" as const, label: LISTING_LABELS.unlisted, description: "Only people with the link can find it." },
+    { value: "listed" as const, label: LISTING_LABELS.listed, description: `Shown on ${container.label}'s page to everyone who can open it.` },
     {
       value: "discover" as const,
-      label: "Discover",
+      label: LISTING_LABELS.discover,
       description: container.discoverBlocked ?? "Also listed on roam.pub/discover.",
       disabled: !!container.discoverBlocked || effective !== "open",
     },
@@ -83,7 +87,7 @@ export function PlaceAccessForm({
       {kind === "entry" && state.listing && (
         <>
           <FieldSet>
-            <FieldLegend variant="label">Listing</FieldLegend>
+            <FieldLegend variant="label">Where it&apos;s listed</FieldLegend>
             <Choice
               id={`listing-${id}`}
               value={state.listing}
@@ -98,25 +102,16 @@ export function PlaceAccessForm({
         </>
       )}
       <FieldSet>
-        <FieldLegend variant="label">Who can read it here</FieldLegend>
+        <FieldLegend variant="label">Who can read it</FieldLegend>
         <Choice<PlaceAccess>
           id={`access-${id}`}
           value={state.access}
           onChange={(access) => setState((s) => ({ ...s, access }))}
-          options={[
-            {
-              value: "inherit",
-              label: `Use ${container.label}'s default (${ACCESS_LABELS[container.defaultAccess].toLowerCase()})`,
-            },
-            ...(["open", "password", "members"] as const).map((a) => ({
-              value: a,
-              label: ACCESS_LABELS[a],
-              description:
-                a === "open" && container.defaultAccess !== "open"
-                  ? "Anyone with the link can read, even though the rest is protected."
-                  : ACCESS_DESCRIPTIONS[a],
-            })),
-          ]}
+          options={readOptions(container.label).map((o) =>
+            o.value === "open" && container.defaultAccess !== "open"
+              ? { ...o, description: "Anyone with the link can read, even though the rest is protected." }
+              : o,
+          )}
         />
       </FieldSet>
       {effective === "password" && (
