@@ -19,6 +19,8 @@ import { pendingInvitesFor } from "@/lib/invites";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { AttentionBanners, attentionItems } from "./attention-banners";
+import { ChangeLogIssues } from "./change-log-issues";
+import { missingChangeLogBlocks } from "@/lib/changelog";
 import { AddCollectionDialog } from "./collections/create-form";
 import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
@@ -61,8 +63,12 @@ export default async function DashboardPage() {
     entryCounts.set(r.collectionId, c);
   }
   const counts = new Map(countRows.map(({ graphId, ...c }) => [graphId, c]));
+  const changeLogIssues = await missingChangeLogBlocks(session.user.id);
   const banners = (
-    <AttentionBanners items={attentionItems({ graphs: owned, counts, me, invites: invites.length })} />
+    <>
+      <AttentionBanners items={attentionItems({ graphs: owned, counts, me, invites: invites.length })} />
+      <ChangeLogIssues issues={changeLogIssues} />
+    </>
   );
   const nav = (
     <div className="flex flex-wrap gap-2">

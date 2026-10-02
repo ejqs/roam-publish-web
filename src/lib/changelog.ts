@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { db } from "@/db";
 import { changelogEntry, graph, publication, shortlink } from "@/db/schema";
 import { decryptToken } from "./append-token";
+import { manageablePublications } from "./graph-access";
 import { appendUnderBlock } from "./roam-append";
 
 /**
@@ -78,6 +79,7 @@ export async function queueChanges(changes: Change[], at = new Date()) {
     .where(
       and(
         isNotNull(shortlink.anchorUid),
+        isNull(shortlink.anchorMissingAt),
         isNotNull(graph.appendTokenEnc),
         sql`${graph.appendTokenStatus} is distinct from 'invalid'`,
         or(...pairs.map((p) => and(eq(shortlink.graphId, p.graphId), eq(shortlink.rootUid, p.rootUid)))),
@@ -93,6 +95,13 @@ const APPEND_GAP_MS = 10_000;
 const QUIET_MS = 30_000;
 /** …but never hold an entry longer than this. */
 const MAX_WAIT_MS = 3 * 60_000;
+/**
+ * Roam's Append API writes to the daily note when the target block doesn't exist, so entries only
+ * go to blocks the extension saw within this window (it checks every few minutes while Roam is
+ * open). Until then they wait, and are dropped after QUEUE_MAX_AGE_MS.
+ */
+export const CONFIRM_WINDOW_MS = 10 * 60_000;
+const QUEUE_MAX_AGE_MS = 7 * 24 * 60 * 60_000;
 const BACKOFF_BASE_MS = 60_000;
 const BACKOFF_MAX_MS = 30 * 60_000;
 
@@ -102,6 +111,10 @@ const BACKOFF_MAX_MS = 30 * 60_000;
  * overlapping runs or replicas never send the same entry twice.
  */
 export async function flushChangeLog(now = new Date()) {
+  await db
+    .update(changelogEntry)
+    .set({ status: "dropped" })
+    .where(and(eq(changelogEntry.status, "pending"), lte(changelogEntry.createdAt, new Date(now.getTime() - QUEUE_MAX_AGE_MS))));
   const ready = await db.execute<{ shortlink_id: string; graph_id: string }>(sql`
     select distinct on (s.graph_id) s.id as shortlink_id, s.graph_id
     from ${changelogEntry} e
@@ -109,6 +122,8 @@ export async function flushChangeLog(now = new Date()) {
     join ${graph} g on g.id = s.graph_id
     where e.status = 'pending'
       and s.anchor_uid is not null
+      and s.anchor_missing_at is null
+      and s.anchor_confirmed_at >= ${new Date(now.getTime() - CONFIRM_WINDOW_MS)}
       and g.append_token_enc is not null
       and g.append_token_status is distinct from 'invalid'
       and (g.append_next_at is null or g.append_next_at <= ${now})
@@ -134,7 +149,16 @@ async function sendPage(shortlinkId: string, graphId: string, now: Date) {
     .set({ status: "sending" })
     .where(and(eq(changelogEntry.shortlinkId, shortlinkId), eq(changelogEntry.status, "pending")))
     .returning({ id: changelogEntry.id, text: changelogEntry.text, createdAt: changelogEntry.createdAt });
-  if (!link?.anchorUid || claimed.length === 0) return;
+  const confirmed =
+    link?.anchorUid &&
+    !link.anchorMissingAt &&
+    link.anchorConfirmedAt &&
+    link.anchorConfirmedAt.getTime() >= now.getTime() - CONFIRM_WINDOW_MS;
+  if (!confirmed || claimed.length === 0) {
+    // Reported missing (or gone stale) since the ready check: put them back for the next confirmation.
+    if (claimed.length) await db.update(changelogEntry).set({ status: "pending" }).where(inArray(changelogEntry.id, claimed.map((c) => c.id)));
+    return;
+  }
   claimed.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   const ids = claimed.map((c) => c.id);
   const setStatus = (status: "pending" | "sent" | "failed") =>
@@ -151,7 +175,7 @@ async function sendPage(shortlinkId: string, graphId: string, now: Date) {
   const res = await appendUnderBlock(
     paced.name,
     token,
-    link.anchorUid,
+    link.anchorUid!,
     claimed.map((c) => `${stamp(c.createdAt, paced.timeZone)} ${c.text}`),
   );
   if (res.ok) {
@@ -229,4 +253,61 @@ export function changeLogStatus(g: {
 export async function changeLogStatusOf(graphId: string) {
   const g = await db.query.graph.findFirst({ where: eq(graph.id, graphId) });
   return g ? changeLogStatus(g) : { status: "none" as const, lastOkAt: null };
+}
+
+export type AnchorCheck = { rootUid: string; anchorUid: string };
+
+/**
+ * What the extension saw in the graph: Changelog blocks that still exist are confirmed, so queued
+ * entries can go to them; missing ones stop the page's change log, drop what was queued for it (it
+ * continues from when the blocks are added back, never backfilled) and show up on the dashboard.
+ * Only reports about the block roam.pub currently writes to count.
+ */
+export async function recordAnchorCheck(graphId: string, present: AnchorCheck[], missing: AnchorCheck[]) {
+  const now = new Date();
+  const match = (list: AnchorCheck[]) =>
+    or(...list.map((a) => and(eq(shortlink.rootUid, a.rootUid), eq(shortlink.anchorUid, a.anchorUid))));
+  if (present.length)
+    await db
+      .update(shortlink)
+      .set({ anchorConfirmedAt: now })
+      .where(and(eq(shortlink.graphId, graphId), match(present)));
+  if (missing.length) {
+    const gone = await db
+      .update(shortlink)
+      .set({ anchorUid: null, anchorConfirmedAt: null, anchorMissingAt: now, anchorMissingDismissedAt: null })
+      .where(and(eq(shortlink.graphId, graphId), match(missing)))
+      .returning({ id: shortlink.id });
+    if (gone.length)
+      await db
+        .update(changelogEntry)
+        .set({ status: "dropped" })
+        .where(and(inArray(changelogEntry.shortlinkId, gone.map((g) => g.id)), eq(changelogEntry.status, "pending")));
+  }
+}
+
+/** Pages this person manages whose Changelog block went missing, not dismissed: for the dashboard. */
+export async function missingChangeLogBlocks(userId: string) {
+  return db
+    .select({
+      shortlinkId: shortlink.id,
+      title: publication.title,
+      rootUid: publication.rootUid,
+      graphName: graph.name,
+      missingAt: shortlink.anchorMissingAt,
+    })
+    .from(shortlink)
+    .innerJoin(
+      publication,
+      and(eq(publication.graphId, shortlink.graphId), eq(publication.rootUid, shortlink.rootUid)),
+    )
+    .innerJoin(graph, eq(graph.id, shortlink.graphId))
+    .where(
+      and(
+        isNotNull(shortlink.anchorMissingAt),
+        isNull(shortlink.anchorMissingDismissedAt),
+        manageablePublications(userId),
+      ),
+    )
+    .orderBy(desc(shortlink.anchorMissingAt));
 }
