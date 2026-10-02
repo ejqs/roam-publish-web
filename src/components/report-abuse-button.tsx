@@ -52,9 +52,9 @@ export function ReportAbuseButton({ target }: { target: ReportTarget }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="ghost" size="sm" className="text-muted-foreground">
+          <Button variant="ghost" size="sm" className="text-muted-foreground max-sm:px-1.5" title="Report abuse">
             <FlagIcon />
-            Report abuse
+            <span className="max-sm:sr-only">Report abuse</span>
           </Button>
         }
       />

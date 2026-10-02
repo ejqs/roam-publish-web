@@ -86,7 +86,7 @@ export function OnboardingFlow({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-12">
+    <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-6 sm:py-12">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold">{hasGraph ? "Connect another graph" : "Connect your graph"}</h1>
         <p className="text-muted-foreground">

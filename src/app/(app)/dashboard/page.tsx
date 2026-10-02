@@ -194,7 +194,7 @@ export default async function DashboardPage() {
 
   if (graphs.length === 0) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-12">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
         {banners}
         <Empty className="border">
           <EmptyHeader>
@@ -217,7 +217,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <div className="flex flex-wrap justify-end gap-2">

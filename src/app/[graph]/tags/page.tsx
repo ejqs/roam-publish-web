@@ -73,7 +73,7 @@ export default async function GraphTags(props: PageProps<"/[graph]/tags">) {
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4 flex items-center gap-1">
+        <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">

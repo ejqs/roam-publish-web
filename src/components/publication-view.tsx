@@ -65,7 +65,7 @@ export function PublicationView({
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4 flex items-center gap-1">
+        <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
           <QuickSearch siteSearch={siteSearch} />
           <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
           {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}

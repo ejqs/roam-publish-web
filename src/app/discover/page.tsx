@@ -30,7 +30,7 @@ export default async function DiscoverPage(props: PageProps<"/discover">) {
     <>
       <SiteHeader />
       <main className="flex-1">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-12">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6 sm:py-12">
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-col gap-1">
               <h1 className="text-2xl font-semibold">Discover</h1>
