@@ -6,13 +6,13 @@ import { publication } from "@/db/schema";
 import { collectionsOf } from "@/lib/collections";
 import { graphsOf } from "@/lib/graph-access";
 import { requireSession } from "@/lib/session";
-import { DeleteAccountCard } from "../delete-account";
+import { DeleteAccountCard } from "../dashboard/delete-account";
 
-export const metadata: Metadata = { title: "Advanced settings · Roam Publish" };
+export const metadata: Metadata = { title: "Settings · Roam Publish" };
 
 /** Rarely used, irreversible account actions live here, away from the day-to-day dashboard. */
-export default async function AdvancedPage() {
-  const session = await requireSession("/dashboard/advanced");
+export default async function SettingsPage() {
+  const session = await requireSession("/settings");
   const [graphs, collections] = await Promise.all([graphsOf(session.user.id), collectionsOf(session.user.id)]);
   const owned = graphs.filter((g) => g.role === "owner");
   const [{ pages }] = owned.length
@@ -28,7 +28,7 @@ export default async function AdvancedPage() {
         <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
           ← Dashboard
         </Link>
-        <h1 className="text-2xl font-semibold">Advanced settings</h1>
+        <h1 className="text-2xl font-semibold">Settings</h1>
         <p className="text-sm text-muted-foreground">Account-level actions you rarely need.</p>
       </div>
       <DeleteAccountCard

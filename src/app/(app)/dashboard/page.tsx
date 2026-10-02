@@ -73,8 +73,8 @@ export default async function DashboardPage() {
       <Link href="/dashboard/invites" className={buttonVariants({ variant: "outline", size: "sm" })}>
         Invites{invites.length > 0 && ` (${invites.length})`}
       </Link>
-      <Link href="/dashboard/advanced" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-        Advanced
+      <Link href="/settings" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+        Settings
       </Link>
     </div>
   );
