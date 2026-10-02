@@ -89,7 +89,12 @@ export async function writeChanges(changes: Change[], at = new Date()) {
       .filter((c) => c.graphId === r.graphId && c.rootUid === r.rootUid)
       .map((c) => `${stamp(at, r.timeZone)} ${c.text}`);
     const token = decryptToken(r.token!);
-    if (!token) continue;
+    if (!token) {
+      // Encrypted with a key the server no longer has: ask the owner for a new token.
+      rejected.add(r.graphId);
+      await db.update(graph).set({ appendTokenStatus: "invalid" }).where(eq(graph.id, r.graphId));
+      continue;
+    }
     const res = await appendUnderBlock(r.graphName, token, r.anchorUid!, texts);
     if (res.ok) continue;
     if (res.status === 401 || res.status === 403) {

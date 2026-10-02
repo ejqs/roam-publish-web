@@ -1,16 +1,17 @@
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { ACCESS, collection, collectionEntry, cPath } from "@/db/schema";
+import { ACCESS, collection, collectionEntry } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { logForPublications } from "@/lib/changelog";
 import { CollectionName, CollectionSlug, reservePath } from "@/lib/collections";
 import { Description } from "@/lib/descriptions";
 import { DISCOVER_TAG } from "@/lib/discover";
+import { purgeCollection } from "@/lib/deletion";
 import { clearGatedCollectionDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { hashPassword, Password } from "@/lib/gates";
@@ -131,21 +132,7 @@ export async function deleteCollection(collectionId: string): Promise<Collection
     .select({ id: collectionEntry.publicationId })
     .from(collectionEntry)
     .where(eq(collectionEntry.collectionId, c.id));
-  await db.transaction(async (tx) => {
-    // Pages that were only in this collection go back to their graphs, unlisted.
-    await tx.execute(sql`
-      update publication set in_graph = true, visibility = 'unlisted'
-      where in_graph = false
-        and id in (select publication_id from collection_entry where collection_id = ${c.id})
-        and not exists (
-          select 1 from collection_entry e where e.publication_id = publication.id and e.collection_id <> ${c.id}
-        )
-    `);
-    await tx.delete(collectionEntry).where(eq(collectionEntry.collectionId, c.id));
-    await tx.delete(collection).where(eq(collection.id, c.id));
-    // The slug is free again; entry uids stay reserved so old links never point at something new.
-    await tx.delete(cPath).where(eq(cPath.path, c.slug));
-  });
+  await db.transaction((tx) => purgeCollection(tx, c, { keepSlug: false }));
   await logForPublications(pages.map((p) => p.id), `Collection "${c.name}" was deleted, so the page left it`);
   revalidate();
   return { ok: true, message: `Deleted ${c.name}.` };

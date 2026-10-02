@@ -1,11 +1,14 @@
 "use server";
 
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, notExists, or } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import {
+  BLOCKED_KINDS,
+  blockedIdentity,
   collection,
+  cPath,
   graph,
   moderationAction,
   profile,
@@ -341,4 +344,64 @@ export async function adminReleaseAlias(username: string): Promise<ActionState> 
   revalidatePath("/admin/users");
   revalidatePath("/u/[username]", "page");
   return { ok: true, message: `Released @${username}.` };
+}
+
+/**
+ * Lifts blocklist entries left by a deleted account (src/lib/deletion.ts): one entry, or with
+ * `kind` "all" every entry from that deletion, plus the collection slugs it kept reserved.
+ */
+export async function adminLiftBlock(
+  target: { kind: (typeof BLOCKED_KINDS)[number]; value: string } | { kind: "all"; moderationActionId: string },
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const lifted =
+    target.kind === "all"
+      ? await db
+          .delete(blockedIdentity)
+          .where(eq(blockedIdentity.moderationActionId, target.moderationActionId))
+          .returning()
+      : z.enum(BLOCKED_KINDS).safeParse(target.kind).success
+        ? await db
+            .delete(blockedIdentity)
+            .where(and(eq(blockedIdentity.kind, target.kind), eq(blockedIdentity.value, target.value)))
+            .returning()
+        : [];
+  if (!lifted.length) return { ok: false, message: "Nothing to lift." };
+  await db.insert(moderationAction).values(
+    lifted.map((b) => ({
+      adminId: admin.user.id,
+      targetType: "user" as const,
+      targetId: b.moderationActionId ?? "",
+      action: "lift_block" as const,
+      // Emails are only ever a hash here.
+      reason: b.kind === "email" ? `email ${b.value.slice(0, 12)}…` : `${b.kind} ${b.value}`,
+    })),
+  );
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: lifted.length === 1 ? "Lifted." : `Lifted ${lifted.length} entries.` };
+}
+
+/** Frees a slug a suspended collection kept reserved after its owner deleted their account. */
+export async function adminReleaseCollectionSlug(slug: string): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const [released] = await db
+    .delete(cPath)
+    .where(
+      and(
+        eq(cPath.path, slug),
+        eq(cPath.kind, "collection"),
+        notExists(db.select({ id: collection.id }).from(collection).where(eq(collection.slug, cPath.path))),
+      ),
+    )
+    .returning();
+  if (!released) return { ok: false, message: "That slug is in use or not reserved." };
+  await db.insert(moderationAction).values({
+    adminId: admin.user.id,
+    targetType: "collection",
+    targetId: slug,
+    action: "lift_block",
+    reason: `collection slug ${slug}`,
+  });
+  revalidatePath("/admin", "layout");
+  return { ok: true, message: `Released /c/${slug}.` };
 }

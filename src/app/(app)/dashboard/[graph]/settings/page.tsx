@@ -6,9 +6,11 @@ import { buttonVariants } from "@/components/ui/button";
 import { db } from "@/db";
 import { graph, graphDefaultCollection, publication } from "@/db/schema";
 import { collectionsOf } from "@/lib/collections";
+import { graphUnderModeration } from "@/lib/deletion";
 import { requireSession } from "@/lib/session";
 import { GraphAccessForm } from "./access-form";
 import { ChangeLogForm } from "./change-log-form";
+import { DeleteGraphCard } from "./delete-graph";
 import { GraphSettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "Graph settings · Roam Publish" };
@@ -21,10 +23,11 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
     where: and(eq(graph.name, name), eq(graph.userId, session.user.id)),
   });
   if (!g) notFound();
-  const [collections, defaults, [pages]] = await Promise.all([
+  const [collections, defaults, [pages], locked] = await Promise.all([
     collectionsOf(session.user.id),
     db.select().from(graphDefaultCollection).where(eq(graphDefaultCollection.graphId, g.id)),
     db.select({ n: count() }).from(publication).where(eq(publication.graphId, g.id)),
+    graphUnderModeration(db, g),
   ]);
 
   return (
@@ -74,9 +77,10 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
       />
       <ChangeLogForm
         graphId={g.id}
-        status={g.appendTokenEnc ? (g.appendTokenStatus ?? "ok") : null}
+        status={g.appendTokenStatus === "invalid" ? "invalid" : g.appendTokenEnc ? "ok" : null}
         addedAt={g.appendTokenAddedAt?.toISOString() ?? null}
       />
+      <DeleteGraphCard graphId={g.id} graphName={g.name} pageCount={pages?.n ?? 0} locked={locked} />
     </div>
   );
 }
