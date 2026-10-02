@@ -4,10 +4,8 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { updateEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
 import { Button } from "@/components/ui/button";
-import { FieldDescription, FieldGroup, FieldLabel, FieldSeparator, FieldSet, FieldLegend } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import type { Access, EntryListing, PlaceAccess, ShowAuthor } from "@/db/schema";
-import { Choice, LISTING_LABELS, readOptions } from "./choice";
+import type { EntryListing, PlaceAccess, ShowAuthor } from "@/db/schema";
 
 export type PlaceState = {
   access: PlaceAccess;
@@ -18,139 +16,71 @@ export type PlaceState = {
 };
 
 /**
- * Who can read one place a page appears, its own password, and its byline. The container's
- * default is shown next to "Use default", since a page's own setting replaces it.
+ * Changes or removes one password-protected place's own password, which replaces its graph's or
+ * collection's. The AccessMenu asks for the first one when Password is chosen.
  */
-export function PlaceAccessForm({
+export function PlacePasswordForm({
   kind,
   id,
-  initial,
+  hasOwnPassword,
   container,
   onSaved,
 }: {
   kind: "graph" | "entry";
   /** Publication id for the graph place, entry id for a collection place. */
   id: string;
-  initial: PlaceState;
-  container: {
-    label: string;
-    defaultAccess: Access;
-    hasPassword: boolean;
-    showAuthors: boolean;
-    /** Why this collection can't list pages on Discover, if it can't. */
-    discoverBlocked?: string;
-  };
+  hasOwnPassword: boolean;
+  container: { label: string; hasPassword: boolean };
   onSaved?: () => void;
 }) {
-  // Pages store their own access; "inherit" only survives on rows from before that, so show its value.
-  const [state, setState] = useState<PlaceState>({
-    ...initial,
-    access: initial.access === "inherit" ? container.defaultAccess : initial.access,
-  });
   const [password, setPassword] = useState("");
   const [pending, start] = useTransition();
-  const effective = state.access === "inherit" ? container.defaultAccess : state.access;
-  const needsOwnPassword = effective === "password" && !state.hasOwnPassword && !container.hasPassword;
 
-  function save(extra: { clearPassword?: boolean } = {}) {
+  function save(input: { password?: string; clearPassword?: boolean }) {
     start(async () => {
-      const input = {
-        access: state.access,
-        showAuthor: state.showAuthor,
-        ...(password && { password }),
-        ...extra,
-        ...(kind === "entry" && { listing: state.listing }),
-      };
       const res = kind === "graph" ? await updateGraphPlace(id, input) : await updateEntry(id, input);
       if (!res.ok) return void toast.error(res.message);
-      toast.success(res.message);
-      if (password) setState((s) => ({ ...s, hasOwnPassword: true }));
-      if (extra.clearPassword) setState((s) => ({ ...s, hasOwnPassword: false }));
+      toast.success(res.message || "Saved.");
       setPassword("");
       onSaved?.();
     });
   }
 
-  const listingOptions = [
-    { value: "unlisted" as const, label: LISTING_LABELS.unlisted, description: "Only people with the link can find it." },
-    { value: "listed" as const, label: LISTING_LABELS.listed, description: `Shown on ${container.label}'s page to everyone who can open it.` },
-    {
-      value: "discover" as const,
-      label: LISTING_LABELS.discover,
-      description: container.discoverBlocked ?? "Also listed on roam.pub/discover.",
-      disabled: !!container.discoverBlocked || effective !== "open",
-    },
-  ];
-
   return (
-    <FieldGroup>
-      {kind === "entry" && state.listing && (
-        <>
-          <FieldSet>
-            <FieldLegend variant="label">Where it&apos;s listed</FieldLegend>
-            <Choice
-              id={`listing-${id}`}
-              value={state.listing}
-              options={listingOptions}
-              onChange={(listing) => setState((s) => ({ ...s, listing }))}
-            />
-            {effective !== "open" && (
-              <FieldDescription>Protected pages can be listed (with a lock icon), but never on Discover.</FieldDescription>
-            )}
-          </FieldSet>
-          <FieldSeparator />
-        </>
-      )}
-      <FieldSet>
-        <FieldLegend variant="label">Who can read it</FieldLegend>
-        <Choice<PlaceAccess>
-          id={`access-${id}`}
-          value={state.access}
-          onChange={(access) => setState((s) => ({ ...s, access }))}
-          options={readOptions(container.label).map((o) =>
-            o.value === "open" && container.defaultAccess !== "open"
-              ? { ...o, description: "Anyone with the link can read, even though the rest is protected." }
-              : o,
-          )}
+    <form
+      className="flex flex-col gap-1.5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (password) save({ password });
+      }}
+    >
+      <div className="flex gap-2">
+        <Input
+          type="password"
+          autoComplete="new-password"
+          aria-label={hasOwnPassword ? "New password for this page" : "Password for this page"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder={hasOwnPassword ? "New password for this page" : "Password for this page"}
+          className="h-8"
         />
-      </FieldSet>
-      {effective === "password" && (
-        <div className="flex flex-col gap-2">
-          <FieldLabel htmlFor={`password-${id}`}>
-            {state.hasOwnPassword ? "Change this page's password" : "Password for this page"}
-          </FieldLabel>
-          <Input
-            id={`password-${id}`}
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={state.hasOwnPassword ? "Leave blank to keep it" : container.hasPassword ? `Leave blank to use ${container.label}'s password` : "Required"}
-          />
-          {state.hasOwnPassword && (
-            <Button type="button" variant="link" size="sm" className="self-start px-0" disabled={pending} onClick={() => save({ clearPassword: true })}>
-              {container.hasPassword ? `Use ${container.label}'s password instead` : "Remove this page's password"}
-            </Button>
-          )}
-        </div>
-      )}
-      <FieldSeparator />
-      <FieldSet>
-        <FieldLegend variant="label">Author byline</FieldLegend>
-        <Choice<ShowAuthor>
-          id={`author-${id}`}
-          value={state.showAuthor}
-          onChange={(showAuthor) => setState((s) => ({ ...s, showAuthor }))}
-          options={[
-            { value: "inherit", label: `Use ${container.label}'s setting (${container.showAuthors ? "shown" : "hidden"})` },
-            { value: "show", label: "Show" },
-            { value: "hide", label: "Hide" },
-          ]}
-        />
-      </FieldSet>
-      <Button type="button" className="self-end" disabled={pending || (needsOwnPassword && !password)} onClick={() => save()}>
-        {pending ? "Saving…" : "Save"}
-      </Button>
-    </FieldGroup>
+        <Button type="submit" variant="outline" size="sm" disabled={pending || !password}>
+          {hasOwnPassword ? "Change" : "Set"}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {hasOwnPassword ? "This page has its own password. " : `Uses ${container.label}'s password unless you set one here. `}
+        {hasOwnPassword && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => save({ clearPassword: true })}
+            className="text-link hover:underline disabled:opacity-50"
+          >
+            {container.hasPassword ? `Use ${container.label}'s instead` : "Remove it"}
+          </button>
+        )}
+      </p>
+    </form>
   );
 }

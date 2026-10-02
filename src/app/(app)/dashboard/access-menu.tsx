@@ -5,6 +5,8 @@ import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { LISTING_LABELS, readOptions } from "@/components/manage/choice";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Access as ReadAccess, ShowAuthor } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
@@ -25,7 +27,8 @@ export type MenuTarget =
 /**
  * One control for one place a page appears: where it's listed (link only, the graph's or
  * collection's page, or also roam.pub/discover), who can read it, and its byline. Each option
- * saves on click; setting a page's own password still happens in Manage.
+ * saves on click. Choosing Password with no password to use asks for one first; cancelling keeps
+ * the current access. A Discoverable page stays open until it isn't.
  */
 export function AccessMenu({
   target,
@@ -41,6 +44,7 @@ export function AccessMenu({
   place: Pick<ManageData["graphPlace"], "state" | "container">;
 }) {
   const [open, setOpen] = useState(false);
+  const [askPassword, setAskPassword] = useState(false);
   const [optimistic, setOptimistic] = useOptimistic({
     access,
     // "inherit" only survives on rows from before pages stored their own access.
@@ -85,8 +89,10 @@ export function AccessMenu({
     description:
       o.value === "open" && container.defaultAccess !== "open"
         ? "Anyone with the link can read, even though the rest is protected."
-        : o.description,
-    disabled: o.value === "password" && !hasPassword ? "Set a password for this page in Manage first." : undefined,
+        : o.value === "password" && !hasPassword
+          ? "Readers enter a password. You'll set one next."
+          : o.description,
+    disabled: o.value !== "open" && reach === "discover" ? "Discoverable pages stay open. Choose Listed or Not listed first." : undefined,
   }));
 
   const bylineOptions: Option<ShowAuthor>[] = [
@@ -111,6 +117,8 @@ export function AccessMenu({
   function choosePlace(next: { access?: ReadAccess; showAuthor?: ShowAuthor }) {
     setOpen(false);
     if (next.access === optimistic.read || next.showAuthor === optimistic.showAuthor) return;
+    // Nothing to unlock with yet: ask for this page's password, and change nothing until it's set.
+    if (next.access === "password" && !hasPassword) return setAskPassword(true);
     start(async () => {
       setOptimistic((s) => ({
         ...s,
@@ -123,40 +131,118 @@ export function AccessMenu({
     });
   }
 
+  async function savePassword(password: string) {
+    const input = { access: "password" as const, password };
+    const res =
+      target.kind === "graph" ? await updateGraphPlace(target.publicationId, input) : await updateEntry(target.entryId, input);
+    if (res.ok) {
+      setAskPassword(false);
+      toast.success("Password set.");
+    }
+    return res;
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            title={paused ? `Not shown on Discover: ${blocked}` : undefined}
-            className={cn("gap-1.5", paused && "text-muted-foreground")}
-          >
-            <Icon />
-            {LABELS[reach]}
-            {paused && " (paused)"}
-            <ChevronDownIcon className="opacity-60" />
-          </Button>
-        }
-      />
-      <PopoverContent align="start" className="max-h-(--available-height) w-80 gap-1 overflow-y-auto p-1">
-        <Section label="Where it's listed" value={reach} options={reachOptions} onChoose={chooseReach} />
-        <Section
-          label="Who can read it"
-          value={optimistic.read}
-          options={readChoices}
-          onChoose={(a) => choosePlace({ access: a })}
+    <>
+      <SetPasswordDialog open={askPassword} onCancel={() => setAskPassword(false)} onSave={savePassword} />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              title={paused ? `Not shown on Discover: ${blocked}` : undefined}
+              className={cn("gap-1.5", paused && "text-muted-foreground")}
+            >
+              <Icon />
+              {LABELS[reach]}
+              {paused && " (paused)"}
+              <ChevronDownIcon className="opacity-60" />
+            </Button>
+          }
         />
-        <Section
-          label="Author byline"
-          value={optimistic.showAuthor}
-          options={bylineOptions}
-          onChoose={(s) => choosePlace({ showAuthor: s })}
-        />
-      </PopoverContent>
-    </Popover>
+        <PopoverContent align="start" className="max-h-(--available-height) w-80 gap-1 overflow-y-auto p-1">
+          <Section label="Where it's listed" value={reach} options={reachOptions} onChoose={chooseReach} />
+          <Section
+            label="Who can read it"
+            value={optimistic.read}
+            options={readChoices}
+            onChoose={(a) => choosePlace({ access: a })}
+          />
+          <Section
+            label="Author byline"
+            value={optimistic.showAuthor}
+            options={bylineOptions}
+            onChoose={(s) => choosePlace({ showAuthor: s })}
+          />
+        </PopoverContent>
+      </Popover>
+    </>
+  );
+}
+
+/** Asks for a page's own password before switching it to Password access. */
+function SetPasswordDialog({
+  open,
+  onCancel,
+  onSave,
+}: {
+  open: boolean;
+  onCancel: () => void;
+  onSave: (password: string) => Promise<{ ok: boolean; message: string }>;
+}) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [pending, start] = useTransition();
+  const close = () => {
+    setPassword("");
+    setError("");
+    onCancel();
+  };
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+      <DialogContent>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            start(async () => {
+              const res = await onSave(password);
+              if (!res.ok) return setError(res.message);
+              setPassword("");
+              setError("");
+            });
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Set a password</DialogTitle>
+            <DialogDescription>Readers enter it to open this page. Unlocking lasts 30 days on that browser.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Input
+              type="password"
+              autoComplete="new-password"
+              aria-label="Password for this page"
+              placeholder="Password for this page"
+              autoFocus
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={!!error}
+            />
+            {error && <p className="text-xs text-destructive">{error}</p>}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={close}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={pending || !password}>
+              {pending ? "Saving…" : "Set password"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

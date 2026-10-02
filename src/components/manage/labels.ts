@@ -9,7 +9,7 @@ export const ACCESS_DESCRIPTIONS = {
 } as const;
 
 /** Where a page is listed, the same words for graphs and collections. */
-export const LISTING_LABELS = { unlisted: "Not listed", listed: "Listed", discover: "Discover" } as const;
+export const LISTING_LABELS = { unlisted: "Not listed", listed: "Listed", discover: "Discoverable" } as const;
 
 /**
  * Who can read: a page ("Anyone with the link") or a front page ("Anyone"), with members named
