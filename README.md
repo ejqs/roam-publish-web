@@ -12,7 +12,7 @@ Stack: Bun · Next.js (App Router) · shadcn/ui (Blueprint-styled) · better-aut
 
 ```bash
 bun install
-cp .env.example .env.local   # fill in BETTER_AUTH_SECRET (openssl rand -base64 32)
+cp .env.example .env.local   # fill in BETTER_AUTH_SECRET and APPEND_TOKEN_KEY (openssl rand -base64 32 each)
 bun run db:migrate
 bun dev
 ```
@@ -31,6 +31,26 @@ after changing better-auth plugins), then `bun run db:generate` and commit the m
 - `/c/{slug}/feed.xml`: off by default; owners turn it on in collection settings. Needs the collection page open to everyone.
 
 Feed readers send no cookies, so feeds only ever list pages open to everyone (see `src/lib/feeds.ts`).
+
+## Stored Roam tokens (change log)
+
+Graph owners' append-only tokens are stored AES-256-GCM encrypted with `APPEND_TOKEN_KEY` (`src/lib/append-token.ts`)
+and only used to append the change log under shortlink blocks. Without the key, nothing is stored and the change log
+is off.
+
+**Rotating the key** (e.g. it leaked, but the database didn't):
+
+1. Set `APPEND_TOKEN_KEY_PREVIOUS` to the old key and `APPEND_TOKEN_KEY` to a new one (`openssl rand -base64 32`),
+   then deploy. Tokens encrypted with either key keep working.
+2. Run `railway run bun run tokens:rotate` to re-encrypt every token with the new key.
+3. Remove `APPEND_TOKEN_KEY_PREVIOUS` and deploy.
+
+**If the key and the database may both have leaked**, treat the stored tokens as exposed: set a new key, deploy, and
+run `railway run bun run tokens:revoke-all`. Every owner gets a dashboard banner asking for a new token; tell them to
+revoke the old one in Roam (Settings → Graph → API tokens). An append-only token can only add blocks to its own graph.
+
+Changing the key without `tokens:rotate` doesn't break anything: tokens the server can no longer read are marked
+invalid the next time they're needed, and owners are asked for a new one.
 
 ## Deletion
 

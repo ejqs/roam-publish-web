@@ -9,6 +9,7 @@ import { collectionsOf } from "@/lib/collections";
 import { graphUnderModeration } from "@/lib/deletion";
 import { requireSession } from "@/lib/session";
 import { GraphAccessForm } from "./access-form";
+import { ChangeLogForm } from "./change-log-form";
 import { DeleteGraphCard } from "./delete-graph";
 import { GraphSettingsForm } from "./settings-form";
 
@@ -73,6 +74,11 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
           defaultCollections: defaults.map((d) => d.collectionId),
         }}
         collections={collections.filter((c) => !c.suspendedAt).map((c) => ({ id: c.id, name: c.name }))}
+      />
+      <ChangeLogForm
+        graphId={g.id}
+        status={g.appendTokenStatus === "invalid" ? "invalid" : g.appendTokenEnc ? "ok" : null}
+        addedAt={g.appendTokenAddedAt?.toISOString() ?? null}
       />
       <DeleteGraphCard graphId={g.id} graphName={g.name} pageCount={pages?.n ?? 0} locked={locked} />
     </div>

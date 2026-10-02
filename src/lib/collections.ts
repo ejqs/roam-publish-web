@@ -1,9 +1,9 @@
-import { randomInt } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { cache } from "react";
 import { z } from "zod";
 import { db } from "@/db";
 import { collection, collectionEntry, collectionMember, cPath, graph, publication, user } from "@/db/schema";
+import { randomId } from "./random-id";
 
 const RESERVED = new Set(["new", "admin", "api", "settings", "discover", "collection", "collections"]);
 
@@ -62,7 +62,7 @@ export async function reservePath(tx: Tx, path: string, kind: "collection" | "en
 }
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
-const randomUid = () => Array.from({ length: 10 }, () => ALPHABET[randomInt(ALPHABET.length)]).join("");
+const randomUid = () => randomId(ALPHABET, 10);
 
 /**
  * Adds a publication to a collection with a fresh /c/{entryUid}. The uid is random, never derived

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { ACCESS, graph, graphDefaultCollection, moderationAction, profile, publication, usernameAlias } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { logChange, logChanges } from "@/lib/changelog";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { collectionRole } from "@/lib/collections";
 import { Description } from "@/lib/descriptions";
@@ -26,11 +27,13 @@ async function getSession() {
 export async function unpublish(publicationId: string) {
   const session = await getSession();
   if (!session) return;
-  await db
+  const deleted = await db
     .delete(publication)
     // Owners unpublish anything in their graphs, members what they published. Removed pages stay
     // locked so a republish can't undo the takedown.
-    .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)));
+    .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)))
+    .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
+  logChanges(deleted.map((p) => ({ ...p, text: "Unpublished on the website" })));
   revalidatePath("/dashboard", "layout");
   revalidatePath("/c/[id]", "layout");
   updateTag(DISCOVER_TAG);
@@ -45,6 +48,12 @@ export async function unpublish(publicationId: string) {
 export type Access = "unlisted" | "public" | "discover";
 
 export type FormState = { ok: boolean; message: string } | null;
+
+const ACCESS_LOG: Record<Access, string> = {
+  unlisted: "Made unlisted",
+  public: "Made public",
+  discover: "Made public and listed on Discover",
+};
 
 export async function setAccess(publicationId: string, access: Access): Promise<FormState> {
   const session = await getSession();
@@ -67,10 +76,12 @@ export async function setAccess(publicationId: string, access: Access): Promise<
       : access === "public"
         ? { visibility: "public" as const, discoverable: false }
         : { visibility: "unlisted" as const };
-  await db
+  const [changed] = await db
     .update(publication)
     .set(set)
-    .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)));
+    .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)))
+    .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
+  if (changed) logChange(changed, ACCESS_LOG[access]);
   revalidatePath("/dashboard", "layout");
   revalidatePath("/[graph]", "page");
   revalidatePath("/");

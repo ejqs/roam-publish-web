@@ -103,6 +103,16 @@ export function attentionItems({
     });
   }
 
+  for (const g of graphs.filter((g) => !g.suspendedAt && g.appendTokenStatus === "invalid")) {
+    items.push({
+      id: `append-token-${g.id}`,
+      severity: "warning",
+      title: `Roam rejected ${g.name}'s append-only token`,
+      body: "The change log under your pages' shortlink blocks has stopped. Add a new append-only token to restart it.",
+      action: { label: "Settings", href: `/dashboard/${encodeURIComponent(g.name)}/settings#change-log` },
+    });
+  }
+
   if (hasGraph && me && !me.isPublic) {
     items.push({
       id: "profile-private",

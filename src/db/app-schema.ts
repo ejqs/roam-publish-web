@@ -61,6 +61,16 @@ export const graph = pgTable("graph", {
   newPagesInGraph: boolean("new_pages_in_graph").notNull().default(true),
   /** RSS feed of the front page's open pages at /{graph}/feed.xml. Needs an open front page. */
   rss: boolean("rss").notNull().default(false),
+  /**
+   * The owner's Roam append-only token, AES-256-GCM encrypted (lib/append-token.ts). Used only to
+   * append the roam.pub change log under each page's shortlink block. Null when none is stored.
+   */
+  appendTokenEnc: text("append_token_enc"),
+  /** "invalid" once Roam rejects the stored token; the change log stops until it's replaced. */
+  appendTokenStatus: text("append_token_status", { enum: ["ok", "invalid"] }),
+  appendTokenAddedAt: timestamp("append_token_added_at", { withTimezone: true }),
+  /** IANA time zone from the owner's browser; dates change log entries. */
+  timeZone: text("time_zone"),
   verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -439,4 +449,23 @@ export const invite = pgTable(
     index("invite_invitee_idx").on(t.inviteeUserId, t.status),
     index("invite_target_idx").on(t.targetType, t.targetId),
   ],
+);
+
+/**
+ * Permanent /p/{id} link for a page or block. Keyed by graph + Roam uid, not by publication, so
+ * unpublishing and publishing again keeps the same link and the same anchor block in Roam.
+ */
+export const shortlink = pgTable(
+  "shortlink",
+  {
+    id: text("id").primaryKey(),
+    graphId: text("graph_id")
+      .notNull()
+      .references(() => graph.id, { onDelete: "cascade" }),
+    rootUid: text("root_uid").notNull(),
+    /** Uid of the "{shortUrl} {tag}" block the extension wrote in Roam; the change log nests under it. */
+    anchorUid: text("anchor_uid"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("shortlink_graph_root_idx").on(t.graphId, t.rootUid)],
 );

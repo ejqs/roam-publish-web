@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2Icon, ShieldCheckIcon } from "lucide-react";
+import { CheckCircle2Icon, ShieldCheckIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -10,6 +10,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -42,7 +43,7 @@ const PREREQUISITES = [
   },
 ] as const;
 
-type State = { step: "form" } | { step: "done"; graphId: string; graphName: string };
+type State = { step: "warning" } | { step: "form" } | { step: "done"; graphId: string; graphName: string };
 
 export function OnboardingFlow({
   initialGraph,
@@ -52,7 +53,8 @@ export function OnboardingFlow({
   /** Already has a verified graph, so knows the drill: skip the "Before you start" checklist. */
   hasGraph: boolean;
 }) {
-  const [state, setState] = useState<State>({ step: "form" });
+  const [state, setState] = useState<State>({ step: "warning" });
+  const [acknowledged, setAcknowledged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -76,6 +78,7 @@ export function OnboardingFlow({
       graphName: String(form.get("graphName")),
       token: String(form.get("token")),
       date: todayMMDDYYYY(),
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
     setPending(false);
     if (!r.ok) return setError(r.error);
@@ -90,6 +93,47 @@ export function OnboardingFlow({
           Link a Roam graph you own to your account. Shared graphs are joined by invite from their owner.
         </p>
       </div>
+
+      {state.step === "warning" && (
+        <Card className="border-warning/50 border-l-4 border-l-warning">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <TriangleAlertIcon className="size-5 text-warning" />
+              This may leave a page you can&apos;t delete
+            </CardTitle>
+            <CardDescription>Read this before you create a token.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 text-sm">
+            <p>
+              Creating and verifying a Roam graph{" "}
+              <strong>may permanently leave a page in your graph that cannot be deleted</strong>: the{" "}
+              <code>[[API Token: …]]</code> page Roam creates for the API token.
+            </p>
+            <p>
+              This is not the fault of roam.pub, but a consequence of how display names are treated in Roam
+              Research.
+            </p>
+            <p className="text-muted-foreground">
+              If you believe this issue has been resolved, please contact me at ejqs [at] ejqs [dot] net.
+            </p>
+            <Field orientation="horizontal">
+              <Checkbox
+                id="ack-token-page"
+                checked={acknowledged}
+                onCheckedChange={(v) => setAcknowledged(!!v)}
+              />
+              <FieldLabel htmlFor="ack-token-page" className="font-normal">
+                I understand that this may leave a page in my graph that can&apos;t be deleted.
+              </FieldLabel>
+            </Field>
+          </CardContent>
+          <CardFooter>
+            <Button disabled={!acknowledged} onClick={() => setState({ step: "form" })}>
+              I understand, continue
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
 
       {state.step === "form" && (
         <Card>
@@ -149,8 +193,9 @@ export function OnboardingFlow({
                   <ShieldCheckIcon />
                   <AlertTitle>How we use this token</AlertTitle>
                   <AlertDescription>
-                    Used once to add a block to today&apos;s daily note, then discarded. You can delete
-                    the token and the block right after.
+                    We add one block to today&apos;s daily note to verify the graph, then keep the token
+                    encrypted to add a roam.pub change log under each published page&apos;s shortlink block.
+                    It can only append. Remove it in the graph&apos;s settings or revoke it in Roam at any time.
                   </AlertDescription>
                 </Alert>
                 <Button type="submit" disabled={pending || !ready}>
@@ -170,7 +215,8 @@ export function OnboardingFlow({
           <AlertDescription className="flex flex-col gap-3">
             <p>
               Get an API key for the Roam Publish extension, then paste it in Roam under Settings → Roam
-              Publish. You can delete the block on today&apos;s daily note and the append-only token now.
+              Publish. You can delete the block on today&apos;s daily note now. Keep the append-only token:
+              roam.pub uses it for the change log under each published page.
             </p>
             <KeyReveal graphId={state.graphId} hasKey={false} size="default" />
             <Link href="/dashboard" className={buttonVariants({ variant: "outline", className: "self-start" })}>
