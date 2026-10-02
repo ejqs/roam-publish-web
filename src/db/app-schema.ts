@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -22,6 +23,8 @@ export const PLACE_ACCESS = ["inherit", ...ACCESS] as const;
 export type PlaceAccess = (typeof PLACE_ACCESS)[number];
 export const SHOW_AUTHOR = ["inherit", "show", "hide"] as const;
 export type ShowAuthor = (typeof SHOW_AUTHOR)[number];
+
+const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
 export const graph = pgTable("graph", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -162,12 +165,22 @@ export const publication = pgTable(
     passwordHash: text("password_hash"),
     passwordVersion: integer("password_version").notNull().default(0),
     showAuthor: text("show_author", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
+    /** `#tags` and `Tags::` values from the tree, normalized (lib/tags.ts). Set on every write of `tree`. */
+    tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    /** Plain text of the tree for full-text search (lib/tags.ts). Set on every write of `tree`. */
+    searchText: text("search_text").notNull().default(""),
+    /** Title weighted above body. 'simple' so any language matches word for word. */
+    search: tsvector("search").generatedAlwaysAs(
+      sql`setweight(to_tsvector('simple', coalesce(title, '')), 'A') || setweight(to_tsvector('simple', coalesce(search_text, '')), 'B')`,
+    ),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("publication_graph_root_idx").on(t.graphId, t.rootUid),
     index("publication_graph_visibility_idx").on(t.graphId, t.visibility),
+    index("publication_tags_idx").using("gin", t.tags),
+    index("publication_search_idx").using("gin", t.search),
   ],
 );
 

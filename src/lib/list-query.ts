@@ -1,0 +1,87 @@
+import { and, ilike, or, type SQL, sql } from "drizzle-orm";
+import { db } from "@/db";
+import { publication } from "@/db/schema";
+
+/** SQL pieces for searching and tag-filtering publications; every list and /search shares them. */
+
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+/** Each word of the search as a prefix, all required: "spaced rep" finds "spaced repetition". */
+function tsQuery(q: string): SQL | null {
+  const words = (q.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).slice(0, 8);
+  return words.length ? sql`to_tsquery('simple', ${words.map((w) => `${w}:*`).join(" & ")})` : null;
+}
+
+/** Title or text matches the search. Titles also match on any substring, for punctuation and partial words. */
+export function textMatch(q: string): SQL | undefined {
+  if (!q) return undefined;
+  const ts = tsQuery(q);
+  const title = ilike(publication.title, `%${escapeLike(q)}%`);
+  return ts ? or(sql`${publication.search} @@ ${ts}`, title) : title;
+}
+
+const textArray = (values: string[]) =>
+  sql`array[${sql.join(
+    values.map((v) => sql`${v}`),
+    sql`, `,
+  )}]::text[]`;
+
+/** Has every one of the tags. */
+export const tagsMatch = (tags: string[]): SQL | undefined =>
+  tags.length ? sql`${publication.tags} @> ${textArray(tags)}` : undefined;
+
+/** Has at least one of the tags. */
+export const tagsOverlap = (tags: string[]): SQL => (tags.length ? sql`${publication.tags} && ${textArray(tags)}` : sql`false`);
+
+export const listWhere = (s: { q: string; tags: string[]; kind: string | null }, ...rest: (SQL | undefined)[]) =>
+  and(...rest, textMatch(s.q), tagsMatch(s.tags), s.kind ? sql`${publication.kind} = ${s.kind}` : undefined);
+
+/** Best match first: title hits outrank body hits. */
+export function relevance(q: string) {
+  const ts = tsQuery(q);
+  const titleHit = sql`(${publication.title} ilike ${`%${escapeLike(q)}%`})::int`;
+  return ts ? sql`${titleHit} + ts_rank(${publication.search}, ${ts})` : titleHit;
+}
+
+// Roam text never holds these control characters, so they mark the hits unambiguously.
+export const HIT_START = "\u0001";
+export const HIT_END = "\u0002";
+
+/** A short excerpt around the first hit in the text, hits wrapped in HIT_START/HIT_END. */
+export function snippet(q: string) {
+  const ts = tsQuery(q);
+  if (!ts) return sql<string | null>`null`;
+  const opts = `StartSel=${HIT_START}, StopSel=${HIT_END}, MaxWords=24, MinWords=10, MaxFragments=1, FragmentDelimiter=" … "`;
+  return sql<string | null>`case when to_tsvector('simple', ${publication.searchText}) @@ ${ts}
+    then ts_headline('simple', ${publication.searchText}, ${ts}, ${opts}) end`;
+}
+
+/** Splits a snippet into plain and hit parts for rendering. */
+export function snippetParts(s: string | null): { text: string; hit: boolean }[] | undefined {
+  if (!s || !s.includes(HIT_START)) return undefined;
+  return s
+    .split(HIT_START)
+    .flatMap((chunk, i) => {
+      if (i === 0) return [{ text: chunk, hit: false }];
+      const [hit, rest = ""] = chunk.split(HIT_END);
+      return [
+        { text: hit, hit: true },
+        { text: rest, hit: false },
+      ];
+    })
+    .filter((p) => p.text);
+}
+
+export type TagCount = { tag: string; n: number };
+
+/**
+ * The most used tags among the rows `from … where …` selects, most used first. `from` must
+ * bring in `publication` by its own name.
+ */
+export async function tagCounts(from: SQL, where: SQL | undefined, limit = 12): Promise<TagCount[]> {
+  const r = await db.execute<{ tag: string; n: number }>(sql`
+    select t as tag, count(*)::int as n ${from}, unnest(${publication.tags}) as t
+    ${where ? sql`where ${where}` : sql``}
+    group by t order by n desc, t limit ${limit}`);
+  return r.rows;
+}
