@@ -9,12 +9,14 @@ import { graph } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { isBlocked } from "@/lib/deletion";
 import { rateLimit } from "@/lib/rate-limit";
+import { canStoreTokens, encryptToken } from "@/lib/append-token";
+import { validTimeZone } from "@/lib/changelog";
 import { appendToDailyNote } from "@/lib/roam-append";
 
 // Routes that would shadow /{graph} or /dashboard/{graph}.
 const ROUTES = new Set([
   "admin", "api", "c", "collection", "collections", "dashboard", "discover", "forgot-password",
-  "invites", "keys", "login", "onboarding", "report", "reset-password", "setup", "signup", "u",
+  "invites", "keys", "login", "onboarding", "p", "report", "reset-password", "setup", "signup", "u",
   "verify-email",
 ]);
 
@@ -28,6 +30,7 @@ const Input = z.object({
     .refine((n) => !ROUTES.has(n.toLowerCase()), "This graph name can't be published on roam.pub."),
   token: z.string().trim().startsWith("roam-graph-token-", "Tokens start with roam-graph-token-"),
   date: z.string().regex(/^\d{2}-\d{2}-\d{4}$/),
+  timeZone: z.string().max(64).optional(),
 });
 
 export type VerifyResult = { ok: true; graphId: string; graphName: string } | { ok: false; error: string };
@@ -38,6 +41,7 @@ const TAKEN = "This graph is already on roam.pub. Ask its owner to invite you fr
  * Verifies a graph by writing one block to its daily note with the user's append-only token. Roam
  * only gives a graph's tokens to its admins and rejects a token used on another graph, so a write
  * that succeeds proves control of the graph. The first account to verify a graph owns it here.
+ * The token is then kept, encrypted, for the change log under each page's shortlink block.
  */
 export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyResult> {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -45,7 +49,7 @@ export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyR
 
   const parsed = Input.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  const { graphName, token, date } = parsed.data;
+  const { graphName, token, date, timeZone } = parsed.data;
 
   if (!rateLimit(`verify:user:${session.user.id}`, 10, 15 * 60 * 1000))
     return { ok: false, error: "Too many attempts. Try again in a few minutes." };
@@ -62,15 +66,23 @@ export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyR
     date,
     "roam.pub connected this graph (safe to delete)",
   );
-  // The token is not stored anywhere; it goes out of scope here.
   if (!result.ok) return { ok: false, error: result.message };
+
+  const stored = canStoreTokens()
+    ? {
+        appendTokenEnc: encryptToken(token),
+        appendTokenStatus: "ok" as const,
+        appendTokenAddedAt: new Date(),
+        ...(timeZone && validTimeZone(timeZone) && { timeZone }),
+      }
+    : {};
 
   const [g] = await db
     .insert(graph)
-    .values({ userId: session.user.id, name: graphName })
+    .values({ userId: session.user.id, name: graphName, ...stored })
     .onConflictDoUpdate({
       target: graph.name,
-      set: { verifiedAt: new Date() },
+      set: { verifiedAt: new Date(), ...stored },
       // Someone else verified it in the meantime: leave their graph alone.
       setWhere: eq(graph.userId, session.user.id),
     })
