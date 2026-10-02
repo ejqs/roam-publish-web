@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { removeEntry } from "@/app/(app)/dashboard/place-actions";
-import { ACCESS_LABELS } from "@/components/manage/choice";
+import { ACCESS_LABELS, LISTING_LABELS } from "@/components/manage/choice";
 import { PlaceAccessForm, type PlaceState } from "@/components/manage/place-access-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,9 +62,7 @@ export function EntryRow({
             From {origin} · added by {addedBy}
           </span>
           <span className="flex flex-wrap gap-1">
-            <Badge variant="outline" className="capitalize">
-              {state.listing}
-            </Badge>
+            {state.listing && <Badge variant="outline">{LISTING_LABELS[state.listing]}</Badge>}
             {access !== "open" && (
               <Badge variant="outline">
                 <LockIcon /> {ACCESS_LABELS[access]}

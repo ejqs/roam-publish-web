@@ -28,6 +28,7 @@ import { pendingInvitesFor } from "@/lib/invites";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { AttentionBanners, attentionItems } from "./attention-banners";
+import { LISTING_LABELS } from "@/components/manage/choice";
 import { AddCollectionDialog } from "./collections/create-form";
 import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
@@ -116,7 +117,7 @@ export default async function DashboardPage() {
                 <span key={l} className="contents">
                   <span aria-hidden>·</span>
                   <span className="tabular-nums">
-                    {n[l].toLocaleString("en-US")} {l}
+                    {n[l].toLocaleString("en-US")} {l === "discover" ? "on Discover" : LISTING_LABELS[l].toLowerCase()}
                   </span>
                 </span>
               ))}
@@ -200,7 +201,7 @@ export default async function DashboardPage() {
                         title={a === "discover" && paused ? `Discover is paused: ${paused}` : undefined}
                         className={`tabular-nums hover:underline ${a === "removed" ? "text-destructive" : "text-link"}`}
                       >
-                        {c[a].toLocaleString("en-US")} {ACCESS_LABELS[a].toLowerCase()}
+                        {c[a].toLocaleString("en-US")} {a === "discover" ? "on Discover" : ACCESS_LABELS[a].toLowerCase()}
                         {a === "discover" && paused && " (paused)"}
                       </Link>
                     </span>

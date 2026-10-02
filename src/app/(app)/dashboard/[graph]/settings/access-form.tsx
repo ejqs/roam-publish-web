@@ -71,6 +71,7 @@ export function GraphAccessForm({
         <FieldGroup>
           <ContainerAccessFields
             kind="graph"
+            label={graphName}
             containerId={graphId}
             pageCount={pageCount}
             value={access}

@@ -100,7 +100,7 @@ export function PublicationList({
                 ) : !p.inGraph ? (
                   <Badge variant="outline">Collections only</Badge>
                 ) : !m?.canManagePage ? (
-                  <Badge variant="outline" className="capitalize">{p.visibility === "public" ? "listed" : "unlisted"}</Badge>
+                  <Badge variant="outline">{p.visibility === "public" ? "Listed" : "Not listed"}</Badge>
                 ) : (
                   <AccessMenu
                     publicationId={p.id}

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FieldDescription, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { Access } from "@/db/schema";
-import { ACCESS_DESCRIPTIONS, ACCESS_LABELS, Choice } from "./choice";
+import { Choice, readOptions } from "./choice";
 
 export type ContainerAccess = {
   indexAccess: Access;
@@ -19,12 +19,6 @@ export type ContainerAccess = {
   clearPassword: boolean;
 };
 
-const options = (what: string) =>
-  (["open", "password", "members"] as const).map((a) => ({
-    value: a,
-    label: ACCESS_LABELS[a],
-    description: a === "open" ? `Anyone can ${what}.` : ACCESS_DESCRIPTIONS[a],
-  }));
 
 /**
  * A graph's or collection's two access settings: who can open its front page, and what new pages
@@ -33,6 +27,7 @@ const options = (what: string) =>
  */
 export function ContainerAccessFields({
   kind,
+  label,
   containerId,
   pageCount,
   value,
@@ -40,6 +35,8 @@ export function ContainerAccessFields({
   onChange,
 }: {
   kind: "graph" | "collection";
+  /** The graph's or collection's name, for "Members of …". */
+  label: string;
   containerId: string;
   pageCount: number;
   value: ContainerAccess;
@@ -55,7 +52,7 @@ export function ContainerAccessFields({
       <FieldSet>
         <FieldLegend variant="label">Front page</FieldLegend>
         <FieldDescription>Who can open this {kind}&apos;s page and see what&apos;s listed on it.</FieldDescription>
-        <Choice id={`${kind}-index`} value={value.indexAccess} options={options("open it")} onChange={(indexAccess) => set({ indexAccess, defaultAccess: indexAccess })} />
+        <Choice id={`${kind}-index`} value={value.indexAccess} options={readOptions(label, "front page")} onChange={(indexAccess) => set({ indexAccess, defaultAccess: indexAccess })} />
       </FieldSet>
       <FieldSeparator />
       <FieldSet>
@@ -64,10 +61,11 @@ export function ContainerAccessFields({
           Pages {kind === "graph" ? "published" : "added"} from now on. Changing this doesn&apos;t change pages already
           here, and each page can be changed on its own. Protected pages are never listed on Discover.
         </FieldDescription>
-        <Choice id={`${kind}-default`} value={value.defaultAccess} options={options("read them")} onChange={(defaultAccess) => set({ defaultAccess })} />
+        <Choice id={`${kind}-default`} value={value.defaultAccess} options={readOptions(label)} onChange={(defaultAccess) => set({ defaultAccess })} />
         {pageCount > 0 && (
           <ApplyToPagesDialog
             kind={kind}
+            label={label}
             containerId={containerId}
             pageCount={pageCount}
             initial={value.defaultAccess}
@@ -104,12 +102,14 @@ export function ContainerAccessFields({
 /** Sets who can read every page already in the graph or collection. */
 function ApplyToPagesDialog({
   kind,
+  label,
   containerId,
   pageCount,
   initial,
   hasPassword,
 }: {
   kind: "graph" | "collection";
+  label: string;
   containerId: string;
   pageCount: number;
   initial: Access;
@@ -157,7 +157,7 @@ function ApplyToPagesDialog({
         <Choice
           id={`${kind}-apply`}
           value={access}
-          options={options("read them").map((o) =>
+          options={readOptions(label).map((o) =>
             o.value === "password" && !hasPassword
               ? { ...o, description: `Only pages with their own password, unless you save a ${kind} password first.` }
               : o,
