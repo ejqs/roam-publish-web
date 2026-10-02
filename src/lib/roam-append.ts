@@ -2,7 +2,9 @@
 const APPEND_URL = (graph: string) =>
   `${process.env.ROAM_APPEND_API ?? "https://append-api.roamresearch.com"}/api/graph/${encodeURIComponent(graph)}/append-blocks`;
 
-export type AppendResult = { ok: true } | { ok: false; status: number; message: string };
+export type AppendResult =
+  | { ok: true }
+  | { ok: false; status: number; message: string; /** From a 429's Retry-After. */ retryAfterMs?: number };
 
 type Location = { page: { title: string | { "daily-note-page": string } } } | { block: { uid: string } };
 
@@ -34,7 +36,13 @@ async function append(graph: string, token: string, location: Location, texts: s
     .json()
     .then((b: { message?: string }) => b.message)
     .catch(() => undefined);
-  const fail = (message: string): AppendResult => ({ ok: false, status: res.status, message });
+  const retryAfter = Number(res.headers.get("retry-after"));
+  const fail = (message: string): AppendResult => ({
+    ok: false,
+    status: res.status,
+    message,
+    ...(res.status === 429 && retryAfter > 0 && { retryAfterMs: retryAfter * 1000 }),
+  });
   switch (res.status) {
     case 400:
       return fail(`Roam rejected the request${detail ? `: ${detail}` : ""}. Check the graph name.`);

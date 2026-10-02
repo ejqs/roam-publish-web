@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { db } from "@/db";
 import { changelogEntry, graph, publication, shortlink } from "@/db/schema";
@@ -7,8 +7,12 @@ import { appendUnderBlock } from "./roam-append";
 
 /**
  * The roam.pub change log: one block per event, appended with the graph's stored append-only token
- * under the page's shortlink block in Roam ("{shortUrl} #published"). Pages without a shortlink
- * block, and graphs without a working token, get nothing. Never blocks or fails the caller.
+ * under the "Changelog" block of the page's shortlink block in Roam. Pages without a shortlink block,
+ * and graphs without a working token, get nothing. Never blocks or fails the caller.
+ *
+ * Not real time: events are queued (`changelog_entry`, deduplicated), and `flushChangeLog`, run in
+ * the background every few seconds, sends each page's queued entries in one call once the page has
+ * been quiet for a bit, at most one call per graph every APPEND_GAP_MS, backing off on a 429.
  */
 export type PageRef = { graphId: string; rootUid: string };
 /**
@@ -45,11 +49,11 @@ export function stamp(date: Date, timeZone: string | null) {
   return `[[${get("month")} ${day}${ORDINAL(day)}, ${get("year")}]] ${get("hour")}:${get("minute")}${timeZone ? "" : " UTC"}`;
 }
 
-/** Queue change log entries; they're written after the response is sent. */
+/** Queue change log entries, after the response is sent; the background sender writes them to Roam. */
 export function logChanges(changes: Change[]) {
   if (changes.length === 0) return;
   const at = new Date();
-  after(() => writeChanges(changes, at).catch((e) => console.error("change log failed", e)));
+  after(() => queueChanges(changes, at).catch((e) => console.error("change log queue failed", e)));
 }
 
 export const logChange = (page: PageRef, text: string, key?: string) => logChanges([{ ...page, text, key }]);
@@ -64,18 +68,11 @@ export async function logForPublications(ids: string[], text: string | ((p: { ti
   logChanges(rows.map((r) => ({ graphId: r.graphId, rootUid: r.rootUid, text: typeof text === "string" ? text : text(r) })));
 }
 
-export async function writeChanges(changes: Change[], at = new Date()) {
+/** Records non-duplicate entries for pages that have a shortlink block and a usable token. */
+export async function queueChanges(changes: Change[], at = new Date()) {
   const pairs = [...new Map(changes.map((c) => [`${c.graphId}\u0000${c.rootUid}`, c])).values()];
   const rows = await db
-    .select({
-      graphId: graph.id,
-      graphName: graph.name,
-      token: graph.appendTokenEnc,
-      timeZone: graph.timeZone,
-      shortlinkId: shortlink.id,
-      rootUid: shortlink.rootUid,
-      anchorUid: shortlink.anchorUid,
-    })
+    .select({ shortlinkId: shortlink.id, graphId: shortlink.graphId, rootUid: shortlink.rootUid })
     .from(shortlink)
     .innerJoin(graph, eq(graph.id, shortlink.graphId))
     .where(
@@ -86,51 +83,103 @@ export async function writeChanges(changes: Change[], at = new Date()) {
         or(...pairs.map((p) => and(eq(shortlink.graphId, p.graphId), eq(shortlink.rootUid, p.rootUid)))),
       ),
     );
+  for (const r of rows)
+    await claim(r.shortlinkId, changes.filter((c) => c.graphId === r.graphId && c.rootUid === r.rootUid), at);
+}
 
-  const rejected = new Set<string>();
-  for (const r of rows) {
-    if (rejected.has(r.graphId)) continue;
-    const token = decryptToken(r.token!);
-    if (!token) {
-      // Encrypted with a key the server no longer has: ask the owner for a new token.
-      rejected.add(r.graphId);
-      await db.update(graph).set({ appendTokenStatus: "invalid" }).where(eq(graph.id, r.graphId));
-      continue;
-    }
-    const claimed = await claim(
-      r.shortlinkId,
-      changes.filter((c) => c.graphId === r.graphId && c.rootUid === r.rootUid),
-      at,
-    );
-    if (claimed.length === 0) continue;
-    const res = await appendUnderBlock(
-      r.graphName,
-      token,
-      r.anchorUid!,
-      claimed.map((c) => `${stamp(at, r.timeZone)} ${c.text}`),
-    );
-    // Failed entries are not retried: a write Roam may have half-applied must never be sent twice.
+/** Roam doesn't publish Append API limits; stay well under what a token is likely to allow. */
+const APPEND_GAP_MS = 10_000;
+/** Wait for a page to go quiet so bursts (bulk edits, several changes) become one call… */
+const QUIET_MS = 30_000;
+/** …but never hold an entry longer than this. */
+const MAX_WAIT_MS = 3 * 60_000;
+const BACKOFF_BASE_MS = 60_000;
+const BACKOFF_MAX_MS = 30 * 60_000;
+
+/**
+ * Sends queued entries: per graph, the page waiting longest, once it's quiet (or has waited
+ * MAX_WAIT_MS), as one Append API call. Entries are claimed atomically ("pending" → "sending"), so
+ * overlapping runs or replicas never send the same entry twice.
+ */
+export async function flushChangeLog(now = new Date()) {
+  const ready = await db.execute<{ shortlink_id: string; graph_id: string }>(sql`
+    select distinct on (s.graph_id) s.id as shortlink_id, s.graph_id
+    from ${changelogEntry} e
+    join ${shortlink} s on s.id = e.shortlink_id
+    join ${graph} g on g.id = s.graph_id
+    where e.status = 'pending'
+      and s.anchor_uid is not null
+      and g.append_token_enc is not null
+      and g.append_token_status is distinct from 'invalid'
+      and (g.append_next_at is null or g.append_next_at <= ${now})
+    group by s.id, s.graph_id
+    having max(e.created_at) <= ${new Date(now.getTime() - QUIET_MS)}
+        or min(e.created_at) <= ${new Date(now.getTime() - MAX_WAIT_MS)}
+    order by s.graph_id, min(e.created_at)
+  `);
+  for (const { shortlink_id, graph_id } of ready.rows) await sendPage(shortlink_id, graph_id, now);
+}
+
+async function sendPage(shortlinkId: string, graphId: string, now: Date) {
+  // Pace this graph before sending, so a slow or failing call still counts toward the gap.
+  const [paced] = await db
+    .update(graph)
+    .set({ appendNextAt: new Date(now.getTime() + APPEND_GAP_MS) })
+    .where(and(eq(graph.id, graphId), or(isNull(graph.appendNextAt), lte(graph.appendNextAt, now))))
+    .returning({ name: graph.name, enc: graph.appendTokenEnc, timeZone: graph.timeZone, backoff: graph.appendBackoff });
+  if (!paced) return; // Another run took this graph's turn.
+  const link = await db.query.shortlink.findFirst({ where: eq(shortlink.id, shortlinkId) });
+  const claimed = await db
+    .update(changelogEntry)
+    .set({ status: "sending" })
+    .where(and(eq(changelogEntry.shortlinkId, shortlinkId), eq(changelogEntry.status, "pending")))
+    .returning({ id: changelogEntry.id, text: changelogEntry.text, createdAt: changelogEntry.createdAt });
+  if (!link?.anchorUid || claimed.length === 0) return;
+  claimed.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const ids = claimed.map((c) => c.id);
+  const setStatus = (status: "pending" | "sent" | "failed") =>
+    db.update(changelogEntry).set({ status }).where(inArray(changelogEntry.id, ids));
+
+  const token = decryptToken(paced.enc!);
+  if (!token) {
+    // Encrypted with a key the server no longer has: ask the owner for a new token.
+    await setStatus("pending");
+    await db.update(graph).set({ appendTokenStatus: "invalid" }).where(eq(graph.id, graphId));
+    return;
+  }
+  // Dated when each event happened, not when it was sent.
+  const res = await appendUnderBlock(
+    paced.name,
+    token,
+    link.anchorUid,
+    claimed.map((c) => `${stamp(c.createdAt, paced.timeZone)} ${c.text}`),
+  );
+  if (res.ok) {
+    await setStatus("sent");
+    await db.update(graph).set({ appendTokenOkAt: new Date(), appendBackoff: 0 }).where(eq(graph.id, graphId));
+    return;
+  }
+  if (res.status === 429) {
+    // Not applied: keep the entries queued and back off this graph.
+    await setStatus("pending");
+    const wait = res.retryAfterMs ?? Math.min(BACKOFF_BASE_MS * 2 ** paced.backoff, BACKOFF_MAX_MS);
     await db
-      .update(changelogEntry)
-      .set({ status: res.ok ? "sent" : "failed" })
-      .where(inArray(changelogEntry.id, claimed.map((c) => c.id)));
-    if (res.ok) {
-      await db.update(graph).set({ appendTokenOkAt: new Date() }).where(eq(graph.id, r.graphId));
-      continue;
-    }
-    if (res.status === 401 || res.status === 403) {
-      // Revoked or replaced in Roam: stop until the owner adds a new one.
-      rejected.add(r.graphId);
-      await db.update(graph).set({ appendTokenStatus: "invalid" }).where(eq(graph.id, r.graphId));
-      continue;
-    }
-    if (res.status === 400) {
-      // Most likely the shortlink block was deleted in Roam; the extension writes a new one on the next publish.
-      await db
-        .update(shortlink)
-        .set({ anchorUid: null })
-        .where(and(eq(shortlink.graphId, r.graphId), eq(shortlink.rootUid, r.rootUid)));
-    }
+      .update(graph)
+      .set({ appendNextAt: new Date(Date.now() + wait), appendBackoff: paced.backoff + 1 })
+      .where(eq(graph.id, graphId));
+    return;
+  }
+  if (res.status === 401 || res.status === 403) {
+    // Revoked or replaced in Roam: keep the entries until the owner adds a new token.
+    await setStatus("pending");
+    await db.update(graph).set({ appendTokenStatus: "invalid" }).where(eq(graph.id, graphId));
+    return;
+  }
+  // Anything else may or may not have been applied; never risk sending it twice.
+  await setStatus("failed");
+  if (res.status === 400) {
+    // Most likely the shortlink block was deleted in Roam; the extension writes a new one on the next publish.
+    await db.update(shortlink).set({ anchorUid: null }).where(eq(shortlink.id, shortlinkId));
   }
 }
 
