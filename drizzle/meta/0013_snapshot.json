@@ -1,6 +1,6 @@
 {
-  "id": "38da0fb9-9dc7-4bf2-8fb0-ecd5d6ac5e43",
-  "prevId": "2f43a156-794d-4304-8c7e-3f554349b7fb",
+  "id": "0910ae51-8405-480f-a102-3520863c7cfc",
+  "prevId": "38da0fb9-9dc7-4bf2-8fb0-ecd5d6ac5e43",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1232,6 +1232,30 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "append_token_enc": {
+          "name": "append_token_enc",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "append_token_status": {
+          "name": "append_token_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "append_token_added_at": {
+          "name": "append_token_added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "time_zone": {
+          "name": "time_zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "verified_at": {
           "name": "verified_at",
@@ -2533,6 +2557,86 @@
           "value": "num_nonnulls(\"report\".\"graph_id\", \"report\".\"collection_id\", \"report\".\"profile_user_id\") = 1"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.shortlink": {
+      "name": "shortlink",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "graph_id": {
+          "name": "graph_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "root_uid": {
+          "name": "root_uid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anchor_uid": {
+          "name": "anchor_uid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shortlink_graph_root_idx": {
+          "name": "shortlink_graph_root_idx",
+          "columns": [
+            {
+              "expression": "graph_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "root_uid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "shortlink_graph_id_graph_id_fk": {
+          "name": "shortlink_graph_id_graph_id_fk",
+          "tableFrom": "shortlink",
+          "tableTo": "graph",
+          "columnsFrom": [
+            "graph_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.username_alias": {
