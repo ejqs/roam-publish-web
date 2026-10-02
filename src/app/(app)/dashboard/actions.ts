@@ -76,12 +76,16 @@ export async function setAccess(publicationId: string, access: Access): Promise<
       : access === "public"
         ? { visibility: "public" as const, discoverable: false }
         : { visibility: "unlisted" as const };
+  const before = await db.query.publication.findFirst({ where: eq(publication.id, publicationId) });
   const [changed] = await db
     .update(publication)
     .set(set)
     .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)))
     .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
-  if (changed) logChange(changed, ACCESS_LOG[access]);
+  // Only real changes are logged; unlisting leaves the Discover flag alone.
+  const same =
+    before?.visibility === set.visibility && (set.visibility === "unlisted" || before.discoverable === set.discoverable);
+  if (changed && !same) logChange(changed, ACCESS_LOG[access]);
   revalidatePath("/dashboard", "layout");
   revalidatePath("/[graph]", "page");
   revalidatePath("/");

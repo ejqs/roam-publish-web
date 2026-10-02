@@ -1,7 +1,7 @@
-import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { db } from "@/db";
-import { graph, publication, shortlink } from "@/db/schema";
+import { changelogEntry, graph, publication, shortlink } from "@/db/schema";
 import { decryptToken } from "./append-token";
 import { appendUnderBlock } from "./roam-append";
 
@@ -11,7 +11,11 @@ import { appendUnderBlock } from "./roam-append";
  * block, and graphs without a working token, get nothing. Never blocks or fails the caller.
  */
 export type PageRef = { graphId: string; rootUid: string };
-export type Change = PageRef & { text: string };
+/**
+ * `key` makes an entry idempotent: one with a key already logged for this page is never appended
+ * again. Without one, an entry identical to the page's previous entry is skipped.
+ */
+export type Change = PageRef & { text: string; key?: string };
 
 const ORDINAL = (d: number) =>
   d % 10 === 1 && d !== 11 ? "st" : d % 10 === 2 && d !== 12 ? "nd" : d % 10 === 3 && d !== 13 ? "rd" : "th";
@@ -48,7 +52,7 @@ export function logChanges(changes: Change[]) {
   after(() => writeChanges(changes, at).catch((e) => console.error("change log failed", e)));
 }
 
-export const logChange = (page: PageRef, text: string) => logChanges([{ ...page, text }]);
+export const logChange = (page: PageRef, text: string, key?: string) => logChanges([{ ...page, text, key }]);
 
 /** Log the same kind of event for pages known by publication id. */
 export async function logForPublications(ids: string[], text: string | ((p: { title: string }) => string)) {
@@ -68,6 +72,7 @@ export async function writeChanges(changes: Change[], at = new Date()) {
       graphName: graph.name,
       token: graph.appendTokenEnc,
       timeZone: graph.timeZone,
+      shortlinkId: shortlink.id,
       rootUid: shortlink.rootUid,
       anchorUid: shortlink.anchorUid,
     })
@@ -85,9 +90,6 @@ export async function writeChanges(changes: Change[], at = new Date()) {
   const rejected = new Set<string>();
   for (const r of rows) {
     if (rejected.has(r.graphId)) continue;
-    const texts = changes
-      .filter((c) => c.graphId === r.graphId && c.rootUid === r.rootUid)
-      .map((c) => `${stamp(at, r.timeZone)} ${c.text}`);
     const token = decryptToken(r.token!);
     if (!token) {
       // Encrypted with a key the server no longer has: ask the owner for a new token.
@@ -95,7 +97,23 @@ export async function writeChanges(changes: Change[], at = new Date()) {
       await db.update(graph).set({ appendTokenStatus: "invalid" }).where(eq(graph.id, r.graphId));
       continue;
     }
-    const res = await appendUnderBlock(r.graphName, token, r.anchorUid!, texts);
+    const claimed = await claim(
+      r.shortlinkId,
+      changes.filter((c) => c.graphId === r.graphId && c.rootUid === r.rootUid),
+      at,
+    );
+    if (claimed.length === 0) continue;
+    const res = await appendUnderBlock(
+      r.graphName,
+      token,
+      r.anchorUid!,
+      claimed.map((c) => `${stamp(at, r.timeZone)} ${c.text}`),
+    );
+    // Failed entries are not retried: a write Roam may have half-applied must never be sent twice.
+    await db
+      .update(changelogEntry)
+      .set({ status: res.ok ? "sent" : "failed" })
+      .where(inArray(changelogEntry.id, claimed.map((c) => c.id)));
     if (res.ok) {
       await db.update(graph).set({ appendTokenOkAt: new Date() }).where(eq(graph.id, r.graphId));
       continue;
@@ -114,6 +132,37 @@ export async function writeChanges(changes: Change[], at = new Date()) {
         .where(and(eq(shortlink.graphId, r.graphId), eq(shortlink.rootUid, r.rootUid)));
     }
   }
+}
+
+/**
+ * Records the entries that aren't duplicates and returns them; the rest are dropped. Claims for one
+ * page are serialized, so two requests can't both pass the "same as the last entry" check.
+ */
+async function claim(shortlinkId: string, changes: Change[], at: Date) {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${shortlinkId}))`);
+    const [last] = await tx
+      .select({ text: changelogEntry.text })
+      .from(changelogEntry)
+      .where(eq(changelogEntry.shortlinkId, shortlinkId))
+      .orderBy(desc(changelogEntry.createdAt))
+      .limit(1);
+    let previous = last?.text;
+    const claimed: { id: string; text: string }[] = [];
+    for (const [i, c] of changes.entries()) {
+      if (!c.key && c.text === previous) continue;
+      const [row] = await tx
+        .insert(changelogEntry)
+        // Distinct timestamps keep "the last entry" well defined within one batch.
+        .values({ shortlinkId, key: c.key ?? crypto.randomUUID(), text: c.text, createdAt: new Date(at.getTime() + i) })
+        .onConflictDoNothing()
+        .returning({ id: changelogEntry.id, text: changelogEntry.text });
+      if (!row) continue;
+      claimed.push(row);
+      previous = c.text;
+    }
+    return claimed;
+  });
 }
 
 export type ChangeLogStatus = { status: "ok" | "invalid" | "none"; lastOkAt: Date | null };

@@ -138,7 +138,12 @@ export async function POST(req: Request) {
             },
       )
       .where(eq(publication.id, existing.id));
-    logChange(page, existing.contentHash === hash ? `Byline changed to "${authorName ?? "(none)"}"` : "Republished");
+    // Keyed by the state it changed from, so a retried or concurrent request for the same change is
+    // logged once, while every later edit (even back to earlier content) gets its own entry.
+    const from = `${existing.contentHash}@${existing.updatedAt.getTime()}`;
+    if (existing.contentHash === hash)
+      logChange(page, `Byline changed to "${authorName ?? "(none)"}"`, `byline:${from}:${existing.authorName ?? ""}>${authorName ?? ""}`);
+    else logChange(page, "Republished", `content:${from}>${hash}`);
     return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, changeLog: await changeLogStatusOf(ctx.graphId) });
   }
 
@@ -169,7 +174,7 @@ export async function POST(req: Request) {
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
   const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
-  logChange(page, `Published as ${created.visibility}: ${url}`);
+  logChange(page, `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
   return json(req, {
     status: "created",
     url,
