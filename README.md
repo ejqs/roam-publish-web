@@ -24,6 +24,14 @@ Without `RESEND_API_KEY`, verification and reset emails are printed to the serve
 Edit `src/db/app-schema.ts` (or re-run `bunx auth@latest generate --config src/lib/auth.ts --output src/db/auth-schema.ts`
 after changing better-auth plugins), then `bun run db:generate` and commit the migration in `drizzle/`.
 
+## RSS feeds
+
+- `/discover/feed.xml`: always on, the newest pages on Discover.
+- `/{graph}/feed.xml`: off by default; owners turn it on in graph settings. Needs the front page on and open to everyone.
+- `/c/{slug}/feed.xml`: off by default; owners turn it on in collection settings. Needs the collection page open to everyone.
+
+Feed readers send no cookies, so feeds only ever list pages open to everyone (see `src/lib/feeds.ts`).
+
 ## Extension API
 
 See [docs/api-contract.md](docs/api-contract.md), and [roam-publish-docs](https://github.com/ejqs/roam-publish-docs)
