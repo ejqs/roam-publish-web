@@ -122,7 +122,8 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
         </Alert>
       )}
 
-      <Card>
+      {/* overflow-visible so the bulk-change bar can stick while scrolling. */}
+      <Card className="overflow-visible">
         <CardContent className="flex flex-col gap-4">
           <ListToolbar
             cfg={GRAPH_LIST}

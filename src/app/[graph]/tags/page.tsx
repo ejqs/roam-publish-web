@@ -84,7 +84,7 @@ export default async function GraphTags(props: PageProps<"/[graph]/tags">) {
               { label: "Tags" },
             ]}
           />
-          <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">Tags</h1>
+          <h1 className="mb-1 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">Tags</h1>
           <p className="mb-6 text-sm text-muted-foreground">
             {tags.length} {tags.length === 1 ? "tag" : "tags"} on pages in {g.name}
           </p>

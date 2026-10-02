@@ -174,7 +174,7 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
         </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           <p className="mb-2 text-sm text-muted-foreground">Collection</p>
-          <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">
+          <h1 className="mb-1 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
             {c.name} <AccessLock access={c.indexAccess} what="collection" name={c.name} />
           </h1>
           {c.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{c.description}</p>}

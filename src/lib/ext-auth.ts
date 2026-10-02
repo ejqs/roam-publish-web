@@ -18,13 +18,21 @@ export type ExtContext = {
 /**
  * Resolves the x-api-key header to the person and graph it was issued for, or the error response to
  * return: 401 for a bad key, a banned key holder or owner, or someone no longer in the graph; 403
- * for a graph a moderator suspended.
+ * for a graph a moderator suspended; 429 once the key has made too many requests this minute.
  */
 export async function requireExtKey(req: Request): Promise<ExtContext | Response> {
   const invalid = () => json(req, { error: "Invalid API key" }, 401);
   const key = req.headers.get("x-api-key");
   if (!key) return invalid();
   const res = await auth.api.verifyApiKey({ body: { key } }).catch(() => null);
+  // A busy key is still a good key: say so, or the extension tells people to replace it.
+  if (res?.error?.code === "RATE_LIMITED") {
+    const ms = Number((res.error as { details?: { tryAgainIn?: number } }).details?.tryAgainIn) || 60_000;
+    const secs = Math.max(1, Math.ceil(ms / 1000));
+    const r = json(req, { error: `Too many requests with this API key. Try again in ${secs} seconds.` }, 429);
+    r.headers.set("retry-after", String(secs));
+    return r;
+  }
   if (!res?.valid || !res.key) return invalid();
   const graphId = keyGraphId(res.key.metadata);
   if (!graphId) return invalid();
