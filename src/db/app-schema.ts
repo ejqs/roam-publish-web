@@ -71,6 +71,10 @@ export const graph = pgTable("graph", {
   appendTokenAddedAt: timestamp("append_token_added_at", { withTimezone: true }),
   /** Last time Roam accepted the token (verification, settings, or a change log entry). */
   appendTokenOkAt: timestamp("append_token_ok_at", { withTimezone: true }),
+  /** No change log call to Roam before this: paces calls per graph and backs off after a 429. */
+  appendNextAt: timestamp("append_next_at", { withTimezone: true }),
+  /** Consecutive 429s from Roam, for exponential backoff. */
+  appendBackoff: integer("append_backoff").notNull().default(0),
   /** IANA time zone from the owner's browser; dates change log entries. */
   timeZone: text("time_zone"),
   verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull().defaultNow(),
@@ -486,12 +490,16 @@ export const changelogEntry = pgTable(
       .references(() => shortlink.id, { onDelete: "cascade" }),
     key: text("key").notNull(),
     text: text("text").notNull(),
-    /** "sent" once Roam accepted it; "failed" entries are not retried, so nothing is ever sent twice. */
-    status: text("status", { enum: ["pending", "sent", "failed"] }).notNull().default("pending"),
+    /**
+     * Queued as "pending", claimed as "sending" by the background sender, then "sent" or "failed".
+     * Only entries Roam definitely didn't apply (429) go back to pending, so nothing is sent twice.
+     */
+    status: text("status", { enum: ["pending", "sending", "sent", "failed"] }).notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("changelog_entry_key_idx").on(t.shortlinkId, t.key),
     index("changelog_entry_recent_idx").on(t.shortlinkId, t.createdAt),
+    index("changelog_entry_status_idx").on(t.status, t.createdAt),
   ],
 );

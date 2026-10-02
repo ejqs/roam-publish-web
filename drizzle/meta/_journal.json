@@ -113,6 +113,13 @@
       "when": 1790918542193,
       "tag": "0015_changelog_entries",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790918774307,
+      "tag": "0016_changelog_queue",
+      "breakpoints": true
     }
   ]
 }
