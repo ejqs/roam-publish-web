@@ -10,6 +10,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -42,7 +43,25 @@ const PREREQUISITES = [
   },
 ] as const;
 
-type State = { step: "form" } | { step: "done"; graphId: string; graphName: string };
+/** Revoking first leaves Roam's [[API Token: …]] page undeletable, so the order matters. */
+function TokenDeletionSteps() {
+  return (
+    <ol className="list-decimal space-y-2 pl-5">
+      <li>
+        <strong>Click</strong> the token&apos;s link under <em>Roam Page Title</em> in Settings → Graph → API
+        tokens (e.g. <code>[[API Token: Roam Publish]]</code>) to open its page.
+      </li>
+      <li>
+        <strong>Delete</strong> that page: <em>⋯</em> menu (top right) → <em>Delete Page</em>.
+      </li>
+      <li>
+        <strong>Revoke</strong> the token: back in API tokens, click the <em>✕</em> next to it.
+      </li>
+    </ol>
+  );
+}
+
+type State = { step: "warning" } | { step: "form" } | { step: "done"; graphId: string; graphName: string };
 
 export function OnboardingFlow({
   initialGraph,
@@ -52,7 +71,8 @@ export function OnboardingFlow({
   /** Already has a verified graph, so knows the drill: skip the "Before you start" checklist. */
   hasGraph: boolean;
 }) {
-  const [state, setState] = useState<State>({ step: "form" });
+  const [state, setState] = useState<State>({ step: "warning" });
+  const [acknowledged, setAcknowledged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
@@ -90,6 +110,48 @@ export function OnboardingFlow({
           Link a Roam graph you own to your account. Shared graphs are joined by invite from their owner.
         </p>
       </div>
+
+      {state.step === "warning" && (
+        <Card className="border-warning/50 border-l-4 border-l-warning">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <TriangleAlertIcon className="size-5 text-warning" />
+              Before you create a token: how to delete it
+            </CardTitle>
+            <CardDescription>
+              Read this first. Getting the order wrong leaves a page in your graph that you can&apos;t remove.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 text-sm">
+            <p>
+              When you create an API token, Roam also creates a page named after it, like{" "}
+              <code>[[API Token: Roam Publish]]</code>. Once you&apos;re verified you can delete the token, but{" "}
+              <strong>
+                if you revoke the token first, that page can never be deleted.
+              </strong>
+            </p>
+            <div className="flex flex-col gap-2 rounded-lg bg-warning/10 p-3">
+              <p className="font-semibold">Always delete it in this order: Click → Delete → Revoke</p>
+              <TokenDeletionSteps />
+            </div>
+            <Field orientation="horizontal">
+              <Checkbox
+                id="ack-token-order"
+                checked={acknowledged}
+                onCheckedChange={(v) => setAcknowledged(!!v)}
+              />
+              <FieldLabel htmlFor="ack-token-order" className="font-normal">
+                I understand: delete the token&apos;s page first, then revoke the token.
+              </FieldLabel>
+            </Field>
+          </CardContent>
+          <CardFooter>
+            <Button disabled={!acknowledged} onClick={() => setState({ step: "form" })}>
+              Continue to verification
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
 
       {state.step === "form" && (
         <Card>
@@ -150,7 +212,7 @@ export function OnboardingFlow({
                   <AlertTitle>How we use this token</AlertTitle>
                   <AlertDescription>
                     Used once to add a block to today&apos;s daily note, then discarded. You can delete
-                    the token and the block right after. We&apos;ll show you the safe order to delete it.
+                    the token and the block right after, deleting its page first, then revoking it.
                   </AlertDescription>
                 </Alert>
                 <Button type="submit" disabled={pending || !ready}>
@@ -166,24 +228,12 @@ export function OnboardingFlow({
       {state.step === "done" && (
         <Alert variant="warning">
           <TriangleAlertIcon />
-          <AlertTitle>Delete the API token in this exact order</AlertTitle>
+          <AlertTitle>Reminder: Click → Delete → Revoke</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
             <p>
-              Roam creates an <strong>API Token: …</strong> page for every token. If you revoke the token
-              first, that page (the token&apos;s display name) <strong>can&apos;t be deleted</strong> afterwards.
+              Delete the token&apos;s page before revoking the token, or the page can&apos;t be deleted.
             </p>
-            <ol className="list-decimal space-y-1 pl-5">
-              <li>
-                <strong>Click</strong> the token&apos;s link under <em>Roam Page Title</em> in Settings → Graph →
-                API tokens (e.g. <code>[[API Token: Roam Publish]]</code>) to open its page.
-              </li>
-              <li>
-                <strong>Delete</strong> that page: <em>⋯</em> menu (top right) → <em>Delete Page</em>.
-              </li>
-              <li>
-                <strong>Revoke</strong> the token: back in API tokens, click the <em>✕</em> next to it.
-              </li>
-            </ol>
+            <TokenDeletionSteps />
           </AlertDescription>
         </Alert>
       )}
