@@ -65,7 +65,15 @@ export function SiteFooter({
     <footer className={cn("border-t bg-card", className)}>
       <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <p>
-          This is a third-party service made by {ejqs(link)}. Not affiliated with Roam Research.
+          This is a third-party service made by {ejqs(link)}. Not affiliated with Roam Research. Icon by{" "}
+          <a href="https://github.com/jdecked/twemoji" target="_blank" rel="noopener" className={link}>
+            Twemoji
+          </a>
+          ,{" "}
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" className={link}>
+            CC BY 4.0
+          </a>
+          .
         </p>
         <FooterLinks className={link} />
       </div>

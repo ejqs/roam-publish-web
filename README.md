@@ -77,3 +77,7 @@ for the reasoning behind it.
 ---
 
 This is a third-party service made by [@ejqs](https://ejqs.net). Not affiliated with Roam Research.
+
+The site icon is the 🌍 globe from [Twemoji](https://github.com/jdecked/twemoji), © Twitter, Inc and other
+contributors, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). It is used unmodified,
+rendered to PNG and ICO in `src/app/`.
