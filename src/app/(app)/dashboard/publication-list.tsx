@@ -99,7 +99,7 @@ export function PublicationList({
                   </>
                 ) : !p.inGraph ? (
                   <Badge variant="outline">Collections only</Badge>
-                ) : !m ? (
+                ) : !m?.canManagePage ? (
                   <Badge variant="outline" className="capitalize">{p.visibility === "public" ? "listed" : "unlisted"}</Badge>
                 ) : (
                   <AccessMenu
@@ -107,7 +107,8 @@ export function PublicationList({
                     access={p.visibility === "unlisted" ? "unlisted" : p.discoverable ? "discover" : "public"}
                     frontPage={g.frontPage}
                     indexable={g.indexable}
-                    discoverBlocked={gAccess !== "open" ? "Protected pages can't go on Discover." : discoverBlocked}
+                    discoverBlocked={discoverBlocked}
+                    place={m.graphPlace}
                   />
                 )}
                 {!p.removedAt && p.inGraph && gAccess !== "open" && (
