@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { AccessLock, lockExplanation } from "@/components/access-lock";
+import { DashboardLink } from "@/components/dashboard-link";
 import { GateNotice } from "@/components/gate-notice";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
@@ -94,6 +95,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
+          <DashboardLink href={role ? `/dashboard/${encodeURIComponent(g.name)}` : undefined} />
           <ReportAbuseButton target={{ graphName: g.name }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>

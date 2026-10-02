@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
+import { DashboardLink } from "@/components/dashboard-link";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SiteFooter } from "@/components/site-footer";
@@ -59,6 +60,7 @@ export default async function ProfilePage(props: PageProps<"/u/[username]">) {
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
+          <DashboardLink />
           <ReportAbuseButton target={{ username: p.username }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
