@@ -2,12 +2,23 @@ import katex from "katex";
 import "katex/dist/katex.min.css";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BARE_TAG, pageRef, type RefMatch } from "@/lib/roam-refs";
 import { CodeBlock } from "./code-block";
 
-/** Published pages in the same graph: lowercase title → href. */
-export type PageLinks = Map<string, string>;
+/**
+ * Published pages in the same graph or collection: lowercase title → href. `tagHref` is where a
+ * #tag goes when no published page has its title, like the front page filtered to that tag.
+ */
+export class PageLinks extends Map<string, string> {
+  constructor(
+    entries: Iterable<readonly [string, string]> = [],
+    readonly tagHref?: (tag: string) => string,
+  ) {
+    super(entries);
+  }
+}
 
-type Match = { index: number; length: number; groups: string[] };
+type Match = RefMatch;
 
 type Rule = {
   find: (s: string) => Match | null;
@@ -25,36 +36,11 @@ const re =
     return m && { index: m.index, length: m[0].length, groups: [...m] };
   };
 
-/** `[[Title]]` (or `#[[Title]]`) with nested refs balanced, e.g. `[[a [[b]] c]]`. */
-const pageRef =
-  (prefix: string) =>
-  (s: string): Match | null => {
-    for (let from = 0; ; ) {
-      const start = s.indexOf(`${prefix}[[`, from);
-      if (start < 0) return null;
-      const open = start + prefix.length;
-      let depth = 0;
-      for (let i = open; i < s.length - 1; i++) {
-        if (s.startsWith("[[", i)) {
-          depth++;
-          i++;
-        } else if (s.startsWith("]]", i)) {
-          depth--;
-          i++;
-          if (depth === 0) {
-            return { index: start, length: i + 1 - start, groups: [s.slice(start, i + 1), s.slice(open + 2, i - 1)] };
-          }
-        }
-      }
-      from = start + 1;
-    }
-  };
-
 // A URL that may contain one level of balanced parentheses, like Wikipedia's `Foo_(bar)`.
 const URL_IN_PARENS = String.raw`((?:[^()\s]|\([^()\s]*\))+)`;
 
 function PageRef({ title, ctx, tag, label }: { title: string; ctx: Ctx; tag?: boolean; label?: ReactNode }) {
-  const href = ctx.links.get(title.toLowerCase());
+  const href = ctx.links.get(title.toLowerCase()) ?? (tag ? ctx.links.tagHref?.(title) : undefined);
   const text = label ?? (tag ? `#${title}` : title);
   return href ? (
     <Link href={href} className="text-roam-ref hover:underline">
@@ -234,7 +220,7 @@ const rules: Rule[] = [
   },
   { find: pageRef("#"), render: (g, ctx) => <PageRef title={g[1]} ctx={ctx} tag /> },
   { find: pageRef(""), render: (g, ctx) => <PageRef title={g[1]} ctx={ctx} /> },
-  { find: re(/(?<![\w&])#([\p{L}\p{N}_\-/]+)/u), render: (g, ctx) => <PageRef title={g[1]} ctx={ctx} tag /> },
+  { find: re(BARE_TAG), render: (g, ctx) => <PageRef title={g[1]} ctx={ctx} tag /> },
   { find: re(/\(\(([\w-]{9,})\)\)/), render: () => null }, // unresolved block refs
   { find: re(/\*\*([\s\S]+?)\*\*/), render: (g, ctx) => <strong>{renderInline(g[1], ctx)}</strong> },
   { find: re(/__([\s\S]+?)__/), render: (g, ctx) => <em>{renderInline(g[1], ctx)}</em> },

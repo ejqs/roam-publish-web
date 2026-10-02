@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, ne, type SQL, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { AccessLock, lockExplanation } from "@/components/access-lock";
@@ -9,8 +9,9 @@ import { GateNotice } from "@/components/gate-notice";
 import { PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
-import type { PageLinks } from "@/components/roam/markup";
+import { PageLinks } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
+import { QuickSearch } from "@/components/quick-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { db } from "@/db";
@@ -22,9 +23,12 @@ import { canManage, graphRole } from "@/lib/graph-access";
 import { manageDataFor } from "@/lib/manage-data";
 import { liveGraph } from "@/lib/moderation";
 import { collectionPath, entryPath } from "@/lib/publications";
+import { collectionTagPath, RELATED_LIMIT } from "@/lib/tag-paths";
 import { plainText, slugify } from "@/lib/slug";
 import { bylineFor, viewerId } from "@/lib/viewer";
-import { PublicationTable } from "../../../[graph]/publication-table";
+import { formatDate, ListStatus, ListToolbar, PageList } from "@/components/page-list";
+import { COLLECTION_LIST, LIST_PAGE_SIZE, parseListState } from "@/lib/list-params";
+import { listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
 
 type Resolved = NonNullable<Awaited<ReturnType<typeof resolveC>>>;
 type C = Resolved["c"];
@@ -87,30 +91,73 @@ export default async function CollectionRoute(props: PageProps<"/c/[id]/[[...slu
   if (!route) notFound();
   if (route.r.c.takenDown) return <RemovedNotice what="collection" />;
   return route.kind === "collection" ? (
-    <CollectionIndex c={route.r.c} />
+    <CollectionIndex c={route.r.c} search={await props.searchParams} />
   ) : (
     <EntryPage r={route.r} rest={route.rest} />
   );
 }
 
-async function CollectionIndex({ c }: { c: C }) {
+async function CollectionIndex({ c, search }: { c: C; search: Record<string, string | string[] | undefined> }) {
   const me = await viewerId();
   const role = me ? await collectionRole(me, c.id) : null;
   const container = asContainer(c);
   const blocker = await gate(c.indexAccess, containerLock(container), { member: !!role, manager: false, signedIn: !!me });
   if (blocker) return <GateNotice blocker={blocker} what="collection" next={collectionPath(c.slug)} />;
 
-  const rows = (await liveEntries(c.id)).filter(({ entry }) => entry.listing !== "unlisted");
+  const state = parseListState(COLLECTION_LIST, search);
+  const path = collectionPath(c.slug);
+  const from = sql`from ${collectionEntry}
+    join ${publication} on ${publication.id} = ${collectionEntry.publicationId}
+    join ${graph} on ${graph.id} = ${publication.graphId}
+    join ${user} on ${user.id} = ${graph.userId}`;
+  const listed = and(
+    eq(collectionEntry.collectionId, c.id),
+    ne(collectionEntry.listing, "unlisted"),
+    isNull(publication.removedAt),
+    liveGraph,
+  );
+  const matchingWhere = listWhere(state, listed);
+  const counted = (where: SQL | undefined) =>
+    db
+      .select({ n: count() })
+      .from(collectionEntry)
+      .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
+      .innerJoin(graph, eq(graph.id, publication.graphId))
+      .innerJoin(user, eq(user.id, graph.userId))
+      .where(where)
+      .then(([r]) => r.n);
+  const order: Record<typeof state.sort, SQL[]> = {
+    order: [asc(collectionEntry.position), asc(collectionEntry.addedAt)],
+    added: [desc(collectionEntry.addedAt)],
+    updated: [desc(publication.updatedAt)],
+    title: [asc(sql`lower(${publication.title})`), asc(publication.title)],
+    relevance: [desc(relevance(state.q)), asc(collectionEntry.position)],
+  };
+  const [total, matching, rows, tags] = await Promise.all([
+    counted(listed),
+    counted(matchingWhere),
+    db
+      .select({ entry: collectionEntry, pub: publication, snippet: state.q ? snippet(state.q) : sql<string | null>`null` })
+      .from(collectionEntry)
+      .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
+      .innerJoin(graph, eq(graph.id, publication.graphId))
+      .innerJoin(user, eq(user.id, graph.userId))
+      .where(matchingWhere)
+      .orderBy(...order[state.sort], asc(collectionEntry.id))
+      .limit(LIST_PAGE_SIZE)
+      .offset((state.page - 1) * LIST_PAGE_SIZE),
+    tagCounts(from, matchingWhere),
+  ]);
   const items = await Promise.all(
-    rows.map(async ({ entry, pub }) => ({
+    rows.map(async ({ entry, pub, snippet: hit }) => ({
       href: entryPath(c.slug, entry.entryUid, pub.title),
       lock: lockExplanation(effectiveAccess(container, entry), "collection", c.name),
       author: (await bylineFor(pub, showsAuthor(container, entry)))?.label,
-      rootUid: entry.entryUid,
       kind: pub.kind,
       title: pub.title,
-      createdAt: entry.addedAt.toISOString(),
-      updatedAt: pub.updatedAt.toISOString(),
+      tags: pub.tags,
+      snippet: snippetParts(hit),
+      dates: [formatDate(entry.addedAt), formatDate(pub.updatedAt)],
     })),
   );
 
@@ -118,6 +165,7 @@ async function CollectionIndex({ c }: { c: C }) {
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
+          <QuickSearch scope={{ path: collectionPath(c.slug), name: c.name }} />
           <DashboardLink href={role ? `/dashboard/collections/${encodeURIComponent(c.slug)}` : undefined} />
           {role === "owner" && <ManageLink href={`/dashboard/collections/${encodeURIComponent(c.slug)}/settings`} />}
           {hasCollectionFeed(c) && <FeedLink href={collectionFeedPath(c.slug)} />}
@@ -130,10 +178,10 @@ async function CollectionIndex({ c }: { c: C }) {
             {c.name} <AccessLock access={c.indexAccess} what="collection" name={c.name} />
           </h1>
           {c.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{c.description}</p>}
-          <p className="mb-8 text-sm text-muted-foreground">
-            {items.length} {items.length === 1 ? "page" : "pages"}
+          <p className="mb-6 text-sm text-muted-foreground">
+            {total} {total === 1 ? "page" : "pages"}
           </p>
-          {items.length === 0 ? (
+          {total === 0 ? (
             <Empty className="border">
               <EmptyHeader>
                 <EmptyTitle>No pages yet</EmptyTitle>
@@ -141,8 +189,18 @@ async function CollectionIndex({ c }: { c: C }) {
               </EmptyHeader>
             </Empty>
           ) : (
-            // In the owner's order, on one page.
-            <PublicationTable rows={items} sort="updated" page={1} pageCount={1} sortable={false} />
+            <>
+              <ListToolbar cfg={COLLECTION_LIST} path={path} state={state} tags={tags} placeholder="Search this collection" />
+              <ListStatus cfg={COLLECTION_LIST} path={path} state={state} matching={matching} total={total} />
+              <PageList
+                cfg={COLLECTION_LIST}
+                path={path}
+                state={state}
+                rows={items}
+                matching={matching}
+                dateLabels={["Added", "Updated"]}
+              />
+            </>
           )}
         </div>
       </main>
@@ -191,17 +249,24 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
     me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : undefined,
   ]);
   // [[links]] resolve to other pages in this collection.
-  const links: PageLinks = new Map(
+  const links = new PageLinks(
     siblings
       .filter(({ pub: p }) => p.kind === "page")
       .map(({ entry: e, pub: p }) => [p.title.toLowerCase(), entryPath(c.slug, e.entryUid, p.title)]),
+    (t) => collectionTagPath(c.slug, t),
   );
+  const related = siblings
+    .filter(({ entry: e, pub: p }) => e.id !== entry.id && e.listing !== "unlisted" && p.tags.some((t) => pub.tags.includes(t)))
+    .sort((a, b) => b.pub.updatedAt.getTime() - a.pub.updatedAt.getTime())
+    .slice(0, RELATED_LIMIT)
+    .map(({ entry: e, pub: p }) => ({ title: p.title, href: entryPath(c.slug, e.entryUid, p.title) }));
 
   return (
     <PublicationView
       pub={pub}
       crumbs={[{ label: c.name, href: collectionPath(c.slug) }, { label: plainText(pub.title) }]}
       links={links}
+      related={related}
       byline={byline}
       report={{ collectionSlug: c.slug, entryUid: entry.entryUid }}
       votes={votes}
