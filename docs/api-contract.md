@@ -68,6 +68,15 @@ for the graph may call it. The extension calls it before the first publish so it
 it can't be decrypted, and `lastOkAt` the last time Roam accepted it (verification, settings, or a change log entry).
 The extension warns once per session when it sees `invalid`.
 
+### `POST /api/ext/changelog/confirm`
+Body `{ present: [{ rootUid, anchorUid }], missing: [{ rootUid, anchorUid }] }` → `200 { changeLog }`. The extension
+sends this every 5 minutes while Roam is open (and 20s after load), listing which Changelog blocks it can still find
+in the graph. Roam's Append API writes to the daily note when the target block doesn't exist, so the server only
+writes to blocks confirmed in the last 10 minutes; entries for others wait (up to 7 days). A `missing` block stops
+that page's change log: its queued entries are dropped, `anchorUid` is cleared, and the owner sees it on the
+dashboard (add the blocks back by republishing, or ignore it). Publishing with `anchorUid` also confirms it. Only
+reports matching the stored `anchorUid` count. Rate-limited per key.
+
 ### `GET /api/ext/publications`
 → `200 { changeLog, publications: [{ rootUid, kind, title, url, shortUrl, anchorUid, contentHash, visibility, removed, mine, updatedAt }] }` for the key's graph.
 `shortUrl` and `anchorUid` are null for pages that don't have them yet.

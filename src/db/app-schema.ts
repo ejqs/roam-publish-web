@@ -469,8 +469,16 @@ export const shortlink = pgTable(
       .notNull()
       .references(() => graph.id, { onDelete: "cascade" }),
     rootUid: text("root_uid").notNull(),
-    /** Uid of the "{shortUrl} {tag}" block the extension wrote in Roam; the change log nests under it. */
+    /** Uid of the "Changelog" block the extension wrote in Roam; the change log nests under it. */
     anchorUid: text("anchor_uid"),
+    /**
+     * Last time the extension saw that block in the graph. Roam's Append API writes to the daily
+     * note when the target block doesn't exist, so the change log only goes to recently confirmed blocks.
+     */
+    anchorConfirmedAt: timestamp("anchor_confirmed_at", { withTimezone: true }),
+    /** The extension found the block gone: shown on the dashboard until republished or dismissed. */
+    anchorMissingAt: timestamp("anchor_missing_at", { withTimezone: true }),
+    anchorMissingDismissedAt: timestamp("anchor_missing_dismissed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("shortlink_graph_root_idx").on(t.graphId, t.rootUid)],
@@ -493,8 +501,9 @@ export const changelogEntry = pgTable(
     /**
      * Queued as "pending", claimed as "sending" by the background sender, then "sent" or "failed".
      * Only entries Roam definitely didn't apply (429) go back to pending, so nothing is sent twice.
+     * "dropped" entries were queued for a block that turned out to be gone, or waited too long.
      */
-    status: text("status", { enum: ["pending", "sending", "sent", "failed"] }).notNull().default("pending"),
+    status: text("status", { enum: ["pending", "sending", "sent", "failed", "dropped"] }).notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
