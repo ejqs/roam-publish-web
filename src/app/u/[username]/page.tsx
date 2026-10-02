@@ -69,7 +69,7 @@ export default async function ProfilePage(props: PageProps<"/u/[username]">) {
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
-          <h1 className="text-[42px] leading-tight font-semibold break-words">@{p.username}</h1>
+          <h1 className="text-[32px] sm:text-[42px] leading-tight font-semibold break-words">@{p.username}</h1>
           {p.bio && <p className="mt-2 text-muted-foreground break-words">{p.bio}</p>}
           <h2 className="mt-8 mb-2 text-sm font-medium text-muted-foreground">
             {graphs.length === 1 ? "Graph" : "Graphs"}

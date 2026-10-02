@@ -132,7 +132,8 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
         )}
       </div>
 
-      <Card>
+      {/* overflow-visible so the bulk-change bar can stick while scrolling. */}
+      <Card className="overflow-visible">
         <CardContent className="flex flex-col gap-4">
           <ListToolbar
             cfg={COLLECTION_LIST}

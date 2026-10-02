@@ -121,7 +121,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
           {owner && (
             <Breadcrumbs items={[{ label: `@${owner.username}`, href: `/u/${owner.username}` }, { label: g.name }]} />
           )}
-          <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">
+          <h1 className="mb-1 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
             {g.name} <AccessLock access={g.indexAccess} what="graph" name={g.name} />
           </h1>
           {g.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{g.description}</p>}

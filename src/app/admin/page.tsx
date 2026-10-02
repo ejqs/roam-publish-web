@@ -147,7 +147,7 @@ export default async function ReportsPage(props: PageProps<"/admin">) {
                       {r.reporterEmail && <> · {r.reporterEmail}</>}
                     </span>
                     {r.details ? (
-                      <span className="whitespace-pre-wrap break-words">{r.details}</span>
+                      <ReportDetails text={r.details} />
                     ) : (
                       <span className="text-muted-foreground italic">No details</span>
                     )}
@@ -182,5 +182,23 @@ export default async function ReportsPage(props: PageProps<"/admin">) {
       )}
       <Pager path="/admin" params={{ status: status === "open" ? "" : status }} page={page} total={all.length} />
     </div>
+  );
+}
+
+const PREVIEW = 240;
+
+/** Long reports start as a preview, so a card's actions stay within reach on phones. */
+function ReportDetails({ text }: { text: string }) {
+  if (text.length <= PREVIEW + 40) return <span className="whitespace-pre-wrap break-words">{text}</span>;
+  return (
+    <details className="group whitespace-pre-wrap break-words">
+      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <span className="group-open:hidden">
+          {text.slice(0, PREVIEW).trimEnd()}… <span className="text-link">more</span>
+        </span>
+        <span className="hidden text-link group-open:inline">Show less</span>
+      </summary>
+      {text}
+    </details>
   );
 }
