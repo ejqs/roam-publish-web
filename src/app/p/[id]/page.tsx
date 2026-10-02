@@ -37,21 +37,15 @@ const load = cache(async (id: string) => {
 });
 
 /**
- * A page's permanent link. People in its graph see where the page lives now, with links to copy;
- * everyone else goes straight to the page, whose own access rules then apply.
+ * A page's permanent link. People in its graph see where the page lives now, with links to copy.
+ * Everyone else goes to the first place anyone can read it (its graph, then its collections in the
+ * order it was added), or, when every place is protected, to its main URL and that place's gate.
  */
 export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
   const { id } = await props.params;
   const data = await load(id);
   if (!data) notFound();
   const { g, pub } = data;
-
-  const uid = await viewerId();
-  const role = uid ? await graphRole(uid, g.id) : null;
-  if (!role) {
-    if (!pub || pub.removedAt || g.suspendedAt) notFound();
-    redirect((await primaryUrls(g.name, [pub])).get(pub.id)!);
-  }
 
   const entries = pub
     ? await db
@@ -71,6 +65,7 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
                 url: publicationUrl(g.name, pub.rootUid, pub.title),
                 listing: pub.visibility === "unlisted" ? "Not listed" : pub.discoverable ? "Discover" : "Listed",
                 access: ACCESS_LABELS[effectiveAccess({ ...g, kind: "graph" }, pub)],
+                open: effectiveAccess({ ...g, kind: "graph" }, pub) === "open",
               },
             ]
           : []),
@@ -80,9 +75,16 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
           url: entryUrl(c.slug, entry.entryUid, pub.title),
           listing: LISTING_LABELS[entry.listing],
           access: ACCESS_LABELS[effectiveAccess({ ...c, kind: "collection" }, entry)],
+          open: !c.suspendedAt && effectiveAccess({ ...c, kind: "collection" }, entry) === "open",
         })),
       ]
     : [];
+  const uid = await viewerId();
+  const role = uid ? await graphRole(uid, g.id) : null;
+  if (!role) {
+    if (!pub || pub.removedAt || g.suspendedAt) notFound();
+    redirect(places.find((p) => p.open)?.url ?? (await primaryUrls(g.name, [pub])).get(pub.id)!);
+  }
   const link = shortUrl(id);
 
   return (
@@ -93,10 +95,11 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
           <CardTitle className="text-xl break-words">
             {pub ? plainText(pub.title) : "Not published right now"}
           </CardTitle>
-          <div className="flex items-center gap-2 pt-1">
-            <code className="truncate text-sm text-muted-foreground">{link}</code>
-            <CopyButton text={link} label="Copy shortlink" />
-          </div>
+          <code className="truncate pt-1 text-sm text-muted-foreground">{link}</code>
+          <p className="text-sm text-muted-foreground">
+            Share the graph or collection links below. This shortlink sends visitors to the first public place
+            this page lives, so where it leads can change.
+          </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {!pub && (

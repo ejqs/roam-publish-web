@@ -73,6 +73,7 @@ export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyR
         appendTokenEnc: encryptToken(token),
         appendTokenStatus: "ok" as const,
         appendTokenAddedAt: new Date(),
+        appendTokenOkAt: new Date(),
         ...(timeZone && validTimeZone(timeZone) && { timeZone }),
       }
     : {};
