@@ -4,8 +4,9 @@ import { db } from "@/db";
 import { graph, type Node, publication } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
 import { json, preflight } from "@/lib/cors";
-import { removedResponse, requireExtKey } from "@/lib/ext-auth";
-import { publicationUrl } from "@/lib/publications";
+import { addEntry } from "@/lib/collections";
+import { notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
+import { defaultCollectionsFor, primaryUrls } from "@/lib/places";
 import { plainText } from "@/lib/slug";
 
 const NodeSchema: z.ZodType<Node> = z.lazy(() =>
@@ -27,6 +28,8 @@ const Body = z.object({
   title: z.string().max(1000),
   tree: NodeSchema,
   contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  /** Byline from the extension's Author name setting; not part of the hash. */
+  author: z.string().trim().max(100).optional(),
 });
 
 const MAX_BYTES = 1_000_000;
@@ -41,15 +44,17 @@ export async function GET(req: Request) {
     .from(publication)
     .where(eq(publication.graphId, ctx.graphId))
     .orderBy(desc(publication.updatedAt));
+  const urls = await primaryUrls(ctx.graphName, rows);
   return json(req, {
     publications: rows.map((p) => ({
       rootUid: p.rootUid,
       kind: p.kind,
       title: p.title,
-      url: publicationUrl(ctx.graphName, p.rootUid, p.title),
+      url: urls.get(p.id),
       contentHash: p.contentHash,
       visibility: p.visibility,
       removed: !!p.removedAt,
+      mine: ctx.role === "owner" || p.publishedBy === ctx.userId,
       updatedAt: p.updatedAt,
     })),
   });
@@ -76,6 +81,7 @@ export async function POST(req: Request) {
 
   const title =
     (p.kind === "page" ? p.title : plainText(p.title).slice(0, 80)).trim() || "Untitled";
+  const authorName = p.author || null;
 
   const existing = await db.query.publication.findFirst({
     where: and(eq(publication.graphId, ctx.graphId), eq(publication.rootUid, p.rootUid)),
@@ -83,31 +89,56 @@ export async function POST(req: Request) {
 
   if (existing?.removedAt) return removedResponse(req, existing.removedReason);
   if (existing) {
-    const url = publicationUrl(ctx.graphName, p.rootUid, title);
+    // Members change only what they published; the owner changes anything.
+    if (ctx.role !== "owner" && existing.publishedBy !== ctx.userId) return notYoursResponse(req);
     const visibility = existing.visibility;
-    if (existing.contentHash === hash)
+    const url = (await primaryUrls(ctx.graphName, [{ ...existing, title }])).get(existing.id);
+    // Older extensions don't send an author; leave the stored one alone then.
+    const authorChanged = p.author !== undefined && authorName !== existing.authorName;
+    if (existing.contentHash === hash && !authorChanged)
       return json(req, { status: "unchanged", url, contentHash: hash, visibility });
     await db
       .update(publication)
-      .set({ title, tree: p.tree, contentHash: hash, kind: p.kind, updatedAt: new Date() })
+      .set(
+        existing.contentHash === hash
+          ? { authorName }
+          : {
+              title,
+              tree: p.tree,
+              contentHash: hash,
+              kind: p.kind,
+              updatedAt: new Date(),
+              ...(p.author !== undefined && { authorName }),
+            },
+      )
       .where(eq(publication.id, existing.id));
     return json(req, { status: "updated", url, contentHash: hash, visibility });
   }
 
-  const [created] = await db.insert(publication).values({
-    graphId: ctx.graphId,
-    rootUid: p.rootUid,
-    kind: p.kind,
-    title,
-    tree: p.tree,
-    contentHash: hash,
-    // New pages start from the graph's Discover default; later changes to it don't apply.
-    discoverable: sql`(select ${graph.featured} from ${graph} where ${graph.id} = ${ctx.graphId})`,
-  }).returning({ visibility: publication.visibility });
-  return json(req, {
-    status: "created",
-    url: publicationUrl(ctx.graphName, p.rootUid, title),
-    contentHash: hash,
-    visibility: created.visibility,
-  });
+  // New pages go where the graph's "New pages go to" setting says. If that leaves them nowhere
+  // (no graph place and no collection the publisher belongs to), they stay in the graph.
+  const g = await db.query.graph.findFirst({ where: eq(graph.id, ctx.graphId) });
+  const collections = await defaultCollectionsFor(ctx.graphId, ctx.userId);
+  const inGraph = !!g?.newPagesInGraph || collections.length === 0;
+
+  const [created] = await db
+    .insert(publication)
+    .values({
+      graphId: ctx.graphId,
+      rootUid: p.rootUid,
+      kind: p.kind,
+      title,
+      tree: p.tree,
+      contentHash: hash,
+      publishedBy: ctx.userId,
+      authorName,
+      inGraph,
+      // New pages start from the graph's Discover default; later changes to it don't apply.
+      // A graph whose pages default to a password or members never starts them on Discover.
+      discoverable: sql`(select ${graph.featured} and ${graph.defaultAccess} = 'open' from ${graph} where ${graph.id} = ${ctx.graphId})`,
+    })
+    .returning();
+  for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
+  const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
+  return json(req, { status: "created", url, contentHash: hash, visibility: created.visibility });
 }

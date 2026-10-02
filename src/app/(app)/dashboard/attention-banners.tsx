@@ -17,12 +17,25 @@ export function attentionItems({
   graphs,
   pubs,
   me,
+  invites = 0,
 }: {
   graphs: (typeof graph.$inferSelect)[];
   pubs: (typeof publication.$inferSelect)[];
   me: typeof profile.$inferSelect | undefined;
+  /** Pending invites and ownership transfers waiting on this person. */
+  invites?: number;
 }): Item[] {
   const items: Item[] = [];
+
+  if (invites > 0) {
+    items.push({
+      id: "invites",
+      severity: "warning",
+      title: `${plural(invites, "invite")} waiting for you`,
+      body: "Nothing changes until you accept.",
+      action: { label: "Review", href: "/dashboard/invites" },
+    });
+  }
   const suspended = graphs.filter((g) => g.suspendedAt);
   const hasGraph = graphs.length > suspended.length;
 

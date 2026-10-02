@@ -1,20 +1,19 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { graph, graphVerification } from "@/db/schema";
+import { graph } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { sha256 } from "@/lib/content-hash";
 import { rateLimit } from "@/lib/rate-limit";
 import { appendToDailyNote } from "@/lib/roam-append";
 
 // Top-level routes that would shadow /{graph}.
 const ROUTES = new Set([
-  "admin", "api", "dashboard", "forgot-password", "login", "onboarding", "report",
-  "reset-password", "signup", "u", "verify-email",
+  "admin", "api", "c", "collection", "dashboard", "discover", "forgot-password", "keys", "login",
+  "onboarding", "report", "reset-password", "setup", "signup", "u", "verify-email",
 ]);
 
 const Input = z.object({
@@ -29,11 +28,16 @@ const Input = z.object({
   date: z.string().regex(/^\d{2}-\d{2}-\d{4}$/),
 });
 
-export type StartResult =
-  | { ok: true; verificationId: string; graphName: string }
-  | { ok: false; error: string };
+export type VerifyResult = { ok: true; graphId: string; graphName: string } | { ok: false; error: string };
 
-export async function startVerification(input: z.input<typeof Input>): Promise<StartResult> {
+const TAKEN = "This graph is already on roam.pub. Ask its owner to invite you from their dashboard.";
+
+/**
+ * Verifies a graph by writing one block to its daily note with the user's append-only token. Roam
+ * only gives a graph's tokens to its admins and rejects a token used on another graph, so a write
+ * that succeeds proves control of the graph. The first account to verify a graph owns it here.
+ */
+export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyResult> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return { ok: false, error: "Your session expired. Please log in again." };
 
@@ -45,41 +49,29 @@ export async function startVerification(input: z.input<typeof Input>): Promise<S
     return { ok: false, error: "Too many attempts. Try again in a few minutes." };
 
   const owner = await db.query.graph.findFirst({ where: eq(graph.name, graphName) });
-  if (owner && owner.userId !== session.user.id)
-    return { ok: false, error: "This graph is already linked to another account." };
+  if (owner && owner.userId !== session.user.id) return { ok: false, error: TAKEN };
 
-  const code = randomBytes(32).toString("base64url"); // 43 chars, 256 bits
   const result = await appendToDailyNote(
     graphName,
     token,
     date,
-    `verify-roam-publish (deletable after onboarding): ${code}`,
+    "roam.pub connected this graph (safe to delete)",
   );
   // The token is not stored anywhere; it goes out of scope here.
   if (!result.ok) return { ok: false, error: result.message };
 
-  const [v] = await db
-    .insert(graphVerification)
-    .values({
-      userId: session.user.id,
-      graphName,
-      codeHash: sha256(code),
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+  const [g] = await db
+    .insert(graph)
+    .values({ userId: session.user.id, name: graphName })
+    .onConflictDoUpdate({
+      target: graph.name,
+      set: { verifiedAt: new Date() },
+      // Someone else verified it in the meantime: leave their graph alone.
+      setWhere: eq(graph.userId, session.user.id),
     })
-    .returning({ id: graphVerification.id });
+    .returning({ id: graph.id, name: graph.name });
+  if (!g) return { ok: false, error: TAKEN };
 
-  return { ok: true, verificationId: v.id, graphName };
-}
-
-export async function checkVerification(verificationId: string) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return { consumed: false, expired: true };
-  const v = await db.query.graphVerification.findFirst({
-    where: and(
-      eq(graphVerification.id, verificationId),
-      eq(graphVerification.userId, session.user.id),
-    ),
-  });
-  if (!v) return { consumed: false, expired: true };
-  return { consumed: !!v.consumedAt, expired: v.expiresAt < new Date() };
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, graphId: g.id, graphName: g.name };
 }

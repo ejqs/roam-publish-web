@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   jsonb,
   pgTable,
   primaryKey,
@@ -12,6 +13,15 @@ import {
 } from "drizzle-orm/pg-core";
 import { reportReasons } from "../lib/report-reasons";
 import { user } from "./auth-schema";
+
+/** Who can read a page or open a front page: anyone, anyone with the password, or members only. */
+export const ACCESS = ["open", "password", "members"] as const;
+export type Access = (typeof ACCESS)[number];
+/** A page's own access; "inherit" uses its graph's or collection's default. */
+export const PLACE_ACCESS = ["inherit", ...ACCESS] as const;
+export type PlaceAccess = (typeof PLACE_ACCESS)[number];
+export const SHOW_AUTHOR = ["inherit", "show", "hide"] as const;
+export type ShowAuthor = (typeof SHOW_AUTHOR)[number];
 
 export const graph = pgTable("graph", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -37,9 +47,37 @@ export const graph = pgTable("graph", {
   /** Set by a moderator: the whole graph is hidden and its API key stops working. */
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   suspendedReason: text("suspended_reason"),
+  /** Who can open the front page at /{graph}. */
+  indexAccess: text("index_access", { enum: ACCESS }).notNull().default("open"),
+  /** What a page in this graph uses unless it sets its own access. */
+  defaultAccess: text("default_access", { enum: ACCESS }).notNull().default("open"),
+  /** Shared password for the front page and pages that use password access without their own. */
+  passwordHash: text("password_hash"),
+  /** Bumped on every password change, which signs out everyone who unlocked with the old one. */
+  passwordVersion: integer("password_version").notNull().default(0),
+  /** Bylines on this graph's pages, unless a page overrides it. */
+  showAuthors: boolean("show_authors").notNull().default(false),
+  /** New pages from the extension are shown in the graph; off means they only join default collections. */
+  newPagesInGraph: boolean("new_pages_in_graph").notNull().default(true),
   verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** People the owner invited to publish from a shared graph. The owner is graph.userId, never a row here. */
+export const graphMember = pgTable(
+  "graph_member",
+  {
+    graphId: text("graph_id")
+      .notNull()
+      .references(() => graph.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.graphId, t.userId] }), index("graph_member_user_idx").on(t.userId)],
+);
 
 export const graphVerification = pgTable(
   "graph_verification",
@@ -94,6 +132,18 @@ export const publication = pgTable(
     /** Set by a moderator: hidden from the public and locked against republishing. */
     removedAt: timestamp("removed_at", { withTimezone: true }),
     removedReason: text("removed_reason"),
+    /** Who published it: the graph owner or a member. Members can only manage their own pages. */
+    publishedBy: text("published_by").references(() => user.id, { onDelete: "set null" }),
+    /** Author name from the extension, shown as a byline where bylines are on. */
+    authorName: text("author_name"),
+    /** Shown at /{graph}/{uid}. Off when the page should only appear in collections. */
+    inGraph: boolean("in_graph").notNull().default(true),
+    /** Access at /{graph}/{uid}; "inherit" uses graph.defaultAccess. */
+    access: text("access", { enum: PLACE_ACCESS }).notNull().default("inherit"),
+    /** The page's own password; when null, password access uses the graph's. */
+    passwordHash: text("password_hash"),
+    passwordVersion: integer("password_version").notNull().default(0),
+    showAuthor: text("show_author", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -167,14 +217,16 @@ export const usernameAlias = pgTable("username_alias", {
 
 
 /**
- * Abuse reports from visitors. A report targets a graph (publicationId null: the whole graph,
- * otherwise one page) or a user's public profile (profileUserId set, graphId null).
+ * Abuse reports from visitors. A report targets a graph or a collection (publicationId null: the
+ * whole thing, otherwise one page in it) or a user's public profile. Exactly one of graphId,
+ * collectionId and profileUserId is set.
  */
 export const report = pgTable(
   "report",
   {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     graphId: text("graph_id").references(() => graph.id, { onDelete: "cascade" }),
+    collectionId: text("collection_id").references(() => collection.id, { onDelete: "cascade" }),
     profileUserId: text("profile_user_id").references(() => user.id, { onDelete: "cascade" }),
     publicationId: text("publication_id").references(() => publication.id, { onDelete: "cascade" }),
     reason: text("reason", { enum: reportReasons }).notNull(),
@@ -192,7 +244,8 @@ export const report = pgTable(
     index("report_graph_idx").on(t.graphId),
     index("report_publication_idx").on(t.publicationId),
     index("report_profile_user_idx").on(t.profileUserId),
-    check("report_target_check", sql`(${t.graphId} is null) <> (${t.profileUserId} is null)`),
+    index("report_collection_idx").on(t.collectionId),
+    check("report_target_check", sql`num_nonnulls(${t.graphId}, ${t.collectionId}, ${t.profileUserId}) = 1`),
   ],
 );
 
@@ -202,7 +255,9 @@ export const moderationAction = pgTable(
   {
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     adminId: text("admin_id").references(() => user.id, { onDelete: "set null" }),
-    targetType: text("target_type", { enum: ["publication", "graph", "user", "report"] }).notNull(),
+    targetType: text("target_type", {
+      enum: ["publication", "graph", "user", "report", "collection"],
+    }).notNull(),
     targetId: text("target_id").notNull(),
     action: text("action", {
       enum: [
@@ -215,4 +270,146 @@ export const moderationAction = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("moderation_action_created_idx").on(t.createdAt)],
+);
+
+/**
+ * A place many people publish into from any of their graphs, at /c/{slug}. Pages in it get their
+ * own URL, /c/{entryUid}, and their own access settings.
+ */
+export const collection = pgTable("collection", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  /** Lowercase; also reserved in c_path. */
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  ownerId: text("owner_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  indexAccess: text("index_access", { enum: ACCESS }).notNull().default("open"),
+  defaultAccess: text("default_access", { enum: ACCESS }).notNull().default("open"),
+  passwordHash: text("password_hash"),
+  passwordVersion: integer("password_version").notNull().default(0),
+  showAuthors: boolean("show_authors").notNull().default(true),
+  /** Lets search engines index the front page and its open, listed pages. */
+  indexable: boolean("indexable").notNull().default(true),
+  /** Starting listing of new pages: on Discover instead of only listed here. */
+  featured: boolean("featured").notNull().default(false),
+  /** The collection itself is listed on /discover. */
+  discoverable: boolean("discoverable").notNull().default(false),
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  suspendedReason: text("suspended_reason"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const collectionMember = pgTable(
+  "collection_member",
+  {
+    collectionId: text("collection_id")
+      .notNull()
+      .references(() => collection.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.collectionId, t.userId] }),
+    index("collection_member_user_idx").on(t.userId),
+  ],
+);
+
+export const ENTRY_LISTING = ["unlisted", "listed", "discover"] as const;
+export type EntryListing = (typeof ENTRY_LISTING)[number];
+
+/** A publication shown in a collection, at /c/{entryUid}. */
+export const collectionEntry = pgTable(
+  "collection_entry",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    collectionId: text("collection_id")
+      .notNull()
+      .references(() => collection.id, { onDelete: "cascade" }),
+    publicationId: text("publication_id")
+      .notNull()
+      .references(() => publication.id, { onDelete: "cascade" }),
+    /** Random and lowercase, so pages from different graphs never clash; also reserved in c_path. */
+    entryUid: text("entry_uid").notNull().unique(),
+    listing: text("listing", { enum: ENTRY_LISTING }).notNull().default("listed"),
+    access: text("access", { enum: PLACE_ACCESS }).notNull().default("inherit"),
+    passwordHash: text("password_hash"),
+    passwordVersion: integer("password_version").notNull().default(0),
+    showAuthor: text("show_author", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
+    addedBy: text("added_by").references(() => user.id, { onDelete: "set null" }),
+    position: integer("position").notNull().default(0),
+    /** Where the page came from when it was added. Shown on the dashboard only, never publicly. */
+    originGraphName: text("origin_graph_name").notNull(),
+    originRootUid: text("origin_root_uid").notNull(),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("collection_entry_collection_publication_idx").on(t.collectionId, t.publicationId),
+    index("collection_entry_publication_idx").on(t.publicationId),
+  ],
+);
+
+/**
+ * Everything under /c/{x}: collection slugs and entry uids share one namespace, so each is
+ * reserved here and the two can never clash. Entry paths stay reserved after the entry is gone.
+ */
+export const cPath = pgTable("c_path", {
+  path: text("path").primaryKey(),
+  kind: text("kind", { enum: ["collection", "entry"] }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Collections that new pages published from a graph join automatically. */
+export const graphDefaultCollection = pgTable(
+  "graph_default_collection",
+  {
+    graphId: text("graph_id")
+      .notNull()
+      .references(() => graph.id, { onDelete: "cascade" }),
+    collectionId: text("collection_id")
+      .notNull()
+      .references(() => collection.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.graphId, t.collectionId] })],
+);
+
+/**
+ * Invitations to join a graph or collection, or to take it over. Nothing changes until the invitee
+ * accepts, and only people with a verified email and their own verified graph can be invited.
+ */
+export const invite = pgTable(
+  "invite",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    targetType: text("target_type", { enum: ["graph", "collection"] }).notNull(),
+    targetId: text("target_id").notNull(),
+    kind: text("kind", { enum: ["member", "transfer"] }).notNull(),
+    inviteeUserId: text("invitee_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
+    status: text("status", { enum: ["pending", "accepted", "declined", "cancelled"] })
+      .notNull()
+      .default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("invite_pending_idx")
+      .on(t.targetType, t.targetId, t.inviteeUserId, t.kind)
+      .where(sql`${t.status} = 'pending'`),
+    // At most one transfer waits for an answer per graph or collection.
+    uniqueIndex("invite_pending_transfer_idx")
+      .on(t.targetType, t.targetId)
+      .where(sql`${t.status} = 'pending' and ${t.kind} = 'transfer'`),
+    index("invite_invitee_idx").on(t.inviteeUserId, t.status),
+    index("invite_target_idx").on(t.targetType, t.targetId),
+  ],
 );

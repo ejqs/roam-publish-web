@@ -1,14 +1,18 @@
 "use server";
 
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { graph, profile, publication, usernameAlias } from "@/db/schema";
+import { ACCESS, graph, graphDefaultCollection, profile, publication, usernameAlias } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { DISCOVER_TAG } from "@/lib/discover";
+import { collectionRole } from "@/lib/collections";
 import { Description } from "@/lib/descriptions";
+import { clearGatedGraphDiscover } from "@/lib/discover-rules";
+import { hashPassword, Password } from "@/lib/gates";
+import { manageablePublications } from "@/lib/graph-access";
 import { hasVerifiedGraph } from "@/lib/profiles";
 import { rateLimit } from "@/lib/rate-limit";
 import { Username, usernameTakenByOther } from "@/lib/usernames";
@@ -17,23 +21,16 @@ async function getSession() {
   return auth.api.getSession({ headers: await headers() });
 }
 
-const myGraphIds = (userId: string) =>
-  db.select({ id: graph.id }).from(graph).where(eq(graph.userId, userId));
-
 export async function unpublish(publicationId: string) {
   const session = await getSession();
   if (!session) return;
   await db
     .delete(publication)
-    .where(
-      and(
-        eq(publication.id, publicationId),
-        inArray(publication.graphId, myGraphIds(session.user.id)),
-        // Removed pages stay locked so a republish can't undo the takedown.
-        isNull(publication.removedAt),
-      ),
-    );
+    // Owners unpublish anything in their graphs, members what they published. Removed pages stay
+    // locked so a republish can't undo the takedown.
+    .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)));
   revalidatePath("/dashboard");
+  revalidatePath("/c/[id]", "layout");
   updateTag(DISCOVER_TAG);
 }
 
@@ -45,9 +42,23 @@ export async function unpublish(publicationId: string) {
  */
 export type Access = "unlisted" | "public" | "discover";
 
-export async function setAccess(publicationId: string, access: Access) {
+export type FormState = { ok: boolean; message: string } | null;
+
+export async function setAccess(publicationId: string, access: Access): Promise<FormState> {
   const session = await getSession();
-  if (!session) return;
+  if (!session) return { ok: false, message: "Your session expired. Please log in again." };
+  if (access === "discover") {
+    // Password-protected and members-only pages never go on Discover.
+    const [row] = await db
+      .select({ pub: publication, g: graph })
+      .from(publication)
+      .innerJoin(graph, eq(graph.id, publication.graphId))
+      .where(eq(publication.id, publicationId))
+      .limit(1);
+    const effective = row && (row.pub.access === "inherit" ? row.g.defaultAccess : row.pub.access);
+    if (!row || effective !== "open" || row.g.indexAccess !== "open" || !row.pub.inGraph)
+      return { ok: false, message: "Only open pages in an open graph can be listed on Discover." };
+  }
   const set =
     access === "discover"
       ? { visibility: "public" as const, discoverable: true }
@@ -57,20 +68,13 @@ export async function setAccess(publicationId: string, access: Access) {
   await db
     .update(publication)
     .set(set)
-    .where(
-      and(
-        eq(publication.id, publicationId),
-        inArray(publication.graphId, myGraphIds(session.user.id)),
-        isNull(publication.removedAt),
-      ),
-    );
+    .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)));
   revalidatePath("/dashboard");
   revalidatePath("/[graph]", "page");
   revalidatePath("/");
   updateTag(DISCOVER_TAG);
+  return { ok: true, message: "Saved." };
 }
-
-export type FormState = { ok: boolean; message: string } | null;
 
 const NEEDS_GRAPH = "Connect a Roam graph first.";
 
@@ -162,6 +166,7 @@ export async function updateGraphSettings(graphId: string, input: GraphSettings)
     .where(and(eq(graph.id, graphId), eq(graph.userId, session.user.id)))
     .returning({ name: graph.name });
   if (updated.length === 0) return { ok: false, message: "Graph not found." };
+  await clearGatedGraphDiscover(graphId);
 
   revalidatePath("/dashboard", "layout");
   revalidatePath("/[graph]", "layout");
@@ -169,4 +174,70 @@ export async function updateGraphSettings(graphId: string, input: GraphSettings)
   revalidatePath("/");
   updateTag(DISCOVER_TAG);
   return { ok: true, message: "Settings saved." };
+}
+
+const GraphAccess = z.object({
+  indexAccess: z.enum(ACCESS),
+  defaultAccess: z.enum(ACCESS),
+  showAuthors: z.boolean(),
+  newPagesInGraph: z.boolean(),
+  /** Collections new pages join; only ones the owner belongs to are kept. */
+  defaultCollections: z.array(z.string()).max(50),
+  /** A new graph password, or "" to keep the current one. */
+  password: z.union([z.literal(""), Password]),
+  clearPassword: z.boolean(),
+});
+export type GraphAccess = z.input<typeof GraphAccess>;
+
+/**
+ * Who can open the front page, what pages use unless they set their own access, bylines, and where
+ * new pages from the extension go. Owner only.
+ */
+export async function updateGraphAccess(graphId: string, input: GraphAccess): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Your session expired. Please log in again." };
+  const parsed = GraphAccess.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  const s = parsed.data;
+  const g = await db.query.graph.findFirst({
+    where: and(eq(graph.id, graphId), eq(graph.userId, session.user.id)),
+  });
+  if (!g) return { ok: false, message: "Graph not found." };
+
+  const hasPassword = s.password ? true : s.clearPassword ? false : !!g.passwordHash;
+  if ((s.indexAccess === "password" || s.defaultAccess === "password") && !hasPassword)
+    return { ok: false, message: "Set a graph password to use password access." };
+  if (!s.clearPassword && s.password && !rateLimit(`password:user:${session.user.id}`, 30, 15 * 60 * 1000))
+    return { ok: false, message: "Too many changes. Try again in a few minutes." };
+
+  const keep: string[] = [];
+  for (const id of new Set(s.defaultCollections))
+    if (await collectionRole(session.user.id, id)) keep.push(id);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(graph)
+      .set({
+        indexAccess: s.indexAccess,
+        defaultAccess: s.defaultAccess,
+        showAuthors: s.showAuthors,
+        newPagesInGraph: s.newPagesInGraph,
+        ...(s.password
+          ? { passwordHash: hashPassword(s.password), passwordVersion: g.passwordVersion + 1 }
+          : s.clearPassword
+            ? { passwordHash: null, passwordVersion: g.passwordVersion + 1 }
+            : {}),
+      })
+      .where(eq(graph.id, g.id));
+    await tx.delete(graphDefaultCollection).where(eq(graphDefaultCollection.graphId, g.id));
+    if (keep.length)
+      await tx.insert(graphDefaultCollection).values(keep.map((collectionId) => ({ graphId: g.id, collectionId })));
+  });
+  await clearGatedGraphDiscover(g.id);
+
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/[graph]", "layout");
+  revalidatePath("/");
+  updateTag(DISCOVER_TAG);
+  return { ok: true, message: "Access saved." };
 }
