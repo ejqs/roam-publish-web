@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { blockedIdentity, collection, cPath } from "@/db/schema";
 import { emailHash } from "@/lib/deletion";
 import { adminLiftBlock, adminReleaseCollectionSlug } from "../actions";
-import { ADMIN_PAGE_SIZE, fmtDate, Pager, param, parsePage, SearchForm } from "../ui";
+import { ADMIN_PAGE_SIZE, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
 import { LiftButton } from "./lift-button";
 
 /**
@@ -51,7 +51,7 @@ export default async function AdminBlockedPage(props: PageProps<"/admin/blocked"
           </p>
         )}
       </div>
-      <Table>
+      <Table className={STACKED_TABLE}>
         <TableHeader>
           <TableRow>
             <TableHead>When</TableHead>
@@ -80,7 +80,7 @@ export default async function AdminBlockedPage(props: PageProps<"/admin/blocked"
               </TableCell>
               <TableCell className="max-w-md whitespace-pre-wrap break-words">{b.reason || "—"}</TableCell>
               <TableCell>
-                <div className="flex flex-wrap justify-end gap-2">
+                <div className="flex flex-wrap justify-end gap-2 max-sm:justify-start">
                   <LiftButton
                     label="Lift"
                     confirmText={`Lift this ${b.kind} block?`}
@@ -107,7 +107,7 @@ export default async function AdminBlockedPage(props: PageProps<"/admin/blocked"
           Slugs of suspended collections whose owner deleted their account. Release one to let anyone create a
           collection with it.
         </p>
-        <Table>
+        <Table className={STACKED_TABLE}>
           <TableBody>
             {slugs.length === 0 && (
               <TableRow>
@@ -118,7 +118,7 @@ export default async function AdminBlockedPage(props: PageProps<"/admin/blocked"
               <TableRow key={s.path}>
                 <TableCell className="text-muted-foreground">{fmtDate(s.createdAt)}</TableCell>
                 <TableCell className="font-mono text-xs">/c/{s.path}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right max-sm:text-left">
                   <LiftButton
                     label="Release"
                     confirmText={`Release /c/${s.path}?`}

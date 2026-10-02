@@ -4,6 +4,7 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { isAdmin } from "@/lib/admin";
 import { canSearchSite } from "@/lib/graph-access";
+import { MobileMenu } from "./mobile-menu";
 import { QuickSearch } from "./quick-search";
 import { auth } from "@/lib/auth";
 import { SignOutButton } from "./sign-out-button";
@@ -33,20 +34,27 @@ export async function SiteHeader() {
               <QuickSearch siteSearch />
             </span>
           )}
-          <Link href="/discover" className={buttonVariants({ variant: "ghost" })}>
+          {/* Signed in, phones get Dashboard plus a menu; everything else wouldn't fit next to Admin. */}
+          <Link
+            href="/discover"
+            className={buttonVariants({ variant: "ghost", className: session ? "max-sm:hidden" : undefined })}
+          >
             Discover
           </Link>
           {session ? (
             <>
               {isAdmin(session.user) && (
-                <Link href="/admin" className={buttonVariants({ variant: "ghost" })}>
+                <Link href="/admin" className={buttonVariants({ variant: "ghost", className: "max-sm:hidden" })}>
                   Admin
                 </Link>
               )}
               <Link href="/dashboard" className={buttonVariants({ variant: "ghost" })}>
                 Dashboard
               </Link>
-              <SignOutButton />
+              <SignOutButton className="max-sm:hidden" />
+              <span className="sm:hidden">
+                <MobileMenu admin={isAdmin(session.user)} />
+              </span>
             </>
           ) : (
             <>
@@ -58,7 +66,7 @@ export async function SiteHeader() {
               </Link>
             </>
           )}
-          <ThemeToggle />
+          <ThemeToggle className={session ? "max-sm:hidden" : undefined} />
         </nav>
       </div>
     </header>

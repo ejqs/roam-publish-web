@@ -84,7 +84,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
   });
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <div className="flex flex-col gap-1">
         <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
           ← Dashboard
@@ -122,7 +122,8 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
         </Alert>
       )}
 
-      <Card>
+      {/* overflow-visible so the bulk-change bar can stick while scrolling. */}
+      <Card className="overflow-visible">
         <CardContent className="flex flex-col gap-4">
           <ListToolbar
             cfg={GRAPH_LIST}

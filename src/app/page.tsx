@@ -33,9 +33,9 @@ export default async function Home() {
   return (
     <>
       <SiteHeader />
-      <main className="flex-1 px-4 py-12">
-        <article className="mx-auto w-full max-w-[700px] rounded-sm bg-card px-6 py-12 text-[16px] shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)] sm:px-12">
-          <h1 className="mb-6 text-[42px] leading-tight font-semibold">Roam Publish</h1>
+      <main className="flex-1 px-3 py-4 sm:px-4 sm:py-12">
+        <article className="mx-auto w-full max-w-[700px] rounded-sm bg-card px-5 py-8 text-[16px] shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)] sm:px-12 sm:py-12">
+          <h1 className="mb-6 text-[32px] sm:text-[42px] leading-tight font-semibold">Roam Publish</h1>
           <BlockList nodes={outline} links={siteLinks} />
           <section id="about" aria-label="About" className="scroll-mt-16">
             <span id="contact" className="block scroll-mt-16" />

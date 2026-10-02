@@ -7,7 +7,7 @@ import { graph, publication, report, user } from "@/db/schema";
 import { publicationPath } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
 import { PublicationActions } from "../target-actions";
-import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm } from "../ui";
+import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
 
 const FILTERS = ["all", "public", "unlisted", "removed", "reported"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -70,7 +70,7 @@ export default async function AdminPublicationsPage(props: PageProps<"/admin/pub
           options={FILTERS.map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) }))}
         />
       </div>
-      <Table>
+      <Table className={STACKED_TABLE}>
         <TableHeader>
           <TableRow>
             <TableHead>Title</TableHead>
@@ -94,7 +94,7 @@ export default async function AdminPublicationsPage(props: PageProps<"/admin/pub
                   {plainText(pub.title) || "Untitled"}
                 </Link>
               </TableCell>
-              <TableCell>{graphName}</TableCell>
+              <TableCell data-label="Graph">{graphName}</TableCell>
               <TableCell className="text-muted-foreground">{email}</TableCell>
               <TableCell>
                 {pub.removedAt ? (
@@ -105,11 +105,11 @@ export default async function AdminPublicationsPage(props: PageProps<"/admin/pub
                   <Badge variant={pub.visibility === "public" ? "secondary" : "outline"}>{pub.visibility}</Badge>
                 )}
               </TableCell>
-              <TableCell>
+              <TableCell data-label="Reports">
                 {reports > 0 ? <Badge variant="destructive">{reports} open</Badge> : <span className="text-muted-foreground">0</span>}
               </TableCell>
-              <TableCell className="text-muted-foreground">{fmtDate(pub.updatedAt)}</TableCell>
-              <TableCell className="text-right">
+              <TableCell data-label="Updated" className="text-muted-foreground">{fmtDate(pub.updatedAt)}</TableCell>
+              <TableCell className="text-right max-sm:text-left">
                 <PublicationActions pub={pub} graphName={graphName} />
               </TableCell>
             </TableRow>

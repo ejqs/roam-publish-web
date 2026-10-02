@@ -232,7 +232,7 @@ export function PageList<S extends string>({
             <div role="cell" className="flex min-w-0 flex-col gap-1">
               <span className="flex min-w-0 items-center gap-1.5">
                 {r.lock && <LockHint text={r.lock} />}
-                <Link href={r.href} className="truncate text-link hover:underline">
+                <Link href={r.href} className="min-w-0 break-words text-link hover:underline max-sm:line-clamp-2 sm:truncate">
                   {plainText(r.title) || "Untitled"}
                 </Link>
                 {r.kind === "block" && (

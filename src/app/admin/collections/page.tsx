@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { collection, collectionEntry, report, user } from "@/db/schema";
 import { collectionPath } from "@/lib/publications";
 import { CollectionActions, UserActions } from "../target-actions";
-import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm } from "../ui";
+import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
 
 const FILTERS = ["all", "suspended", "reported"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -54,7 +54,7 @@ export default async function AdminCollectionsPage(props: PageProps<"/admin/coll
           options={FILTERS.map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) }))}
         />
       </div>
-      <Table>
+      <Table className={STACKED_TABLE}>
         <TableHeader>
           <TableRow>
             <TableHead>Collection</TableHead>
@@ -89,13 +89,13 @@ export default async function AdminCollectionsPage(props: PageProps<"/admin/coll
                   </Badge>
                 )}
               </TableCell>
-              <TableCell>{entries}</TableCell>
-              <TableCell>
+              <TableCell data-label="Pages">{entries}</TableCell>
+              <TableCell data-label="Reports">
                 {reports > 0 ? <Badge variant="destructive">{reports} open</Badge> : <span className="text-muted-foreground">0</span>}
               </TableCell>
-              <TableCell className="text-muted-foreground">{fmtDate(c.createdAt)}</TableCell>
+              <TableCell data-label="Created" className="text-muted-foreground">{fmtDate(c.createdAt)}</TableCell>
               <TableCell>
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 max-sm:justify-start">
                   <CollectionActions c={c} />
                   <UserActions owner={owner} />
                 </div>

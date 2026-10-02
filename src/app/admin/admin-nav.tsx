@@ -17,7 +17,7 @@ const TABS = [
 export function AdminNav() {
   const path = usePathname();
   return (
-    <nav className="flex flex-wrap gap-1" aria-label="Admin sections">
+    <nav className="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" aria-label="Admin sections">
       {TABS.map((t) => {
         const active = t.href === "/admin" ? path === "/admin" : path.startsWith(t.href);
         return (
@@ -25,7 +25,7 @@ export function AdminNav() {
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={buttonVariants({ variant: active ? "secondary" : "ghost" })}
+            className={buttonVariants({ variant: active ? "secondary" : "ghost", className: "shrink-0" })}
           >
             {t.label}
           </Link>

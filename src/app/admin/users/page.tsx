@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { graph, profile, user, usernameAlias } from "@/db/schema";
 import { isAdmin } from "@/lib/admin";
 import { UserActions } from "../target-actions";
-import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm } from "../ui";
+import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
 import { FormerUsernames, UsernameControls } from "./username-controls";
 
 const FILTERS = ["all", "banned", "unverified"] as const;
@@ -65,7 +65,7 @@ export default async function AdminUsersPage(props: PageProps<"/admin/users">) {
           options={FILTERS.map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) }))}
         />
       </div>
-      <Table>
+      <Table className={STACKED_TABLE}>
         <TableHeader>
           <TableRow>
             <TableHead>User</TableHead>
@@ -93,7 +93,7 @@ export default async function AdminUsersPage(props: PageProps<"/admin/users">) {
                   </div>
                   <div className="text-xs text-muted-foreground">{u.name}</div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="max-sm:w-full">
                   {p ? (
                     <div className="flex items-center gap-1.5">
                       <Link href={`/u/${p.username}`} target="_blank" className="text-link hover:underline">
@@ -107,13 +107,13 @@ export default async function AdminUsersPage(props: PageProps<"/admin/users">) {
                   {former.length > 0 && <FormerUsernames names={former} />}
                   {p && <UsernameControls userId={u.id} username={p.username} />}
                 </TableCell>
-                <TableCell>
+                <TableCell data-label="Graphs">
                   <Link href={`/admin/graphs?q=${encodeURIComponent(u.email)}`} className="text-link hover:underline">
                     {graphs}
                   </Link>
                 </TableCell>
-                <TableCell className="text-muted-foreground">{fmtDate(u.createdAt)}</TableCell>
-                <TableCell className="text-right">
+                <TableCell data-label="Joined" className="text-muted-foreground">{fmtDate(u.createdAt)}</TableCell>
+                <TableCell className="text-right max-sm:text-left">
                   {!isAdmin(u) && <UserActions owner={u} />}
                 </TableCell>
               </TableRow>

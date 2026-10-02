@@ -65,7 +65,7 @@ export function PublicationView({
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4 flex items-center gap-1">
+        <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
           <QuickSearch siteSearch={siteSearch} />
           <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
           {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
@@ -76,7 +76,7 @@ export function PublicationView({
           {crumbs && <Breadcrumbs items={crumbs} />}
           {pub.kind === "page" ? (
             <>
-              <h1 className="mb-2 text-[42px] leading-tight font-semibold break-words">{pub.title}</h1>
+              <h1 className="mb-2 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">{pub.title}</h1>
               <BylineLine byline={byline} className={tags ? "mb-2" : "mb-6"} />
               {tags}
               {!byline && !tags && <div className="mb-4" />}
