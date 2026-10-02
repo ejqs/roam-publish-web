@@ -10,10 +10,11 @@ import { auth } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { appendToDailyNote } from "@/lib/roam-append";
 
-// Top-level routes that would shadow /{graph}.
+// Routes that would shadow /{graph} or /dashboard/{graph}.
 const ROUTES = new Set([
-  "admin", "api", "c", "collection", "dashboard", "discover", "forgot-password", "keys", "login",
-  "onboarding", "report", "reset-password", "setup", "signup", "u", "verify-email",
+  "admin", "api", "c", "collection", "collections", "dashboard", "discover", "forgot-password",
+  "invites", "keys", "login", "onboarding", "report", "reset-password", "setup", "signup", "u",
+  "verify-email",
 ]);
 
 const Input = z.object({
