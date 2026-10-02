@@ -12,8 +12,10 @@ export const DISCOVER_TAG = "discover";
 
 export type DiscoverRow = {
   rootUid: string;
+  kind: "page" | "block";
   title: string;
   graphName: string;
+  tags: string[];
   /** The page's link: its collection place when it's on Discover there, else its graph place. */
   href: string;
   /** Where it's from, as shown: the collection or the graph. */
@@ -97,8 +99,10 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
   const base = db
     .select({
       rootUid: publication.rootUid,
+      kind: publication.kind,
       title: publication.title,
       graphName: graph.name,
+      tags: publication.tags,
       entryUid: pick("e.entry_uid"),
       collectionName: pick("c.name"),
       collectionSlug: pick("c.slug"),
@@ -144,7 +148,7 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
  * Cached for five minutes so traffic never multiplies the aggregate. Dashboard actions bust the
  * tag when listings change; view and vote counts are allowed to lag.
  */
-export const discoverPublications = unstable_cache(query, ["discover-publications"], {
+export const discoverPublications = unstable_cache(query, ["discover-publications-v2"], {
   revalidate: 300,
   tags: [DISCOVER_TAG],
 });

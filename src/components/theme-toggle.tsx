@@ -13,13 +13,15 @@ const THEMES = [
 
 const subscribe = () => () => {};
 
-/** Icon button that cycles the color theme: light → dark → system. */
+/** Icon button that cycles the color theme: light → dark → system. `withLabel` also names the current one. */
 export function ThemeToggle({
   className,
   size = "icon",
+  withLabel = false,
 }: {
   className?: string;
   size?: "icon" | "icon-sm";
+  withLabel?: boolean;
 }) {
   const { theme, setTheme } = useTheme();
   // The stored theme is only known on the client; render the "system" icon until hydrated.
@@ -31,13 +33,14 @@ export function ThemeToggle({
   return (
     <Button
       variant="ghost"
-      size={size}
+      size={withLabel ? "default" : size}
       className={className}
       onClick={() => setTheme(next.value)}
       aria-label={`Theme: ${current.label}. Switch to ${next.label}`}
       title={`Theme: ${current.label}`}
     >
       <current.Icon />
+      {withLabel && `Theme: ${current.label}`}
     </Button>
   );
 }

@@ -164,7 +164,7 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4 flex items-center gap-1">
+        <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
           <QuickSearch scope={{ path: collectionPath(c.slug), name: c.name }} siteSearch={await canSearchSite(me)} />
           <DashboardLink href={role ? `/dashboard/collections/${encodeURIComponent(c.slug)}` : undefined} />
           {role === "owner" && <ManageLink href={`/dashboard/collections/${encodeURIComponent(c.slug)}/settings`} />}
@@ -174,7 +174,7 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
         </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           <p className="mb-2 text-sm text-muted-foreground">Collection</p>
-          <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">
+          <h1 className="mb-1 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
             {c.name} <AccessLock access={c.indexAccess} what="collection" name={c.name} />
           </h1>
           {c.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{c.description}</p>}

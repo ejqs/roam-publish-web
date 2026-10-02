@@ -109,7 +109,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4 flex items-center gap-1">
+        <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
           <QuickSearch scope={{ path: graphPath(g.name), name: g.name }} siteSearch={await canSearchSite(me)} />
           <DashboardLink href={role ? `/dashboard/${encodeURIComponent(g.name)}` : undefined} />
           {role === "owner" && <ManageLink href={`/dashboard/${encodeURIComponent(g.name)}/settings`} />}
@@ -121,7 +121,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
           {owner && (
             <Breadcrumbs items={[{ label: `@${owner.username}`, href: `/u/${owner.username}` }, { label: g.name }]} />
           )}
-          <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">
+          <h1 className="mb-1 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
             {g.name} <AccessLock access={g.indexAccess} what="graph" name={g.name} />
           </h1>
           {g.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{g.description}</p>}

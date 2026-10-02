@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { graph, publication, report, user } from "@/db/schema";
 import { graphPath } from "@/lib/graphs";
 import { GraphActions, UserActions } from "../target-actions";
-import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm } from "../ui";
+import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
 
 const FILTERS = ["all", "suspended", "reported"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -54,7 +54,7 @@ export default async function AdminGraphsPage(props: PageProps<"/admin/graphs">)
           options={FILTERS.map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) }))}
         />
       </div>
-      <Table>
+      <Table className={STACKED_TABLE}>
         <TableHeader>
           <TableRow>
             <TableHead>Graph</TableHead>
@@ -89,7 +89,7 @@ export default async function AdminGraphsPage(props: PageProps<"/admin/graphs">)
                   </Badge>
                 )}
               </TableCell>
-              <TableCell>
+              <TableCell data-label="Pages">
                 <Link
                   href={`/admin/publications?q=${encodeURIComponent(g.name)}`}
                   className="text-link hover:underline"
@@ -97,12 +97,12 @@ export default async function AdminGraphsPage(props: PageProps<"/admin/graphs">)
                   {pubs}
                 </Link>
               </TableCell>
-              <TableCell>
+              <TableCell data-label="Reports">
                 {reports > 0 ? <Badge variant="destructive">{reports} open</Badge> : <span className="text-muted-foreground">0</span>}
               </TableCell>
-              <TableCell className="text-muted-foreground">{fmtDate(g.createdAt)}</TableCell>
+              <TableCell data-label="Created" className="text-muted-foreground">{fmtDate(g.createdAt)}</TableCell>
               <TableCell>
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 max-sm:justify-start">
                   <GraphActions g={g} />
                   <UserActions owner={owner} />
                 </div>

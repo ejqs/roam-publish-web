@@ -12,8 +12,8 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     <>
       <SiteHeader />
       <main className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:py-10">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <h1 className="text-2xl font-semibold">Moderation</h1>
             <AdminNav />
           </div>

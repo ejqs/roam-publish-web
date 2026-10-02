@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db } from "@/db";
 import { moderationAction, user } from "@/db/schema";
-import { ADMIN_PAGE_SIZE, fmtDate, Pager, param, parsePage } from "../ui";
+import { ADMIN_PAGE_SIZE, fmtDate, Pager, param, parsePage, STACKED_TABLE } from "../ui";
 
 export default async function AdminLogPage(props: PageProps<"/admin/log">) {
   const page = parsePage(param((await props.searchParams).page));
@@ -20,7 +20,7 @@ export default async function AdminLogPage(props: PageProps<"/admin/log">) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Table>
+      <Table className={STACKED_TABLE}>
         <TableHeader>
           <TableRow>
             <TableHead>When</TableHead>
@@ -43,7 +43,7 @@ export default async function AdminLogPage(props: PageProps<"/admin/log">) {
                 {a.targetType}:{a.targetId.slice(0, 8)}
               </TableCell>
               <TableCell className="max-w-md whitespace-pre-wrap break-words">{a.reason || "—"}</TableCell>
-              <TableCell>{a.emailed ? "yes" : "no"}</TableCell>
+              <TableCell data-label="Emailed">{a.emailed ? "yes" : "no"}</TableCell>
             </TableRow>
           ))}
         </TableBody>
