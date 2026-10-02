@@ -6,7 +6,6 @@ import { block, siteLinks } from "@/components/roam/outline";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { discoverPublications } from "@/lib/discover";
-import { publicationPath } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
 
 const outline = [
@@ -62,12 +61,12 @@ export default async function Home() {
                       <Bullet />
                       <div className="py-0.5 leading-[1.6] break-words">
                         <Link
-                          href={publicationPath(p.graphName, p.rootUid, p.title)}
+                          href={p.href}
                           className="text-link hover:underline"
                         >
                           {plainText(p.title) || "Untitled"}
                         </Link>{" "}
-                        <span className="text-muted-foreground">in {p.graphName}</span>
+                        <span className="text-muted-foreground">in {p.source.label}</span>
                       </div>
                     </li>
                   ))

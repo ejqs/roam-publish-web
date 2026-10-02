@@ -45,7 +45,7 @@ export function ModerateDialog({
 }: {
   op: ModerationOp;
   targetId: string;
-  targetType?: "publication" | "graph" | "profile";
+  targetType?: "publication" | "graph" | "profile" | "collection";
   /** What's being acted on, e.g. a page title or email. */
   subject: string;
   description: string;
@@ -53,7 +53,14 @@ export function ModerateDialog({
   replyTo?: string;
   size?: "sm" | "default";
 }) {
-  const copy = COPY[op];
+  const copy =
+    targetType === "collection" && (op === "suspend" || op === "unsuspend")
+      ? {
+          ...COPY[op],
+          title: COPY[op].title.replace("graph", "collection"),
+          confirm: COPY[op].confirm.replace("graph", "collection"),
+        }
+      : COPY[op];
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [notify, setNotify] = useState(true);

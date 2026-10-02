@@ -1,6 +1,7 @@
 export type ModerationNotice =
   | { kind: "page_removed" | "page_restored"; title: string; url: string }
   | { kind: "graph_suspended" | "graph_restored"; graphName: string; url: string }
+  | { kind: "collection_suspended" | "collection_restored"; collectionName: string; url: string }
   | { kind: "account_banned" | "account_restored" };
 
 function contactLine(to?: string) {
@@ -42,6 +43,21 @@ export function moderationEmail(notice: ModerationNotice, reason: string, replyT
         text:
           `A roam.pub moderator lifted the suspension on "${notice.graphName}". Its pages are visible ` +
           `again at ${notice.url} and you can publish from Roam as usual.${why}`,
+      };
+    case "collection_suspended":
+      return {
+        subject: `Your collection "${notice.collectionName}" was suspended on roam.pub`,
+        text:
+          `A roam.pub moderator suspended your collection "${notice.collectionName}" (${notice.url}).${why}\n\n` +
+          `The collection and its pages are hidden there. The pages stay in their own graphs.\n\n` +
+          contactLine(replyTo),
+      };
+    case "collection_restored":
+      return {
+        subject: `Your collection "${notice.collectionName}" is back on roam.pub`,
+        text:
+          `A roam.pub moderator lifted the suspension on "${notice.collectionName}". It's visible again at ` +
+          `${notice.url}.${why}`,
       };
     case "account_banned":
       return {

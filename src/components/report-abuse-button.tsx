@@ -21,11 +21,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { type ReportState, submitReport } from "@/app/report/actions";
 import { REPORT_REASONS } from "@/lib/report-reasons";
 
-export type ReportTarget = { graphName: string; rootUid?: string } | { username: string };
+export type ReportTarget =
+  | { graphName: string; rootUid?: string }
+  | { username: string }
+  | { collectionSlug: string; entryUid?: string };
 
 /** Top-right "Report abuse" for a published page, a whole graph, or a user's profile. */
 export function ReportAbuseButton({ target }: { target: ReportTarget }) {
-  const what = "username" in target ? "this profile" : target.rootUid ? "this page" : "this graph";
+  const what =
+    "username" in target
+      ? "this profile"
+      : "collectionSlug" in target
+        ? target.entryUid
+          ? "this page"
+          : "this collection"
+        : target.rootUid
+          ? "this page"
+          : "this graph";
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(async (prev: ReportState, formData: FormData) => {
     const res = await submitReport(prev, formData);
@@ -57,6 +69,11 @@ export function ReportAbuseButton({ target }: { target: ReportTarget }) {
           </DialogHeader>
           {"username" in target ? (
             <input type="hidden" name="username" value={target.username} />
+          ) : "collectionSlug" in target ? (
+            <>
+              <input type="hidden" name="collectionSlug" value={target.collectionSlug} />
+              {target.entryUid && <input type="hidden" name="entryUid" value={target.entryUid} />}
+            </>
           ) : (
             <>
               <input type="hidden" name="graphName" value={target.graphName} />

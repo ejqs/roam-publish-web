@@ -2,6 +2,7 @@
 
 import { CheckIcon, ChevronDownIcon, CompassIcon, GlobeIcon, LinkIcon } from "lucide-react";
 import { useOptimistic, useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "cn";
@@ -51,7 +52,8 @@ export function AccessMenu({
     if (next === optimistic) return;
     start(async () => {
       setOptimistic(next);
-      await setAccess(publicationId, next);
+      const res = await setAccess(publicationId, next);
+      if (res && !res.ok) toast.error(res.message);
     });
   }
 
