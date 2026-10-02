@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { graph, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
+import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
 import { changeLogStatusOf, logChange, validTimeZone } from "@/lib/changelog";
 import { addEntry } from "@/lib/collections";
@@ -131,6 +132,7 @@ export async function POST(req: Request) {
           : {
               title,
               tree,
+              ...indexFields(tree),
               contentHash: hash,
               kind: p.kind,
               updatedAt: new Date(),
@@ -161,6 +163,7 @@ export async function POST(req: Request) {
       kind: p.kind,
       title,
       tree,
+      ...indexFields(tree),
       contentHash: hash,
       publishedBy: ctx.userId,
       authorName,

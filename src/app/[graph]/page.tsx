@@ -1,5 +1,6 @@
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, type SQL, sql } from "drizzle-orm";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { AccessLock, lockExplanation } from "@/components/access-lock";
@@ -9,8 +10,10 @@ import { FeedLink } from "@/components/feed-link";
 import { GateNotice } from "@/components/gate-notice";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
+import { QuickSearch } from "@/components/quick-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SiteFooter } from "@/components/site-footer";
+import { formatDate, ListStatus, ListToolbar, PageList } from "@/components/page-list";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { db } from "@/db";
 import { publication } from "@/db/schema";
@@ -18,17 +21,20 @@ import { graphFeedPath, hasGraphFeed } from "@/lib/feeds";
 import { containerLock, gate, showsAuthor } from "@/lib/gates";
 import { graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
+import { GRAPH_LIST, type GraphSort, LIST_PAGE_SIZE, parseListState } from "@/lib/list-params";
+import { listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
 import { livePublication } from "@/lib/moderation";
+import { publicationPath } from "@/lib/publications";
 import { publicProfile } from "@/lib/profiles";
 import { bylineFor, viewerId } from "@/lib/viewer";
-import { PublicationTable } from "./publication-table";
-import { PAGE_SIZE, parsePage, parseSort } from "./sort";
 
-const ORDER = {
-  updated: [desc(publication.updatedAt)],
-  created: [desc(publication.createdAt)],
-  title: [asc(sql`lower(${publication.title})`), asc(publication.title)],
-};
+const order = (sort: GraphSort | "relevance", q: string): SQL[] =>
+  ({
+    updated: [desc(publication.updatedAt)],
+    created: [desc(publication.createdAt)],
+    title: [asc(sql`lower(${publication.title})`), asc(publication.title)],
+    relevance: [desc(relevance(q)), desc(publication.updatedAt)],
+  })[sort];
 
 async function frontPageGraph(props: PageProps<"/[graph]">) {
   const { graph: graphName } = await props.params;
@@ -63,9 +69,8 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
     signedIn: !!me,
   });
   if (blocker) return <GateNotice blocker={blocker} what="graph" next={graphPath(g.name)} />;
-  const search = await props.searchParams;
-  const sort = parseSort(search.sort);
-  const page = parsePage(search.page);
+  const state = parseListState(GRAPH_LIST, await props.searchParams);
+  const path = graphPath(g.name);
 
   // Listed pages, protected ones included: they show with a lock and ask for the password.
   const visible = and(
@@ -74,13 +79,17 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
     eq(publication.visibility, "public"),
     livePublication,
   );
-  const [[{ total }], rows, owner] = await Promise.all([
+  const matchingWhere = listWhere(state, visible);
+  const [[{ total }], [{ matching }], rows, tags, owner] = await Promise.all([
     db.select({ total: count() }).from(publication).where(visible),
+    db.select({ matching: count() }).from(publication).where(matchingWhere),
     db
       .select({
         rootUid: publication.rootUid,
         kind: publication.kind,
         title: publication.title,
+        tags: publication.tags,
+        snippet: state.q ? snippet(state.q) : sql<string | null>`null`,
         createdAt: publication.createdAt,
         updatedAt: publication.updatedAt,
         access: publication.access,
@@ -89,18 +98,19 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
         publishedBy: publication.publishedBy,
       })
       .from(publication)
-      .where(visible)
-      .orderBy(...ORDER[sort])
-      .limit(PAGE_SIZE)
-      .offset((page - 1) * PAGE_SIZE),
+      .where(matchingWhere)
+      .orderBy(...order(state.sort, state.q), asc(publication.id))
+      .limit(LIST_PAGE_SIZE)
+      .offset((state.page - 1) * LIST_PAGE_SIZE),
+    tagCounts(sql`from ${publication}`, matchingWhere),
     g.showOwner ? publicProfile(g.userId) : null,
   ]);
-  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
+          <QuickSearch scope={{ path: graphPath(g.name), name: g.name }} />
           <DashboardLink href={role ? `/dashboard/${encodeURIComponent(g.name)}` : undefined} />
           {role === "owner" && <ManageLink href={`/dashboard/${encodeURIComponent(g.name)}/settings`} />}
           {hasGraphFeed(g) && <FeedLink href={graphFeedPath(g.name)} />}
@@ -115,8 +125,16 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
             {g.name} <AccessLock access={g.indexAccess} what="graph" name={g.name} />
           </h1>
           {g.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{g.description}</p>}
-          <p className="mb-8 text-sm text-muted-foreground">
+          <p className="mb-6 text-sm text-muted-foreground">
             {total} published {total === 1 ? "page" : "pages"}
+            {total > 0 && (
+              <>
+                {" · "}
+                <Link href={`${path}/tags`} className="text-link hover:underline">
+                  Browse tags
+                </Link>
+              </>
+            )}
           </p>
           {total === 0 ? (
             <Empty className="border">
@@ -126,23 +144,29 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
               </EmptyHeader>
             </Empty>
           ) : (
-            <PublicationTable
-              graphName={g.name}
-              rows={await Promise.all(
-                rows.map(async (r) => ({
-                  rootUid: r.rootUid,
-                  kind: r.kind,
-                  title: r.title,
-                  lock: lockExplanation(r.access === "inherit" ? g.defaultAccess : r.access, "graph", g.name),
-                  author: (await bylineFor(r, showsAuthor({ ...g, kind: "graph" }, r)))?.label,
-                  createdAt: r.createdAt.toISOString(),
-                  updatedAt: r.updatedAt.toISOString(),
-                })),
-              )}
-              sort={sort}
-              page={Math.min(page, pageCount)}
-              pageCount={pageCount}
-            />
+            <>
+              <ListToolbar cfg={GRAPH_LIST} path={path} state={state} tags={tags} placeholder="Search this graph" tagIndex={`${path}/tags`} />
+              <ListStatus cfg={GRAPH_LIST} path={path} state={state} matching={matching} total={total} />
+              <PageList
+                cfg={GRAPH_LIST}
+                path={path}
+                state={state}
+                matching={matching}
+                dateLabels={["Updated", "Created"]}
+                rows={await Promise.all(
+                  rows.map(async (r) => ({
+                    href: publicationPath(g.name, r.rootUid, r.title),
+                    kind: r.kind,
+                    title: r.title,
+                    tags: r.tags,
+                    snippet: snippetParts(r.snippet),
+                    lock: lockExplanation(r.access === "inherit" ? g.defaultAccess : r.access, "graph", g.name),
+                    author: (await bylineFor(r, showsAuthor({ ...g, kind: "graph" }, r)))?.label,
+                    dates: [formatDate(r.updatedAt), formatDate(r.createdAt)],
+                  })),
+                )}
+              />
+            </>
           )}
         </div>
       </main>

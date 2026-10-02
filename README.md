@@ -24,6 +24,12 @@ Without `RESEND_API_KEY`, verification and reset emails are printed to the serve
 Edit `src/db/app-schema.ts` (or re-run `bunx auth@latest generate --config src/lib/auth.ts --output src/db/auth-schema.ts`
 after changing better-auth plugins), then `bun run db:generate` and commit the migration in `drizzle/`.
 
+## Tags and search
+
+Tags and search text are derived from each page's tree on publish (`src/lib/tags.ts`). After deploying migration
+`0018_search_and_tags`, or after changing how tags are extracted, run `railway run bun run search:backfill` once so
+existing pages get them.
+
 ## RSS feeds
 
 - `/discover/feed.xml`: always on, the newest pages on Discover.

@@ -1,9 +1,9 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, desc, eq, ne } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { GateNotice } from "@/components/gate-notice";
-import type { PageLinks } from "@/components/roam/markup";
+import { PageLinks } from "@/components/roam/markup";
 import { PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
 import { db } from "@/db";
@@ -12,11 +12,13 @@ import { isListed } from "@/lib/discover";
 import { type Container, effectiveAccess, gate, pageLock, type Place, showsAuthor } from "@/lib/gates";
 import { canManage, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
+import { tagsOverlap } from "@/lib/list-query";
 import { manageDataFor } from "@/lib/manage-data";
 import { livePublication } from "@/lib/moderation";
 import { publicProfile } from "@/lib/profiles";
 import { publicationPath } from "@/lib/publications";
 import { plainText, slugify } from "@/lib/slug";
+import { graphTagPath, RELATED_LIMIT } from "@/lib/tag-paths";
 import { bylineFor, viewerId } from "@/lib/viewer";
 
 // Only graph + uid identify a publication; the optional trailing slug is decorative.
@@ -80,7 +82,9 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
   const showBreadcrumbs = pub.visibility === "public" || !g.hideUnlistedBreadcrumbs;
   // Only open pages listed on Discover can be upvoted.
   const listed = access === "open" && isListed(g, pub);
-  const [pages, owner, votes, byline, manage] = await Promise.all([
+  // Tags lead to the graph's front page, unless that would reveal a graph the page hides.
+  const tagsBrowsable = showBreadcrumbs && g.frontPage;
+  const [pages, owner, votes, byline, manage, related] = await Promise.all([
     db
       .select({ title: publication.title, rootUid: publication.rootUid })
       .from(publication)
@@ -97,9 +101,28 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
       : null,
     bylineFor(pub, showsAuthor(container, place)),
     me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : undefined,
+    tagsBrowsable && pub.tags.length
+      ? db
+          .select({ title: publication.title, rootUid: publication.rootUid })
+          .from(publication)
+          .where(
+            and(
+              eq(publication.graphId, g.id),
+              eq(publication.inGraph, true),
+              eq(publication.visibility, "public"),
+              livePublication,
+              ne(publication.id, pub.id),
+              tagsOverlap(pub.tags),
+            ),
+          )
+          .orderBy(desc(publication.updatedAt))
+          .limit(RELATED_LIMIT)
+      : [],
   ]);
-  const links: PageLinks = new Map(
+  const tagHref = tagsBrowsable ? (t: string) => graphTagPath(g.name, t) : undefined;
+  const links = new PageLinks(
     pages.map((p) => [p.title.toLowerCase(), publicationPath(g.name, p.rootUid, p.title)]),
+    tagHref,
   );
 
   return (
@@ -115,6 +138,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           : null
       }
       links={links}
+      related={related.map((r) => ({ title: r.title, href: publicationPath(g.name, r.rootUid, r.title) }))}
       byline={byline}
       report={{ graphName: g.name, rootUid: pub.rootUid }}
       votes={votes}
