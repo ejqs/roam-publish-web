@@ -1,4 +1,4 @@
-import { LockIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, LockIcon } from "lucide-react";
 import Link from "next/link";
 import { ManageDialog } from "@/components/manage/manage-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,24 @@ const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_11rem_7.5rem_6.5rem]
 
 const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { dateStyle: "medium" });
 
+type Row = Pick<
+  typeof publication.$inferSelect,
+  | "id"
+  | "rootUid"
+  | "kind"
+  | "title"
+  | "visibility"
+  | "discoverable"
+  | "removedAt"
+  | "removedReason"
+  | "updatedAt"
+  | "inGraph"
+  | "access"
+>;
+
+/** A sortable column header: where clicking it goes, and which way it's sorted now, if at all. */
+export type SortHeader = { href: string; dir: "asc" | "desc" | null };
+
 /** A graph's published pages: a stacked list on phones, columns on wider screens. */
 export function PublicationList({
   g,
@@ -19,22 +37,24 @@ export function PublicationList({
   votes,
   discoverBlocked,
   manage,
+  sort,
 }: {
   g: typeof graph.$inferSelect;
   /** Per publication, for pages the viewer can manage. Others are read-only. */
   manage: Map<string, ManageData>;
-  rows: (typeof publication.$inferSelect)[];
+  rows: Row[];
   /** Upvotes per publication id, for pages on Discover. */
   votes: Map<string, number>;
   discoverBlocked?: string;
+  sort?: { title: SortHeader; updated: SortHeader };
 }) {
   return (
     <div className="text-sm">
       <div className={`hidden border-b px-2 pb-2 font-medium text-muted-foreground ${COLUMNS}`}>
-        <span>Title</span>
+        <HeaderCell label="Title" sort={sort?.title} />
         <span>Type</span>
         <span>In graph</span>
-        <span>Updated</span>
+        <HeaderCell label="Updated" sort={sort?.updated} />
         <span />
       </div>
       <ul className="divide-y">
@@ -110,5 +130,19 @@ export function PublicationList({
         })}
       </ul>
     </div>
+  );
+}
+
+function HeaderCell({ label, sort }: { label: string; sort?: SortHeader }) {
+  if (!sort) return <span>{label}</span>;
+  return (
+    <Link
+      href={sort.href}
+      className="inline-flex items-center gap-1 hover:text-foreground"
+    >
+      {label}
+      {sort.dir === "asc" && <ArrowUp className="size-3.5" aria-label="ascending" />}
+      {sort.dir === "desc" && <ArrowDown className="size-3.5" aria-label="descending" />}
+    </Link>
   );
 }

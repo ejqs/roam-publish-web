@@ -29,7 +29,7 @@ export async function unpublish(publicationId: string) {
     // Owners unpublish anything in their graphs, members what they published. Removed pages stay
     // locked so a republish can't undo the takedown.
     .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)));
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
   revalidatePath("/c/[id]", "layout");
   updateTag(DISCOVER_TAG);
 }
@@ -69,7 +69,7 @@ export async function setAccess(publicationId: string, access: Access): Promise<
     .update(publication)
     .set(set)
     .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)));
-  revalidatePath("/dashboard");
+  revalidatePath("/dashboard", "layout");
   revalidatePath("/[graph]", "page");
   revalidatePath("/");
   updateTag(DISCOVER_TAG);

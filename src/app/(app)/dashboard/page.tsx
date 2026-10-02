@@ -1,6 +1,8 @@
-import { count, desc, eq, inArray } from "drizzle-orm";
+import { count, eq, inArray } from "drizzle-orm";
+import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -17,47 +19,37 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Badge } from "@/components/ui/badge";
 import { db } from "@/db";
-import { profile, publication, publicationVote } from "@/db/schema";
+import { profile, publication } from "@/db/schema";
 import { graphsOf } from "@/lib/graph-access";
 import { graphPath } from "@/lib/graphs";
 import { pendingInvitesFor } from "@/lib/invites";
-import { manageDataFor } from "@/lib/manage-data";
 import { requireSession } from "@/lib/session";
 import { AttentionBanners, attentionItems } from "./attention-banners";
+import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
-import { PublicationList } from "./publication-list";
+
+const EMPTY: AccessCounts = { unlisted: 0, public: 0, discover: 0, removed: 0 };
 
 export default async function DashboardPage() {
   const session = await requireSession("/dashboard");
-  const meId = session.user.id;
-  const [graphs, invites] = await Promise.all([graphsOf(meId), pendingInvitesFor(meId)]);
+  // Graphs you own, then graphs you were invited to publish from.
+  const [graphs, invites] = await Promise.all([graphsOf(session.user.id), pendingInvitesFor(session.user.id)]);
   const owned = graphs.filter((g) => g.role === "owner");
-  const pubs = graphs.length
-    ? await db
-        .select()
-        .from(publication)
-        .where(inArray(publication.graphId, graphs.map((g) => g.id)))
-        .orderBy(desc(publication.updatedAt))
-    : [];
-  const discoverIds = pubs.filter((p) => p.discoverable).map((p) => p.id);
-  const [me, voteRows, manage] = await Promise.all([
+  // Only counts here; the pages themselves are listed per graph at /dashboard/[graph].
+  const [me, countRows] = await Promise.all([
     db.query.profile.findFirst({ where: eq(profile.userId, session.user.id) }),
-    discoverIds.length
+    graphs.length
       ? db
-          .select({ id: publicationVote.publicationId, n: count() })
-          .from(publicationVote)
-          .where(inArray(publicationVote.publicationId, discoverIds))
-          .groupBy(publicationVote.publicationId)
+          .select({ graphId: publication.graphId, total: count(), ...accessCounts })
+          .from(publication)
+          .where(inArray(publication.graphId, graphs.map((g) => g.id)))
+          .groupBy(publication.graphId)
       : [],
-    manageDataFor(meId, pubs.map((p) => p.id)),
   ]);
-  const votes = new Map(voteRows.map((v) => [v.id, v.n]));
+  const counts = new Map(countRows.map(({ graphId, ...c }) => [graphId, c]));
   const banners = (
-    <AttentionBanners
-      items={attentionItems({ graphs: owned, pubs: pubs.filter((p) => owned.some((g) => g.id === p.graphId)), me, invites: invites.length })}
-    />
+    <AttentionBanners items={attentionItems({ graphs: owned, counts, me, invites: invites.length })} />
   );
   const nav = (
     <div className="flex flex-wrap gap-2">
@@ -117,25 +109,20 @@ export default async function DashboardPage() {
       {banners}
       {profileCard}
       {graphs.map((g) => {
-        const rows = pubs.filter((p) => p.graphId === g.id);
-        const notListable = g.suspendedAt
-          ? "This graph is suspended."
-          : g.indexAccess !== "open"
-            ? "This graph's front page is protected, so its pages can't go on Discover."
-            : !g.frontPage
-            ? "Turn on this graph's front page in Settings to use Discover."
-            : !g.indexable
-              ? "Turn on search engines in Settings to use Discover."
-              : undefined;
+        const c = counts.get(g.id) ?? { ...EMPTY, total: 0 };
+        const pagesHref = graphPagesPath(g.name);
+        const paused = c.discover > 0 && discoverBlocked(g);
         return (
           <Card key={g.id} id={`graph-${g.id}`} className="scroll-mt-4">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                {g.name}
+                <Link href={pagesHref} className="hover:underline">
+                  {g.name}
+                </Link>
                 {g.role === "member" && <Badge variant="outline">Member</Badge>}
               </CardTitle>
               <CardDescription>
-                {rows.length} published · {rows.filter((p) => p.inGraph && p.visibility === "public").length} listed
+                {c.total} published
                 {g.frontPage && (
                   <>
                     {" · "}
@@ -172,12 +159,43 @@ export default async function DashboardPage() {
                   </AlertDescription>
                 </Alert>
               )}
-              {rows.length === 0 ? (
+              {c.total === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Nothing published yet. Right-click a page or block in Roam and choose Publish.
                 </p>
               ) : (
-                <PublicationList g={g} rows={rows} votes={votes} discoverBlocked={notListable} manage={manage} />
+                <>
+                  <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {ACCESS.filter((a) => a !== "removed" || c.removed > 0).map((a) => (
+                      <li key={a}>
+                        <Link
+                          href={`${pagesHref}?access=${a}`}
+                          className="flex flex-col rounded-md border px-3 py-2 hover:bg-muted/50"
+                        >
+                          <span className="text-xs text-muted-foreground">
+                            {ACCESS_LABELS[a]}
+                            {a === "discover" && paused && " (paused)"}
+                          </span>
+                          <span
+                            className={`text-xl font-semibold tabular-nums ${a === "removed" ? "text-destructive" : ""}`}
+                          >
+                            {c[a].toLocaleString("en-US")}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  {paused && (
+                    <p className="text-xs text-muted-foreground">Discover is paused: {paused}</p>
+                  )}
+                  <Link
+                    href={pagesHref}
+                    className={buttonVariants({ variant: "outline", size: "sm", className: "self-start" })}
+                  >
+                    Manage pages
+                    <ChevronRightIcon />
+                  </Link>
+                </>
               )}
             </CardContent>
           </Card>
