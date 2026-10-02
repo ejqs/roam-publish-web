@@ -132,7 +132,8 @@ export async function POST(req: Request) {
           : {
               title,
               tree,
-              ...indexFields(tree),
+              // Website tag edits survive republishing.
+              ...indexFields(tree, existing),
               contentHash: hash,
               kind: p.kind,
               updatedAt: new Date(),

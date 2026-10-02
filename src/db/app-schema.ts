@@ -165,8 +165,15 @@ export const publication = pgTable(
     passwordHash: text("password_hash"),
     passwordVersion: integer("password_version").notNull().default(0),
     showAuthor: text("show_author", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
-    /** `#tags` and `Tags::` values from the tree, normalized (lib/tags.ts). Set on every write of `tree`. */
+    /**
+     * The page's tags: `#tags` and `Tags::` values from the tree, plus `tagsAdded`, minus `tagsHidden`
+     * (lib/tags.ts). Recomputed on every write of `tree` or of those two.
+     */
     tags: text("tags").array().notNull().default(sql`'{}'::text[]`),
+    /** Tags added on the website. Kept across republishes. */
+    tagsAdded: text("tags_added").array().notNull().default(sql`'{}'::text[]`),
+    /** Tags from the Roam text removed on the website. Kept across republishes. */
+    tagsHidden: text("tags_hidden").array().notNull().default(sql`'{}'::text[]`),
     /** Plain text of the tree for full-text search (lib/tags.ts). Set on every write of `tree`. */
     searchText: text("search_text").notNull().default(""),
     /** Title weighted above body. 'simple' so any language matches word for word. */

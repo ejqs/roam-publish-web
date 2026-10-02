@@ -47,6 +47,28 @@ export async function canReceiveInvite(userId: string) {
   return hasVerifiedGraph(userId);
 }
 
+/**
+ * Site-wide search is for verified people: a verified email, not banned, and the owner or a member
+ * of a verified graph that isn't suspended. Searching within one graph or collection stays open.
+ */
+export const canSearchSite = cache(async (userId: string | null) => {
+  if (!userId) return false;
+  const [u, [g]] = await Promise.all([
+    db.query.user.findFirst({ where: eq(user.id, userId), columns: { emailVerified: true, banned: true } }),
+    db
+      .select({ id: graph.id })
+      .from(graph)
+      .where(
+        and(
+          isNull(graph.suspendedAt),
+          or(eq(graph.userId, userId), inArray(graph.id, memberGraphIds(userId))),
+        ),
+      )
+      .limit(1),
+  ]);
+  return !!u?.emailVerified && !u.banned && !!g;
+});
+
 const ownedGraphIds = (userId: string) =>
   db.select({ id: graph.id }).from(graph).where(eq(graph.userId, userId));
 const memberGraphIds = (userId: string) =>

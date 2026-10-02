@@ -19,7 +19,7 @@ import { db } from "@/db";
 import { publication } from "@/db/schema";
 import { graphFeedPath, hasGraphFeed } from "@/lib/feeds";
 import { containerLock, gate, showsAuthor } from "@/lib/gates";
-import { graphRole } from "@/lib/graph-access";
+import { canSearchSite, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { GRAPH_LIST, type GraphSort, LIST_PAGE_SIZE, parseListState } from "@/lib/list-params";
 import { listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
@@ -110,7 +110,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
-          <QuickSearch scope={{ path: graphPath(g.name), name: g.name }} />
+          <QuickSearch scope={{ path: graphPath(g.name), name: g.name }} siteSearch={await canSearchSite(me)} />
           <DashboardLink href={role ? `/dashboard/${encodeURIComponent(g.name)}` : undefined} />
           {role === "owner" && <ManageLink href={`/dashboard/${encodeURIComponent(g.name)}/settings`} />}
           {hasGraphFeed(g) && <FeedLink href={graphFeedPath(g.name)} />}

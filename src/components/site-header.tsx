@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { isAdmin } from "@/lib/admin";
+import { canSearchSite } from "@/lib/graph-access";
 import { QuickSearch } from "./quick-search";
 import { auth } from "@/lib/auth";
 import { SignOutButton } from "./sign-out-button";
@@ -9,6 +10,7 @@ import { ThemeToggle } from "./theme-toggle";
 
 export async function SiteHeader() {
   const session = await auth.api.getSession({ headers: await headers() });
+  const siteSearch = await canSearchSite(session?.user.id ?? null);
   return (
     <header className="border-b bg-card shadow-[0_1px_1px_rgba(17,20,24,0.06)]">
       <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-2 px-4 sm:gap-4">
@@ -19,11 +21,11 @@ export async function SiteHeader() {
           <span className="sr-only sm:not-sr-only">Roam Publish</span>
         </Link>
         <div className="hidden flex-1 justify-center sm:flex">
-          <QuickSearch variant="field" />
+          <QuickSearch variant="field" siteSearch={siteSearch} />
         </div>
         <nav className="flex min-w-0 items-center gap-0 whitespace-nowrap sm:gap-1">
           <span className="sm:hidden">
-            <QuickSearch />
+            <QuickSearch siteSearch={siteSearch} />
           </span>
           <Link href="/discover" className={buttonVariants({ variant: "ghost" })}>
             Discover
