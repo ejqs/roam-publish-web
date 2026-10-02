@@ -126,7 +126,7 @@ export function CollectionSettingsForm({
             start(async () => {
               const res = await deleteCollection(collectionId);
               if (!res.ok) return void toast.error(res.message);
-              router.push("/dashboard/collections");
+              router.push("/dashboard");
             });
           }}
         >
