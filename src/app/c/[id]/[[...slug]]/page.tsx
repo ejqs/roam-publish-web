@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { AccessLock, lockExplanation } from "@/components/access-lock";
 import { DashboardLink } from "@/components/dashboard-link";
+import { ManageLink } from "@/components/manage-link";
 import { FeedLink } from "@/components/feed-link";
 import { GateNotice } from "@/components/gate-notice";
 import { PublicationView } from "@/components/publication-view";
@@ -118,6 +119,7 @@ async function CollectionIndex({ c }: { c: C }) {
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
           <DashboardLink href={role ? `/dashboard/collections/${encodeURIComponent(c.slug)}` : undefined} />
+          {role === "owner" && <ManageLink href={`/dashboard/collections/${encodeURIComponent(c.slug)}/settings`} />}
           {hasCollectionFeed(c) && <FeedLink href={collectionFeedPath(c.slug)} />}
           <ReportAbuseButton target={{ collectionSlug: c.slug }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />

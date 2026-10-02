@@ -19,24 +19,13 @@ export function ChangeLogIssues({ issues }: { issues: Issue[] }) {
   return (
     <Alert variant="warning" id="change-log-issues" className="scroll-mt-4 px-3 py-2.5">
       <TriangleAlertIcon />
-      <AlertTitle>
-        Change log stopped for {issues.length === 1 ? "1 page" : `${issues.length} pages`}: its Changelog block is gone
-      </AlertTitle>
-      <AlertDescription className="flex flex-col gap-3">
+      <AlertTitle>Change log stopped for {issues.length === 1 ? "1 page" : `${issues.length} pages`}</AlertTitle>
+      <AlertDescription className="flex flex-col gap-2 text-pretty">
         <p>
-          The <code>#published</code> → <code>Changelog</code> block was deleted in Roam, so roam.pub stopped writing
-          there (Roam would otherwise put the entries on your daily note). For each page, either:
+          Its <code>Changelog</code> block was deleted in Roam, so roam.pub stopped writing there (Roam would put the
+          entries on your daily note instead). Open the page in Roam and publish it again to add the blocks back;
+          changes are logged from then on. Or ignore it to leave the page without a change log.
         </p>
-        <ol className="list-decimal space-y-1 pl-5">
-          <li>
-            <strong>Add the blocks back:</strong> open the page in Roam and publish it again (right-click the title →
-            Roam Publish: Publish page). The extension adds the blocks back, and changes are logged from then on.
-            Earlier changes aren&apos;t added.
-          </li>
-          <li>
-            <strong>Ignore it:</strong> the page stays published, without a change log.
-          </li>
-        </ol>
         <ul className="flex flex-col divide-y rounded-md border bg-card">
           {issues.map((i) => (
             <li key={i.shortlinkId} className="flex flex-wrap items-center gap-2 px-3 py-2">
