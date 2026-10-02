@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { SiteFooter } from "@/components/site-footer";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { db } from "@/db";
@@ -73,8 +74,9 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4">
+        <div className="absolute top-3 right-4 flex items-center gap-1">
           <ReportAbuseButton target={{ graphName: g.name }} />
+          <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           {owner && (

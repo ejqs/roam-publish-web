@@ -7,6 +7,7 @@ import { BlockList } from "@/components/roam/block-tree";
 import type { PageLinks } from "@/components/roam/markup";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { SiteFooter } from "@/components/site-footer";
 import { UpvoteButton } from "@/components/upvote-button";
 import { ViewBeacon } from "@/components/view-beacon";
@@ -83,8 +84,9 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4">
+        <div className="absolute top-3 right-4 flex items-center gap-1">
           <ReportAbuseButton target={{ graphName: g.name, rootUid: pub.rootUid }} />
+          <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
         <article className="mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
           {showBreadcrumbs && (
