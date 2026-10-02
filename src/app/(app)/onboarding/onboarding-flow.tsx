@@ -78,6 +78,7 @@ export function OnboardingFlow({
       graphName: String(form.get("graphName")),
       token: String(form.get("token")),
       date: todayMMDDYYYY(),
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
     setPending(false);
     if (!r.ok) return setError(r.error);
@@ -192,8 +193,9 @@ export function OnboardingFlow({
                   <ShieldCheckIcon />
                   <AlertTitle>How we use this token</AlertTitle>
                   <AlertDescription>
-                    Used once to add a block to today&apos;s daily note, then discarded. You can delete
-                    the token and the block right after.
+                    We add one block to today&apos;s daily note to verify the graph, then keep the token
+                    encrypted to add a roam.pub change log under each published page&apos;s shortlink block.
+                    It can only append. Remove it in the graph&apos;s settings or revoke it in Roam at any time.
                   </AlertDescription>
                 </Alert>
                 <Button type="submit" disabled={pending || !ready}>
@@ -213,7 +215,8 @@ export function OnboardingFlow({
           <AlertDescription className="flex flex-col gap-3">
             <p>
               Get an API key for the Roam Publish extension, then paste it in Roam under Settings → Roam
-              Publish. You can delete the block on today&apos;s daily note and the append-only token now.
+              Publish. You can delete the block on today&apos;s daily note now. Keep the append-only token:
+              roam.pub uses it for the change log under each published page.
             </p>
             <KeyReveal graphId={state.graphId} hasKey={false} size="default" />
             <Link href="/dashboard" className={buttonVariants({ variant: "outline", className: "self-start" })}>

@@ -1,12 +1,14 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { graph, type Node, publication } from "@/db/schema";
+import { graph, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
 import { json, preflight } from "@/lib/cors";
+import { logChange, validTimeZone } from "@/lib/changelog";
 import { addEntry } from "@/lib/collections";
 import { notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
 import { defaultCollectionsFor, primaryUrls } from "@/lib/places";
+import { ensureShortlink, setAnchor, shortlinkIds, shortUrl, withoutShortlinks } from "@/lib/shortlinks";
 import { plainText } from "@/lib/slug";
 
 const NodeSchema: z.ZodType<Node> = z.lazy(() =>
@@ -30,6 +32,10 @@ const Body = z.object({
   contentHash: z.string().regex(/^[0-9a-f]{64}$/),
   /** Byline from the extension's Author name setting; not part of the hash. */
   author: z.string().trim().max(100).optional(),
+  /** Uid of the shortlink block the extension wrote in Roam; the change log goes under it. Not hashed. */
+  anchorUid: z.string().min(1).max(64).optional(),
+  /** The publisher's IANA time zone, for dating change log entries. Not hashed. */
+  timeZone: z.string().max(64).optional(),
 });
 
 const MAX_BYTES = 1_000_000;
@@ -45,12 +51,17 @@ export async function GET(req: Request) {
     .where(eq(publication.graphId, ctx.graphId))
     .orderBy(desc(publication.updatedAt));
   const urls = await primaryUrls(ctx.graphName, rows);
+  const links = new Map(
+    (await db.select().from(shortlink).where(eq(shortlink.graphId, ctx.graphId))).map((l) => [l.rootUid, l]),
+  );
   return json(req, {
     publications: rows.map((p) => ({
       rootUid: p.rootUid,
       kind: p.kind,
       title: p.title,
       url: urls.get(p.id),
+      shortUrl: links.has(p.rootUid) ? shortUrl(links.get(p.rootUid)!.id) : null,
+      anchorUid: links.get(p.rootUid)?.anchorUid ?? null,
       contentHash: p.contentHash,
       visibility: p.visibility,
       removed: !!p.removedAt,
@@ -88,15 +99,29 @@ export async function POST(req: Request) {
   });
 
   if (existing?.removedAt) return removedResponse(req, existing.removedReason);
+  // Members change only what they published; the owner changes anything.
+  if (existing && ctx.role !== "owner" && existing.publishedBy !== ctx.userId) return notYoursResponse(req);
+
+  const link = await ensureShortlink(ctx.graphId, p.rootUid);
+  if (p.anchorUid && p.anchorUid !== link.anchorUid) await setAnchor(ctx.graphId, p.rootUid, p.anchorUid);
+  if (p.timeZone && validTimeZone(p.timeZone))
+    await db
+      .update(graph)
+      .set({ timeZone: p.timeZone })
+      // The owner's zone wins; a member's only fills in a missing one.
+      .where(and(eq(graph.id, ctx.graphId), ctx.role === "owner" ? undefined : sql`${graph.timeZone} is null`));
+  const page = { graphId: ctx.graphId, rootUid: p.rootUid };
+  // The hash covers what the extension sent; shortlink blocks in it are never stored or shown.
+  const tree = withoutShortlinks(p.tree, await shortlinkIds(ctx.graphId));
+  const short = shortUrl(link.id);
+
   if (existing) {
-    // Members change only what they published; the owner changes anything.
-    if (ctx.role !== "owner" && existing.publishedBy !== ctx.userId) return notYoursResponse(req);
     const visibility = existing.visibility;
     const url = (await primaryUrls(ctx.graphName, [{ ...existing, title }])).get(existing.id);
     // Older extensions don't send an author; leave the stored one alone then.
     const authorChanged = p.author !== undefined && authorName !== existing.authorName;
     if (existing.contentHash === hash && !authorChanged)
-      return json(req, { status: "unchanged", url, contentHash: hash, visibility });
+      return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility });
     await db
       .update(publication)
       .set(
@@ -104,7 +129,7 @@ export async function POST(req: Request) {
           ? { authorName }
           : {
               title,
-              tree: p.tree,
+              tree,
               contentHash: hash,
               kind: p.kind,
               updatedAt: new Date(),
@@ -112,7 +137,8 @@ export async function POST(req: Request) {
             },
       )
       .where(eq(publication.id, existing.id));
-    return json(req, { status: "updated", url, contentHash: hash, visibility });
+    logChange(page, existing.contentHash === hash ? `Byline changed to "${authorName ?? "(none)"}"` : "Republished");
+    return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility });
   }
 
   // New pages go where the graph's "New pages go to" setting says. If that leaves them nowhere
@@ -128,7 +154,7 @@ export async function POST(req: Request) {
       rootUid: p.rootUid,
       kind: p.kind,
       title,
-      tree: p.tree,
+      tree,
       contentHash: hash,
       publishedBy: ctx.userId,
       authorName,
@@ -142,5 +168,6 @@ export async function POST(req: Request) {
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
   const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
-  return json(req, { status: "created", url, contentHash: hash, visibility: created.visibility });
+  logChange(page, `Published as ${created.visibility}: ${url}`);
+  return json(req, { status: "created", url, shortUrl: short, contentHash: hash, visibility: created.visibility });
 }

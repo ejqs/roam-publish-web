@@ -85,6 +85,13 @@
       "when": 1790910320631,
       "tag": "0011_rss_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790913229475,
+      "tag": "0012_shortlinks_changelog",
+      "breakpoints": true
     }
   ]
 }
