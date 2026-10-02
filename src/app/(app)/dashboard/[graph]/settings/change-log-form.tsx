@@ -67,9 +67,10 @@ export function ChangeLogForm({
       <CardHeader>
         <CardTitle>Roam change log</CardTitle>
         <CardDescription>
-          The extension adds a Roam Publish Status link to each page it publishes. With an append-only token, roam.pub adds a
-          dated entry under that block whenever the page is published, changed, moved between collections or
-          unpublished, including changes made here on the website.
+          The extension adds a Roam Publish Status link to each page it publishes. With an append-only token,
+          roam.pub adds a dated entry under it whenever the page is published, changed, moved between collections or
+          unpublished, including changes made here on the website. Each page&apos;s history is also on its status
+          page, with or without a token.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
