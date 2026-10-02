@@ -48,6 +48,7 @@ export async function setAppendToken(graphId: string, input: z.input<typeof Inpu
       appendTokenEnc: encryptToken(token),
       appendTokenStatus: "ok",
       appendTokenAddedAt: new Date(),
+      appendTokenOkAt: new Date(),
       ...(validTimeZone(timeZone) && { timeZone }),
     })
     .where(eq(graph.id, graphId));
@@ -60,7 +61,7 @@ export async function removeAppendToken(graphId: string): Promise<FormState> {
   if (!owned) return { ok: false, message: "Graph not found." };
   await db
     .update(graph)
-    .set({ appendTokenEnc: null, appendTokenStatus: null, appendTokenAddedAt: null })
+    .set({ appendTokenEnc: null, appendTokenStatus: null, appendTokenAddedAt: null, appendTokenOkAt: null })
     .where(eq(graph.id, graphId));
   revalidatePath("/dashboard", "layout");
   return { ok: true, message: "Token removed. You can revoke it in Roam too." };

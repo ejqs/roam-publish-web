@@ -43,21 +43,22 @@ export async function setAnchor(graphId: string, rootUid: string, anchorUid: str
 const LEADING = /^https?:\/\/\S+?\/p\/([2-9A-HJ-NP-Za-km-z]{8})(?=\s|$)/;
 
 /**
- * Drops shortlink blocks (and the change log under them) of the given ids, at any depth, embeds
- * included. The extension already leaves them out; this covers trees sent by builds that don't, and
- * shortlink blocks of blocks published from inside this page that the extension didn't know about.
+ * Drops shortlink blocks of the given ids, with everything under them, at any depth, embeds
+ * included. A shortlink block is "{tag}" with the "{server}/p/{id}" block and the change log under it,
+ * so a block goes when its own text or one of its children's starts with a known shortlink. The
+ * extension already leaves them out; this covers trees sent by builds that don't, and shortlink
+ * blocks of blocks published from inside this page that the extension didn't know about.
  */
 export function withoutShortlinks(tree: Node, ids: Set<string>): Node {
   if (ids.size === 0) return tree;
+  const isLink = (text: string) => {
+    const m = LEADING.exec(text);
+    return !!m && ids.has(m[1]);
+  };
   const strip = (n: Node): Node => ({
     ...n,
     ...(n.embed && { embed: strip(n.embed) }),
-    children: n.children
-      .filter((c) => {
-        const m = LEADING.exec(c.string);
-        return !(m && ids.has(m[1]));
-      })
-      .map(strip),
+    children: n.children.filter((c) => !isLink(c.string) && !c.children.some((g) => isLink(g.string))).map(strip),
   });
   return strip(tree);
 }
