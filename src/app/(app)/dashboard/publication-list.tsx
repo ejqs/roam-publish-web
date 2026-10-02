@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, LockIcon } from "lucide-react";
 import Link from "next/link";
+import { lockExplanation } from "@/components/access-lock";
 import { ManageDialog } from "@/components/manage/manage-dialog";
 import { Badge } from "@/components/ui/badge";
 import type { graph, publication } from "@/db/schema";
@@ -112,8 +113,11 @@ export function PublicationList({
                   />
                 )}
                 {!p.removedAt && p.inGraph && gAccess !== "open" && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                    <LockIcon className="size-3" /> {gAccess === "password" ? "Password" : "Members only"}
+                  <p
+                    title={lockExplanation(gAccess, "graph", g.name)}
+                    className="mt-1 flex w-fit cursor-help items-center gap-1 text-xs text-muted-foreground"
+                  >
+                    <LockIcon className="size-3" /> {gAccess === "password" ? "Password" : `Members of ${g.name}`}
                   </p>
                 )}
                 {!p.removedAt && p.discoverable && p.visibility === "public" && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, LockIcon, PlusIcon, Settings2Icon } from "lucide-react";
+import { ChevronDownIcon, LockIcon, PlusIcon, Settings2Icon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Switch } from "@/components/ui/switch";
 import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
-import { ACCESS_LABELS } from "./choice";
+import { lockExplanation } from "@/components/access-lock";
+import { ACCESS_LABELS, LISTING_LABELS } from "./choice";
 import { PlaceAccessForm, type PlaceState } from "./place-access-form";
 
 const effective = (s: PlaceState, def: keyof typeof ACCESS_LABELS) => (s.access === "inherit" ? def : s.access);
@@ -48,6 +49,10 @@ export function ManageDialog({
 
   const g = data.graphPlace;
   const gAccess = effective(g.state, g.container.defaultAccess);
+  const exposure = mostOpenPlace([
+    ...(g.inGraph ? [{ path: g.path, access: gAccess }] : []),
+    ...data.entries.map((e) => ({ path: e.path, access: effective(e.state, e.container.defaultAccess) })),
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -72,6 +77,19 @@ export function ManageDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {exposure && (
+          <p className="flex gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              {exposure.access === "open" ? "Anyone with the link" : "Anyone with the password"} can read this page at{" "}
+              <Link href={exposure.path} className="text-link break-all hover:underline">
+                {exposure.path}
+              </Link>
+              , even though it&apos;s protected more strictly elsewhere.
+            </span>
+          </p>
+        )}
+
         <section className="flex flex-col gap-2">
           <h3 className="font-medium">In its graph</h3>
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border p-3">
@@ -83,7 +101,13 @@ export function ManageDialog({
               ) : (
                 <span className="text-muted-foreground">Not shown in {data.origin.graphName}</span>
               )}
-              {g.inGraph && <PlaceBadges access={gAccess} listing={g.visibility === "public" ? "listed" : "unlisted"} />}
+              {g.inGraph && (
+                <PlaceBadges
+                  access={gAccess}
+                  listing={g.visibility === "unlisted" ? "unlisted" : g.discoverable && gAccess === "open" ? "discover" : "listed"}
+                  lock={lockExplanation(gAccess, "graph", g.container.label)}
+                />
+              )}
             </div>
             {data.canManagePage && (
               <div className="flex items-center gap-2">
@@ -119,7 +143,11 @@ export function ManageDialog({
                   <Link href={e.path} className="truncate text-link hover:underline">
                     {e.path}
                   </Link>
-                  <PlaceBadges access={effective(e.state, e.container.defaultAccess)} listing={e.state.listing ?? "listed"} />
+                  <PlaceBadges
+                    access={effective(e.state, e.container.defaultAccess)}
+                    listing={e.state.listing ?? "listed"}
+                    lock={lockExplanation(effective(e.state, e.container.defaultAccess), "collection", e.collectionName)}
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   {e.canManage && (
@@ -190,14 +218,30 @@ export function ManageDialog({
   );
 }
 
-function PlaceBadges({ access, listing }: { access: keyof typeof ACCESS_LABELS; listing: string }) {
+const STRICTNESS = { open: 0, password: 1, members: 2 } as const;
+
+/** The least protected place, when another place is protected more strictly. */
+function mostOpenPlace(places: { path: string; access: keyof typeof ACCESS_LABELS }[]) {
+  if (places.length < 2) return null;
+  const sorted = [...places].sort((a, b) => STRICTNESS[a.access] - STRICTNESS[b.access]);
+  const [least, most] = [sorted[0], sorted[sorted.length - 1]];
+  return STRICTNESS[least.access] < STRICTNESS[most.access] ? least : null;
+}
+
+function PlaceBadges({
+  access,
+  listing,
+  lock,
+}: {
+  access: keyof typeof ACCESS_LABELS;
+  listing: keyof typeof LISTING_LABELS;
+  lock?: string;
+}) {
   return (
     <span className="flex flex-wrap gap-1">
-      <Badge variant="outline" className="capitalize">
-        {listing}
-      </Badge>
+      <Badge variant="outline">{LISTING_LABELS[listing]}</Badge>
       {access !== "open" && (
-        <Badge variant="outline">
+        <Badge variant="outline" title={lock} className="cursor-help">
           <LockIcon /> {ACCESS_LABELS[access]}
         </Badge>
       )}

@@ -2,7 +2,7 @@ import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { AccessLock } from "@/components/access-lock";
+import { AccessLock, lockExplanation } from "@/components/access-lock";
 import { GateNotice } from "@/components/gate-notice";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
@@ -102,7 +102,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
             <Breadcrumbs items={[{ label: `@${owner.username}`, href: `/u/${owner.username}` }, { label: g.name }]} />
           )}
           <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">
-            {g.name} <AccessLock access={g.indexAccess} what="graph" />
+            {g.name} <AccessLock access={g.indexAccess} what="graph" name={g.name} />
           </h1>
           {g.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{g.description}</p>}
           <p className="mb-8 text-sm text-muted-foreground">
@@ -123,7 +123,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
                   rootUid: r.rootUid,
                   kind: r.kind,
                   title: r.title,
-                  locked: (r.access === "inherit" ? g.defaultAccess : r.access) !== "open",
+                  lock: lockExplanation(r.access === "inherit" ? g.defaultAccess : r.access, "graph", g.name),
                   author: (await bylineFor(r, showsAuthor({ ...g, kind: "graph" }, r)))?.label,
                   createdAt: r.createdAt.toISOString(),
                   updatedAt: r.updatedAt.toISOString(),

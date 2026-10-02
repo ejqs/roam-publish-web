@@ -7,9 +7,10 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, LockIcon } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LockHint } from "@/components/access-lock";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
@@ -26,8 +27,8 @@ import { listHref, PAGE_SIZE, type Sort } from "./sort";
 export type Row = {
   /** Where the title links; defaults to the graph page. */
   href?: string;
-  /** Needs a password or membership to read. */
-  locked?: boolean;
+  /** Why it needs a password or membership to read, when it does (hover text for the lock). */
+  lock?: string;
   /** Byline, when the container shows authors. */
   author?: string;
   rootUid: string;
@@ -77,7 +78,7 @@ export function PublicationTable({
         return (
           <span className="flex flex-col">
             <span className="flex items-center gap-1.5">
-              {r.locked && <LockIcon aria-label="Protected" className="size-3.5 shrink-0 text-muted-foreground" />}
+              {r.lock && <LockHint text={r.lock} />}
               <Link href={r.href ?? publicationPath(graphName, r.rootUid, r.title)} className="text-link hover:underline">
                 {plainText(r.title) || "Untitled"}
               </Link>

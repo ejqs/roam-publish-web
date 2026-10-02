@@ -1,7 +1,7 @@
 import { and, asc, count, eq, isNull } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { AccessLock } from "@/components/access-lock";
+import { AccessLock, lockExplanation } from "@/components/access-lock";
 import { GateNotice } from "@/components/gate-notice";
 import { PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
@@ -82,7 +82,7 @@ async function CollectionIndex({ c, slug }: { c: C; slug?: string[] }) {
   const items = await Promise.all(
     rows.map(async ({ entry, pub }) => ({
       href: entryPath(entry.entryUid, pub.title),
-      locked: effectiveAccess(container, entry) !== "open",
+      lock: lockExplanation(effectiveAccess(container, entry), "collection", c.name),
       author: (await bylineFor(pub, showsAuthor(container, entry)))?.label,
       rootUid: entry.entryUid,
       kind: pub.kind,
@@ -102,7 +102,7 @@ async function CollectionIndex({ c, slug }: { c: C; slug?: string[] }) {
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           <p className="mb-2 text-sm text-muted-foreground">Collection</p>
           <h1 className="mb-1 text-[42px] leading-tight font-semibold break-words">
-            {c.name} <AccessLock access={c.indexAccess} what="collection" />
+            {c.name} <AccessLock access={c.indexAccess} what="collection" name={c.name} />
           </h1>
           {c.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{c.description}</p>}
           <p className="mb-8 text-sm text-muted-foreground">
