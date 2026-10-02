@@ -30,7 +30,7 @@ import { requireSession } from "@/lib/session";
 import { AttentionBanners, attentionItems } from "./attention-banners";
 import { LISTING_LABELS } from "@/components/manage/labels";
 import { AddCollectionDialog } from "./collections/create-form";
-import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, discoverBlocked, graphPagesPath } from "./filters";
+import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
 
 const EMPTY: AccessCounts = { unlisted: 0, public: 0, discover: 0, removed: 0 };
@@ -96,7 +96,7 @@ export default async function DashboardPage() {
   const collectionCards = collections.map((c) => {
     const n = entryCounts.get(c.id) ?? { unlisted: 0, listed: 0, discover: 0 };
     const total = n.unlisted + n.listed + n.discover;
-    const manageHref = `/dashboard/collections/${c.slug}`;
+    const manageHref = collectionPagesPath(c.slug);
     return (
       <Card key={c.id} id={`collection-${c.id}`} className="scroll-mt-4">
         <CardHeader>
@@ -126,13 +126,30 @@ export default async function DashboardPage() {
               View collection
             </Link>
           </CardDescription>
-          <CardAction>
-            <Link href={manageHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              {c.role === "owner" ? "Manage" : "Open"}
-              <ChevronRightIcon />
+          <CardAction className="flex flex-wrap justify-end gap-2">
+            {total > 0 && (
+              <Link href={manageHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Manage pages
+                <ChevronRightIcon />
+              </Link>
+            )}
+            <Link href={`${manageHref}/members`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Members
             </Link>
+            {c.role === "owner" && (
+              <Link href={`${manageHref}/settings`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Settings
+              </Link>
+            )}
           </CardAction>
         </CardHeader>
+        {total === 0 && (
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              No pages yet. Add pages from a graph&apos;s list or a published page&apos;s Manage button.
+            </p>
+          </CardContent>
+        )}
       </Card>
     );
   });
