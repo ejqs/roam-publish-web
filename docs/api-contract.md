@@ -35,8 +35,8 @@ type PublishPayload = {
 - Block refs `((uid))` are **inlined** by the extension before hashing (resolved text, max depth 3; unknown refs stay as-is). Refs inside code, embeds and block-ref aliases `[label](((uid)))` are left as-is.
 - The server accepts the optional fields above before the extension sends them, so ship server changes first: unknown keys are stripped before hashing and would fail the hash check.
 - `contentHash = hex(sha256(stableStringify({ kind, title, tree })))`. `author`, `anchorUid` and `timeZone` are not part of the hash.
-- **Shortlink blocks** (a block whose string starts with `{server}/p/{id}` for one of the graph's shortlinks) and
-  everything under them are left out of `tree` at any depth by the extension before hashing (it knows the ids of
+- **Shortlink blocks** (a block whose own string, or one of its direct children's, starts with `{server}/p/{id}` for
+  one of the graph's shortlinks) and everything under them are left out of `tree` at any depth by the extension before hashing (it knows the ids of
   its cached publications). The server drops them from the stored tree with all of the graph's ids (not from the
   hash), so they are never shown, even when an older build sends them.
 - `stableStringify`: JSON with object keys sorted recursively, no whitespace, `undefined` keys dropped. Implementation lives in `stable-stringify.ts` in each repo (identical copies).
@@ -62,14 +62,20 @@ can be claimed by whoever reads it first. Older extension builds show the error,
 Body `{ rootUid }` → `200 { shortUrl, anchorUid }`. The page's permanent `{server}/p/{id}`, created if needed. Any key
 for the graph may call it. The extension calls it before the first publish so it can write the shortlink block first.
 
+### `GET /api/ext/changelog`
+→ `200 { changeLog, graphName }`. Writes nothing. `changeLog` (also on the publication list and publish responses) is
+`{ status: "ok" | "invalid" | "none", lastOkAt }`: `none` when no token is stored, `invalid` once Roam rejected it or
+it can't be decrypted, and `lastOkAt` the last time Roam accepted it (verification, settings, or a change log entry).
+The extension warns once per session when it sees `invalid`.
+
 ### `GET /api/ext/publications`
-→ `200 { publications: [{ rootUid, kind, title, url, shortUrl, anchorUid, contentHash, visibility, removed, mine, updatedAt }] }` for the key's graph.
+→ `200 { changeLog, publications: [{ rootUid, kind, title, url, shortUrl, anchorUid, contentHash, visibility, removed, mine, updatedAt }] }` for the key's graph.
 `shortUrl` and `anchorUid` are null for pages that don't have them yet.
 `mine` is true for pages this key can change (all of them for the owner, the ones they published for a member).
 `url` is the page's graph URL, or its first collection URL when it isn't shown in the graph.
 
 ### `POST /api/ext/publications`
-Body `PublishPayload & { contentHash }` → `200 { status: "created" | "updated" | "unchanged", url, shortUrl, contentHash, visibility }`.
+Body `PublishPayload & { contentHash }` → `200 { status: "created" | "updated" | "unchanged", url, shortUrl, contentHash, visibility, changeLog }`.
 `anchorUid` is stored as the page's shortlink block; `timeZone` sets the graph's (the owner's always, a member's only
 when none is set).
 New publications are `unlisted` and go where the graph's "New pages go to" setting says (the graph, and/or
@@ -116,10 +122,17 @@ Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. A
   `23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz`, unique (a colliding id is retried). It's keyed by graph
   + `rootUid`, so unpublishing and republishing keeps the same link.
 - `/p/{id}`: the graph's owner and members see where the page lives (graph and collection URLs, listing, access) with
-  copy buttons. Anyone else is redirected (307) to the page's main URL (as in `url` above), whose own access rules
-  apply. Unpublished, removed or unknown → 404 for them.
-- The extension writes the shortlink block, `{shortUrl} {tag}` (tag from its settings, default `#published`), as the
-  first or last child of the published page or block, and sends its uid as `anchorUid`.
+  copy buttons, and a note to share those rather than the shortlink. Anyone else is redirected (307) to the first
+  place anyone can read: the graph place if it's in the graph with open access, else the first open collection entry
+  (in the order added), else the page's main URL (as in `url` above), where its gate shows. Unpublished, removed or
+  unknown → 404 for them.
+- The extension writes the shortlink block as the first or last child of the published page or block, and sends the
+  `Changelog` block's uid as `anchorUid`:
+  ```
+  {tag}               (from its settings, default #published)
+    {shortUrl}
+    Changelog         ← anchorUid; change log entries go here
+  ```
 - With a stored token, the server appends one dated block per event under the anchor with the Append API
   (`location: { block: { uid: anchorUid } }`), e.g. `[[October 2nd, 2026]] 14:03 Republished`. Events: published,
   republished, byline changed, unpublished, visibility and Discover, shown in or hidden from the graph, added to or

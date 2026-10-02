@@ -114,7 +114,8 @@ export function OnboardingFlow({
               Research.
             </p>
             <p className="text-muted-foreground">
-              If you believe this issue has been resolved, please contact me at ejqs [at] ejqs [dot] net.
+              There was a way I was able to delete an old API Token page, but I wasn&apos;t able to reproduce it. If
+              you know how to remove it reliably, please let me know at ejqs [at] ejqs [dot] net.
             </p>
             <Field orientation="horizontal">
               <Checkbox
