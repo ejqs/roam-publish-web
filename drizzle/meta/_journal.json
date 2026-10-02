@@ -71,6 +71,13 @@
       "when": 1790903552988,
       "tag": "0009_collections_members",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790907952100,
+      "tag": "0010_materialize_page_access",
+      "breakpoints": true
     }
   ]
 }

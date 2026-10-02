@@ -42,7 +42,11 @@ export function PlaceAccessForm({
   };
   onSaved?: () => void;
 }) {
-  const [state, setState] = useState(initial);
+  // Pages store their own access; "inherit" only survives on rows from before that, so show its value.
+  const [state, setState] = useState<PlaceState>({
+    ...initial,
+    access: initial.access === "inherit" ? container.defaultAccess : initial.access,
+  });
   const [password, setPassword] = useState("");
   const [pending, start] = useTransition();
   const effective = state.access === "inherit" ? container.defaultAccess : state.access;
@@ -103,20 +107,14 @@ export function PlaceAccessForm({
           id={`access-${id}`}
           value={state.access}
           onChange={(access) => setState((s) => ({ ...s, access }))}
-          options={[
-            {
-              value: "inherit",
-              label: `Use ${container.label}'s default (${ACCESS_LABELS[container.defaultAccess].toLowerCase()})`,
-            },
-            ...(["open", "password", "members"] as const).map((a) => ({
-              value: a,
-              label: ACCESS_LABELS[a],
-              description:
-                a === "open" && container.defaultAccess !== "open"
-                  ? "Anyone with the link can read, even though the rest is protected."
-                  : ACCESS_DESCRIPTIONS[a],
-            })),
-          ]}
+          options={(["open", "password", "members"] as const).map((a) => ({
+            value: a,
+            label: ACCESS_LABELS[a],
+            description:
+              a === "open" && container.defaultAccess !== "open"
+                ? "Anyone with the link can read, even though the rest is protected."
+                : ACCESS_DESCRIPTIONS[a],
+          }))}
         />
       </FieldSet>
       {effective === "password" && (
