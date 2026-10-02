@@ -11,6 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "typecheck": "next typegen && tsc --noEmit",
+    "test": "bun test",
     "tokens:rotate": "bun scripts/rotate-append-token-key.ts",
     "tokens:revoke-all": "bun scripts/revoke-append-tokens.ts",
     "search:backfill": "bun scripts/backfill-search.ts"
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bun": "^1.4.2",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",

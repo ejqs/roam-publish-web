@@ -19,6 +19,20 @@ bun dev
 
 Without `RESEND_API_KEY`, verification and reset emails are printed to the server console.
 
+## Tests
+
+```bash
+bun run test
+```
+
+Unit tests (`tests/unit`) need nothing. Integration tests (`tests/integration`) run against a real Postgres: they
+create and migrate `TEST_DATABASE_URL` (default `postgres://postgres@localhost:5433/roam_publish_test`) and empty it
+before each test, so never point it at a database you care about. Next's request APIs (`headers`, `cookies`, `after`,
+cache revalidation) are stubbed in `tests/helpers/preload.ts`; Roam's Append API and email are never called.
+
+A `test.failing` is a known bug: it passes while the bug is there, and fails once it's fixed, so swap it for `test`.
+CI runs typecheck, lint and the tests on every PR.
+
 ## Schema changes
 
 Edit `src/db/app-schema.ts` (or re-run `bunx auth@latest generate --config src/lib/auth.ts --output src/db/auth-schema.ts`
