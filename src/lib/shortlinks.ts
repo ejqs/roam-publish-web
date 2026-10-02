@@ -31,11 +31,14 @@ export async function ensureShortlink(graphId: string, rootUid: string, gen = ()
   throw new Error("Couldn't find a free shortlink id");
 }
 
-/** Records the Roam block the extension wrote the shortlink into; the change log nests under it. */
-export async function setAnchor(graphId: string, rootUid: string, anchorUid: string | null) {
+/**
+ * Records the Changelog block the extension just found or wrote, which also confirms it exists and
+ * clears a "block missing" issue: the change log continues from now on.
+ */
+export async function setAnchor(graphId: string, rootUid: string, anchorUid: string) {
   await db
     .update(shortlink)
-    .set({ anchorUid })
+    .set({ anchorUid, anchorConfirmedAt: new Date(), anchorMissingAt: null, anchorMissingDismissedAt: null })
     .where(and(eq(shortlink.graphId, graphId), eq(shortlink.rootUid, rootUid)));
 }
 
