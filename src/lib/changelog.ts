@@ -7,11 +7,13 @@ import { manageablePublications } from "./graph-access";
 import { appendUnderBlock } from "./roam-append";
 
 /**
- * The roam.pub change log: one block per event, appended with the graph's stored append-only token
- * under the page's status link block in Roam ("Changelog" from earlier extension builds). Pages
- * without one, and graphs without a working token, get nothing. Never blocks or fails the caller.
+ * The roam.pub change log. Every event is kept as the page's history, shown on its status page
+ * (/p/{id}). It's also sent to Roam: one block per event, appended with the graph's stored
+ * append-only token under the page's status link block ("Changelog" from earlier extension
+ * builds). Pages without one, and graphs without a working token or with the change log off, get
+ * nothing in Roam. Never blocks or fails the caller.
  *
- * Not real time: events are queued (`changelog_entry`, deduplicated), and `flushChangeLog`, run in
+ * Not real time in Roam: events are queued (`changelog_entry`, deduplicated), and `flushChangeLog`, run in
  * the background every few seconds, sends each page's queued entries in one call once the page has
  * been quiet for a bit, at most one call per graph every APPEND_GAP_MS, backing off on a 429.
  */
@@ -69,25 +71,34 @@ export async function logForPublications(ids: string[], text: string | ((p: { ti
   logChanges(rows.map((r) => ({ graphId: r.graphId, rootUid: r.rootUid, text: typeof text === "string" ? text : text(r) })));
 }
 
-/** Records non-duplicate entries for pages that have a shortlink block and a usable, unpaused token. */
+/**
+ * Records non-duplicate entries in each page's history (pages with a status link, i.e. published
+ * at least once). They're queued for Roam ("pending") when the page has a status link block and the
+ * graph a usable, unpaused token; otherwise they're history only ("local").
+ */
 export async function queueChanges(changes: Change[], at = new Date()) {
   const pairs = [...new Map(changes.map((c) => [`${c.graphId}\u0000${c.rootUid}`, c])).values()];
   const rows = await db
-    .select({ shortlinkId: shortlink.id, graphId: shortlink.graphId, rootUid: shortlink.rootUid })
+    .select({
+      shortlinkId: shortlink.id,
+      graphId: shortlink.graphId,
+      rootUid: shortlink.rootUid,
+      toRoam: sql<boolean>`${shortlink.anchorUid} is not null
+        and ${shortlink.anchorMissingAt} is null
+        and ${graph.appendTokenEnc} is not null
+        and ${graph.appendTokenStatus} is distinct from 'invalid'
+        and not ${graph.changeLogPaused}`,
+    })
     .from(shortlink)
     .innerJoin(graph, eq(graph.id, shortlink.graphId))
-    .where(
-      and(
-        isNotNull(shortlink.anchorUid),
-        isNull(shortlink.anchorMissingAt),
-        isNotNull(graph.appendTokenEnc),
-        sql`${graph.appendTokenStatus} is distinct from 'invalid'`,
-        eq(graph.changeLogPaused, false),
-        or(...pairs.map((p) => and(eq(shortlink.graphId, p.graphId), eq(shortlink.rootUid, p.rootUid)))),
-      ),
-    );
+    .where(or(...pairs.map((p) => and(eq(shortlink.graphId, p.graphId), eq(shortlink.rootUid, p.rootUid)))));
   for (const r of rows)
-    await claim(r.shortlinkId, changes.filter((c) => c.graphId === r.graphId && c.rootUid === r.rootUid), at);
+    await claim(
+      r.shortlinkId,
+      changes.filter((c) => c.graphId === r.graphId && c.rootUid === r.rootUid),
+      at,
+      r.toRoam ? "pending" : "local",
+    );
 }
 
 /** Roam doesn't publish Append API limits; stay well under what a token is likely to allow. */
@@ -213,7 +224,7 @@ async function sendPage(shortlinkId: string, graphId: string, now: Date) {
  * Records the entries that aren't duplicates and returns them; the rest are dropped. Claims for one
  * page are serialized, so two requests can't both pass the "same as the last entry" check.
  */
-async function claim(shortlinkId: string, changes: Change[], at: Date) {
+async function claim(shortlinkId: string, changes: Change[], at: Date, status: "pending" | "local") {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${shortlinkId}))`);
     const [last] = await tx
@@ -229,7 +240,13 @@ async function claim(shortlinkId: string, changes: Change[], at: Date) {
       const [row] = await tx
         .insert(changelogEntry)
         // Distinct timestamps keep "the last entry" well defined within one batch.
-        .values({ shortlinkId, key: c.key ?? crypto.randomUUID(), text: c.text, createdAt: new Date(at.getTime() + i) })
+        .values({
+          shortlinkId,
+          key: c.key ?? crypto.randomUUID(),
+          text: c.text,
+          status,
+          createdAt: new Date(at.getTime() + i),
+        })
         .onConflictDoNothing()
         .returning({ id: changelogEntry.id, text: changelogEntry.text });
       if (!row) continue;
@@ -238,6 +255,16 @@ async function claim(shortlinkId: string, changes: Change[], at: Date) {
     }
     return claimed;
   });
+}
+
+/** A page's history for its status page, newest first. */
+export async function pageHistory(shortlinkId: string, limit = 100) {
+  return db
+    .select({ id: changelogEntry.id, text: changelogEntry.text, createdAt: changelogEntry.createdAt })
+    .from(changelogEntry)
+    .where(eq(changelogEntry.shortlinkId, shortlinkId))
+    .orderBy(desc(changelogEntry.createdAt))
+    .limit(limit);
 }
 
 export type ChangeLogStatus = { status: "ok" | "invalid" | "paused" | "none"; lastOkAt: Date | null };
