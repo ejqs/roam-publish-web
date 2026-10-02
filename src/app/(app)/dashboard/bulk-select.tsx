@@ -6,6 +6,14 @@ import { toast } from "sonner";
 import { readOptions } from "@/components/manage/labels";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Access as ReadAccess } from "@/db/schema";
 import { ICONS, LABELS, type Option, Section } from "./access-menu";
@@ -88,12 +96,18 @@ export function AllCheckbox() {
 function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: string; onDone: () => void }) {
   const ctx = use(BulkContext)!;
   const [pending, start] = useTransition();
+  // A change chosen from a menu waits here until it's confirmed.
+  const [staged, setStaged] = useState<{ reach?: Access; read?: ReadAccess } | null>(null);
   const n = ctx.selected.size;
+  const pages = `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
 
-  function apply(change: { reach?: Access; read?: ReadAccess }) {
+  function apply() {
+    if (!staged) return;
+    const change = staged;
     start(async () => {
       const input = { ids: [...ctx.selected], ...change };
       const res = kind === "graph" ? await bulkUpdatePublications(input) : await bulkUpdateEntries(input);
+      setStaged(null);
       if (!res.ok) return void toast.error(res.message);
       toast.success(res.message);
       onDone();
@@ -124,6 +138,12 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
     o.value === "password" ? { ...o, description: `Uses each page's password, or the ${kind}'s.` } : o,
   );
 
+  const stagedOption = staged?.reach
+    ? reachOptions.find((o) => o.value === staged.reach)
+    : staged?.read
+      ? readChoices.find((o) => o.value === staged.read)
+      : undefined;
+
   return (
     <div
       role="toolbar"
@@ -139,7 +159,7 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
             options={reachOptions}
             onChoose={(reach) => {
               close();
-              apply({ reach });
+              setStaged({ reach });
             }}
           />
         )}
@@ -152,7 +172,7 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
             options={readChoices}
             onChoose={(read) => {
               close();
-              apply({ read });
+              setStaged({ read });
             }}
           />
         )}
@@ -160,6 +180,29 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
       <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={onDone} disabled={pending}>
         <XIcon /> Clear
       </Button>
+      <Dialog open={staged !== null} onOpenChange={(o) => !o && !pending && setStaged(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change {pages}?</DialogTitle>
+            <DialogDescription>
+              {stagedOption && (
+                <>
+                  {staged?.reach ? `Sets where ${n === 1 ? "it's" : "they're"} listed` : `Sets who can read ${n === 1 ? "it" : "them"}`}{" "}
+                  to <span className="font-medium text-foreground">{stagedOption.label}</span>. {stagedOption.description}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setStaged(null)} disabled={pending}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={apply} disabled={pending}>
+              {pending ? "Applying…" : `Change ${pages}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

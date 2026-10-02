@@ -2,12 +2,11 @@ import { count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MembersPanel } from "@/components/manage/members-panel";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/db";
 import { collectionEntry, publication, user } from "@/db/schema";
 import { collectionRole, loadCollection } from "@/lib/collections";
-import { membersOf, pendingInvitesOn } from "@/lib/invites";
 import { manageDataFor } from "@/lib/manage-data";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
@@ -23,7 +22,6 @@ import {
 } from "../../filters";
 import { ListEmpty, ListPagination, ListToolbar } from "../../list-toolbar";
 import { EntryList } from "./entry-list";
-import { CollectionSettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "Collection · Roam Publish" };
 
@@ -40,10 +38,7 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
 
   const state = parseListState(COLLECTION_LIST, await props.searchParams);
   const where = entryListWhere(c.id, state);
-  const [members, invites, owner, [totals], [{ matching }]] = await Promise.all([
-    membersOf("collection", c.id),
-    isOwner ? pendingInvitesOn("collection", c.id) : [],
-    db.query.user.findFirst({ where: eq(user.id, c.ownerId), columns: { email: true } }),
+  const [[totals], [{ matching }]] = await Promise.all([
     db
       .select({ total: count(), ...entryCounts })
       .from(collectionEntry)
@@ -107,7 +102,22 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
         <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
           ← Dashboard
         </Link>
-        <h1 className="text-2xl font-semibold break-words">{c.name}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-semibold break-words">{c.name}</h1>
+          <div className="flex gap-2">
+            <Link href={collectionPath(c.slug)} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+              View collection
+            </Link>
+            <Link href={`${path}/members`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Members
+            </Link>
+            {isOwner && (
+              <Link href={`${path}/settings`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Settings
+              </Link>
+            )}
+          </div>
+        </div>
         <p className="text-sm text-muted-foreground">
           {totals.total.toLocaleString("en-US")} {totals.total === 1 ? "page" : "pages"} ·{" "}
           <Link href={collectionPath(c.slug)} className="text-link hover:underline">
@@ -155,32 +165,6 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
         </CardContent>
       </Card>
 
-      {isOwner && (
-        <CollectionSettingsForm
-          collectionId={c.id}
-          initial={{
-            name: c.name,
-            description: c.description,
-            indexAccess: c.indexAccess,
-            defaultAccess: c.defaultAccess,
-            showAuthors: c.showAuthors,
-            indexable: c.indexable,
-            featured: c.featured,
-            discoverable: c.discoverable,
-          }}
-          hasPassword={!!c.passwordHash}
-          pageCount={totals.total}
-        />
-      )}
-      <MembersPanel
-        type="collection"
-        targetId={c.id}
-        isOwner={isOwner}
-        ownerEmail={owner?.email ?? ""}
-        meId={me}
-        members={members}
-        invites={invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() }))}
-      />
     </div>
   );
 }

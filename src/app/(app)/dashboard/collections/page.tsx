@@ -7,6 +7,7 @@ import { collectionsOf } from "@/lib/collections";
 import { canReceiveInvite } from "@/lib/graph-access";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
+import { collectionPagesPath } from "../filters";
 import { AddCollectionDialog } from "./create-form";
 
 export const metadata: Metadata = { title: "Collections · Roam Publish" };
@@ -52,10 +53,24 @@ export default async function CollectionsPage() {
                 roam.pub{collectionPath(c.slug)}
               </Link>
             </CardDescription>
-            <CardAction>
-              <Link href={`/dashboard/collections/${c.slug}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                {c.role === "owner" ? "Manage" : "Open"}
+            <CardAction className="flex flex-wrap justify-end gap-2">
+              <Link href={collectionPagesPath(c.slug)} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                Manage pages
               </Link>
+              <Link
+                href={`${collectionPagesPath(c.slug)}/members`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Members
+              </Link>
+              {c.role === "owner" && (
+                <Link
+                  href={`${collectionPagesPath(c.slug)}/settings`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  Settings
+                </Link>
+              )}
             </CardAction>
           </CardHeader>
         </Card>
