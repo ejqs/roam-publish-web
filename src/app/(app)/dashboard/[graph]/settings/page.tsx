@@ -46,12 +46,14 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
       <GraphSettingsForm
         graphId={g.id}
         graphName={g.name}
+        indexOpen={g.indexAccess === "open"}
         initial={{
           frontPage: g.frontPage,
           indexable: g.indexable,
           featured: g.featured,
           showOwner: g.showOwner,
           hideUnlistedBreadcrumbs: g.hideUnlistedBreadcrumbs,
+          rss: g.rss,
           description: g.description,
         }}
       />

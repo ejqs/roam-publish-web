@@ -3,7 +3,9 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import Link from "next/link";
+import { FeedLink } from "@/components/feed-link";
 import { discoverCollections, discoverPublications } from "@/lib/discover";
+import { DISCOVER_FEED_PATH } from "@/lib/feeds";
 import { collectionPath } from "@/lib/publications";
 import { DiscoverTable } from "./discover-table";
 import { PAGE_SIZE, parsePage, parseSort } from "./sort";
@@ -11,6 +13,7 @@ import { PAGE_SIZE, parsePage, parseSort } from "./sort";
 export const metadata: Metadata = {
   title: "Discover · Roam Publish",
   description: "Recently published and trending pages from Roam graphs whose owners opted in.",
+  alternates: { types: { "application/rss+xml": DISCOVER_FEED_PATH } },
 };
 
 export default async function DiscoverPage(props: PageProps<"/discover">) {
@@ -28,9 +31,12 @@ export default async function DiscoverPage(props: PageProps<"/discover">) {
       <SiteHeader />
       <main className="flex-1">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-12">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold">Discover</h1>
-            <p className="text-sm text-muted-foreground">Pages from graphs and collections whose owners opted in.</p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-2xl font-semibold">Discover</h1>
+              <p className="text-sm text-muted-foreground">Pages from graphs and collections whose owners opted in.</p>
+            </div>
+            <FeedLink href={DISCOVER_FEED_PATH} />
           </div>
           {collections.length > 0 && (
             <section className="flex flex-col gap-2">

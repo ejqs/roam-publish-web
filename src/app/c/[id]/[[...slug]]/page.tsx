@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { AccessLock, lockExplanation } from "@/components/access-lock";
 import { DashboardLink } from "@/components/dashboard-link";
+import { FeedLink } from "@/components/feed-link";
 import { GateNotice } from "@/components/gate-notice";
 import { PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
@@ -14,6 +15,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { db } from "@/db";
 import { collectionEntry, graph, publication, publicationVote, user } from "@/db/schema";
 import { canManageEntry, collectionRole, resolveC } from "@/lib/collections";
+import { collectionFeedPath, hasCollectionFeed } from "@/lib/feeds";
 import { type Container, containerLock, effectiveAccess, gate, pageLock, type Place, showsAuthor } from "@/lib/gates";
 import { canManage, graphRole } from "@/lib/graph-access";
 import { manageDataFor } from "@/lib/manage-data";
@@ -62,7 +64,10 @@ export async function generateMetadata(props: PageProps<"/c/[id]/[[...slug]]">):
     return {
       title: c.name,
       description: c.description || undefined,
-      alternates: { canonical: collectionPath(c.slug) },
+      alternates: {
+        canonical: collectionPath(c.slug),
+        types: hasCollectionFeed(c) ? { "application/rss+xml": collectionFeedPath(c.slug) } : undefined,
+      },
       robots: indexable ? undefined : { index: false, follow: false },
     };
   if (r.pub.removedAt || r.graphTakenDown) return { title: "Removed", robots: { index: false, follow: false } };
@@ -113,6 +118,7 @@ async function CollectionIndex({ c }: { c: C }) {
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
           <DashboardLink href={role ? `/dashboard/collections/${encodeURIComponent(c.slug)}` : undefined} />
+          {hasCollectionFeed(c) && <FeedLink href={collectionFeedPath(c.slug)} />}
           <ReportAbuseButton target={{ collectionSlug: c.slug }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>

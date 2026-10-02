@@ -45,6 +45,7 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
       </div>
       <CollectionSettingsForm
         collectionId={c.id}
+        slug={c.slug}
         initial={{
           name: c.name,
           description: c.description,
@@ -54,6 +55,7 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
           indexable: c.indexable,
           featured: c.featured,
           discoverable: c.discoverable,
+          rss: c.rss,
         }}
         hasPassword={!!c.passwordHash}
         pageCount={pages?.n ?? 0}
