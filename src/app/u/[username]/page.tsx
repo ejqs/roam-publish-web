@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
 import { DashboardLink } from "@/components/dashboard-link";
+import { ManageLink } from "@/components/manage-link";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SiteFooter } from "@/components/site-footer";
@@ -11,6 +12,7 @@ import { db } from "@/db";
 import { graph, profile, user, usernameAlias } from "@/db/schema";
 import { graphPath } from "@/lib/graphs";
 import { hasVerifiedGraph } from "@/lib/profiles";
+import { viewerId } from "@/lib/viewer";
 
 /** Current username for a former one, if it was renamed. */
 const resolveAlias = cache(async (username: string) => {
@@ -55,12 +57,14 @@ export default async function ProfilePage(props: PageProps<"/u/[username]">) {
     notFound();
   }
   const { p, graphs } = data;
+  const mine = (await viewerId()) === p.userId;
 
   return (
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
           <DashboardLink />
+          {mine && <ManageLink href="/dashboard#profile" />}
           <ReportAbuseButton target={{ username: p.username }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
