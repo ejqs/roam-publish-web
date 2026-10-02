@@ -64,6 +64,7 @@ const Settings = z.object({
   indexable: z.boolean(),
   featured: z.boolean(),
   discoverable: z.boolean(),
+  rss: z.boolean(),
   password: z.union([z.literal(""), Password]),
   clearPassword: z.boolean(),
 });
@@ -103,6 +104,7 @@ export async function updateCollection(collectionId: string, input: CollectionSe
       indexable: s.indexable,
       featured: s.featured && open && s.defaultAccess === "open",
       discoverable: s.discoverable && open,
+      rss: s.rss,
       ...(s.password
         ? { passwordHash: hashPassword(s.password), passwordVersion: c.passwordVersion + 1 }
         : s.clearPassword

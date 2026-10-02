@@ -23,15 +23,18 @@ type Initial = {
   indexable: boolean;
   featured: boolean;
   discoverable: boolean;
+  rss: boolean;
 };
 
 export function CollectionSettingsForm({
   collectionId,
+  slug,
   initial,
   hasPassword: initialHasPassword,
   pageCount,
 }: {
   collectionId: string;
+  slug: string;
   initial: Initial;
   hasPassword: boolean;
   pageCount: number;
@@ -123,6 +126,18 @@ export function CollectionSettingsForm({
             checked={s.featured && discoverOk && access.defaultAccess === "open"}
             disabled={!discoverOk || access.defaultAccess !== "open"}
             onChange={set("featured")}
+          />
+          <FieldSeparator />
+          <Toggle
+            id="c-rss"
+            label="RSS feed"
+            description={
+              access.indexAccess === "open"
+                ? `Offer a feed at roam.pub/c/${slug}/feed.xml. Only open, listed pages are included.`
+                : "The feed only works while anyone can open the collection page."
+            }
+            checked={s.rss}
+            onChange={set("rss")}
           />
         </FieldGroup>
       </CardContent>

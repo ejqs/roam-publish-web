@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { AccessLock, lockExplanation } from "@/components/access-lock";
 import { DashboardLink } from "@/components/dashboard-link";
+import { FeedLink } from "@/components/feed-link";
 import { GateNotice } from "@/components/gate-notice";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
@@ -12,6 +13,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { db } from "@/db";
 import { publication } from "@/db/schema";
+import { graphFeedPath, hasGraphFeed } from "@/lib/feeds";
 import { containerLock, gate, showsAuthor } from "@/lib/gates";
 import { graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
@@ -40,7 +42,10 @@ export async function generateMetadata(props: PageProps<"/[graph]">): Promise<Me
   return {
     title: g.name,
     description: g.description || undefined,
-    alternates: { canonical: graphPath(g.name) },
+    alternates: {
+      canonical: graphPath(g.name),
+      types: hasGraphFeed(g) ? { "application/rss+xml": graphFeedPath(g.name) } : undefined,
+    },
     robots: g.indexable && g.indexAccess === "open" ? undefined : { index: false, follow: false },
   };
 }
@@ -96,6 +101,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
           <DashboardLink href={role ? `/dashboard/${encodeURIComponent(g.name)}` : undefined} />
+          {hasGraphFeed(g) && <FeedLink href={graphFeedPath(g.name)} />}
           <ReportAbuseButton target={{ graphName: g.name }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
