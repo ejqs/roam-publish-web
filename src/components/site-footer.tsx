@@ -51,7 +51,7 @@ export function SiteFooter({
     return (
       <footer className={className}>
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-2 px-4 py-6 text-xs text-muted-foreground opacity-40 transition-opacity focus-within:opacity-100 hover:opacity-100 sm:flex-row sm:justify-between">
-          <p>
+          <p className="text-center sm:text-left">
             Third-party service by {ejqs(link)} · Not affiliated with Roam Research.
           </p>
           <FooterLinks className={link} />
