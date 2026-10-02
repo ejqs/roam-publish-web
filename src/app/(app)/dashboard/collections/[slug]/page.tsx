@@ -117,6 +117,7 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
             discoverable: c.discoverable,
           }}
           hasPassword={!!c.passwordHash}
+          pageCount={entries.length}
         />
       )}
       <MembersPanel
