@@ -81,9 +81,9 @@ describe("graph settings", () => {
   test("only the owner deletes the graph, changes all pages' access or adds a token", async () => {
     for (const u of [member, stranger]) {
       actAs(u);
-      expect((await deleteGraph(g.id, g.name)).ok).toBe(false);
+      expect((await deleteGraph(g.id, g.name))?.ok).toBe(false);
       expect((await applyAccessToAllPages("graph", g.id, "members")).ok).toBe(false);
-      expect((await setAppendToken(g.id, { token: "roam-graph-token-x", date: "10-02-2026", timeZone: "UTC" })).ok).toBe(false);
+      expect((await setAppendToken(g.id, { token: "roam-graph-token-x", date: "10-02-2026", timeZone: "UTC" }))?.ok).toBe(false);
     }
     expect(await db.query.graph.findFirst({ where: eq(graph.id, g.id) })).toBeDefined();
     expect((await reload())!.access).toBe("inherit");
