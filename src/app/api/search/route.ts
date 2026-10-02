@@ -1,4 +1,7 @@
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { getSessionCookie } from "better-auth/cookies";
+import { auth } from "@/lib/auth";
+import { canSearchSite } from "@/lib/graph-access";
+import { rateLimit } from "@/lib/rate-limit";
 import { searchPages } from "@/lib/site-search";
 import { plainText } from "@/lib/slug";
 
@@ -7,11 +10,15 @@ export type QuickResult = { title: string; href: string; source: string; tags: s
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
 
-/** Top matches for quick search, from the same publicly listed pages as /search. */
+/** Top matches for quick search, from the same publicly listed pages as /search. Verified people only. */
 export async function GET(req: Request) {
   const q = (new URL(req.url).searchParams.get("q") ?? "").trim().slice(0, 200);
+  const session = getSessionCookie(req) ? await auth.api.getSession({ headers: req.headers }) : null;
+  const uid = session?.user.id ?? null;
+  if (!uid) return json({ error: "signin" }, 401);
+  if (!(await canSearchSite(uid))) return json({ error: "verify" }, 403);
   if (!q) return json({ results: [] });
-  if (!rateLimit(`quick-search:ip:${clientIp(req)}`, 120, 60 * 1000)) return json({ error: "Too many searches" }, 429);
+  if (!rateLimit(`quick-search:user:${uid}`, 120, 60 * 1000)) return json({ error: "Too many searches" }, 429);
   const { rows } = await searchPages({ q, tags: [], sort: "best", page: 1 });
   const results: QuickResult[] = rows.slice(0, 6).map((r) => ({
     title: plainText(r.title) || "Untitled",

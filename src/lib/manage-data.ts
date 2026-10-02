@@ -38,6 +38,10 @@ export type ManageData = {
   }[];
   /** Collections the viewer belongs to that don't have this page yet. */
   addable: { id: string; name: string }[];
+  /** The page's tags, and whether each was added on the website. Empty unless `canManagePage`. */
+  tags: { name: string; added: boolean }[];
+  /** Tags from the Roam text removed on the website. */
+  hiddenTags: string[];
 };
 
 /**
@@ -119,6 +123,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
       addable: canManagePage
         ? collections.filter((c) => !c.suspendedAt && !inIt.has(c.slug)).map((c) => ({ id: c.id, name: c.name }))
         : [],
+      tags: canManagePage ? pub.tags.map((name) => ({ name, added: pub.tagsAdded.includes(name) })) : [],
+      hiddenTags: canManagePage ? pub.tagsHidden : [],
     });
   }
   return out;

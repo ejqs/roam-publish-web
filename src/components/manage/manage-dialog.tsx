@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { unpublish } from "@/app/(app)/dashboard/actions";
 import { addToCollection, removeEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
+import { setPageTags } from "@/app/(app)/dashboard/tag-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -16,6 +17,7 @@ import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
 import { ACCESS_LABELS, LISTING_LABELS } from "./choice";
 import { PlaceAccessForm, type PlaceState } from "./place-access-form";
+import { TagsEditor } from "./tags-editor";
 
 const effective = (s: PlaceState, def: keyof typeof ACCESS_LABELS) => (s.access === "inherit" ? def : s.access);
 
@@ -94,6 +96,15 @@ export function ManageDialog({
               {exposure.most.name}.
             </span>
           </p>
+        )}
+
+        {data.canManagePage && (
+          <TagsEditor
+            tags={data.tags}
+            hidden={data.hiddenTags}
+            pending={pending}
+            onChange={(change) => run(() => setPageTags(data.publicationId, change))}
+          />
         )}
 
         <section className="flex flex-col gap-2">

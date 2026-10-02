@@ -95,5 +95,17 @@ export function searchText(tree: Node) {
   return parts.join("\n").slice(0, MAX_SEARCH_TEXT);
 }
 
-/** Both derived fields, for writing alongside a tree. */
-export const indexFields = (tree: Node) => ({ tags: extractTags(tree), searchText: searchText(tree) });
+export type TagEdits = { tagsAdded: string[]; tagsHidden: string[] };
+
+/** Tags from the Roam text, plus those added on the website, minus those hidden there. */
+export function effectiveTags(roamTags: string[], edits?: TagEdits) {
+  if (!edits) return roamTags.slice(0, MAX_TAGS);
+  const hidden = new Set(edits.tagsHidden);
+  return [...new Set([...roamTags, ...edits.tagsAdded])].filter((t) => !hidden.has(t)).slice(0, MAX_TAGS);
+}
+
+/** Both derived fields, for writing alongside a tree. Website tag edits, when given, are reapplied. */
+export const indexFields = (tree: Node, edits?: TagEdits) => ({
+  tags: effectiveTags(extractTags(tree), edits),
+  searchText: searchText(tree),
+});
