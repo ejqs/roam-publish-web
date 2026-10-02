@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { Access as ReadAccess } from "@/db/schema";
 import { ICONS, LABELS, type Option, Section } from "./access-menu";
 import type { Access } from "./actions";
-import { bulkUpdatePublications } from "./place-actions";
+import { bulkUpdateEntries, bulkUpdatePublications } from "./place-actions";
 
 type Ctx = {
   selected: Set<string>;
@@ -25,12 +25,16 @@ const BulkContext = createContext<Ctx | null>(null);
  * change where the checked pages are listed or who can read them.
  */
 export function BulkSelect({
+  kind = "graph",
   ids,
   graphName,
   children,
 }: {
-  /** Pages on this page of the list that can be selected. */
+  /** A graph's pages (publication ids) or a collection's (entry ids). */
+  kind?: "graph" | "collection";
+  /** Rows on this page of the list that can be selected. */
   ids: string[];
+  /** The graph's or collection's name. */
   graphName: string;
   children: React.ReactNode;
 }) {
@@ -49,7 +53,7 @@ export function BulkSelect({
   };
   return (
     <BulkContext value={ctx}>
-      {selected.size > 0 && <BulkBar graphName={graphName} onDone={() => setSelected(new Set())} />}
+      {selected.size > 0 && <BulkBar kind={kind} name={graphName} onDone={() => setSelected(new Set())} />}
       {children}
     </BulkContext>
   );
@@ -81,14 +85,15 @@ export function AllCheckbox() {
   );
 }
 
-function BulkBar({ graphName, onDone }: { graphName: string; onDone: () => void }) {
+function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: string; onDone: () => void }) {
   const ctx = use(BulkContext)!;
   const [pending, start] = useTransition();
   const n = ctx.selected.size;
 
   function apply(change: { reach?: Access; read?: ReadAccess }) {
     start(async () => {
-      const res = await bulkUpdatePublications({ ids: [...ctx.selected], ...change });
+      const input = { ids: [...ctx.selected], ...change };
+      const res = kind === "graph" ? await bulkUpdatePublications(input) : await bulkUpdateEntries(input);
       if (!res.ok) return void toast.error(res.message);
       toast.success(res.message);
       onDone();
@@ -102,7 +107,12 @@ function BulkBar({ graphName, onDone }: { graphName: string; onDone: () => void 
       icon: ICONS.unlisted,
       description: "Only people with the link can find them.",
     },
-    { value: "public", label: LABELS.public, icon: ICONS.public, description: "Listed on your front page." },
+    {
+      value: "public",
+      label: LABELS.public,
+      icon: ICONS.public,
+      description: kind === "graph" ? "Listed on your front page." : `Listed on ${name}'s page.`,
+    },
     {
       value: "discover",
       label: LABELS.discover,
@@ -110,8 +120,8 @@ function BulkBar({ graphName, onDone }: { graphName: string; onDone: () => void 
       description: "Also on roam.pub/discover. Protected pages are listed instead.",
     },
   ];
-  const readChoices: Option<ReadAccess>[] = readOptions(graphName).map((o) =>
-    o.value === "password" ? { ...o, description: "Uses each page's password, or the graph's." } : o,
+  const readChoices: Option<ReadAccess>[] = readOptions(name).map((o) =>
+    o.value === "password" ? { ...o, description: `Uses each page's password, or the ${kind}'s.` } : o,
   );
 
   return (

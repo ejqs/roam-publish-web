@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, ilike, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
-import { publication } from "@/db/schema";
+import { collectionEntry, publication } from "@/db/schema";
 
 /** The settings a page can be in, as the access menu names them, plus moderator removal. */
 export const ACCESS = ["unlisted", "public", "discover", "removed"] as const;
@@ -164,3 +164,58 @@ export function discoverBlocked(g: {
         ? "Turn on search engines in Settings to use Discover."
         : undefined;
 }
+
+// --- Collection page lists ----------------------------------------------------------------------
+
+export const ENTRY_FILTERS = ["unlisted", "listed", "discover", "removed"] as const;
+export type EntryFilter = (typeof ENTRY_FILTERS)[number];
+export const ENTRY_SORTS = ["order", "added", "updated", "title"] as const;
+export type EntrySort = (typeof ENTRY_SORTS)[number];
+
+export const COLLECTION_LIST: ListConfig<EntryFilter, EntrySort> = {
+  filters: ENTRY_FILTERS,
+  filterLabels: { unlisted: "Not listed", listed: "Listed", discover: "Discover", removed: "Removed" },
+  sorts: ENTRY_SORTS,
+  sortLabels: { order: "Order", added: "Added", updated: "Updated", title: "Title" },
+  // The owner's order is what visitors see, so it's the default here.
+  defaultSort: "order",
+  defaultDesc: { order: false, added: true, updated: true, title: false },
+};
+export type CollectionListState = ListState<EntryFilter, EntrySort>;
+
+const ENTRY_WHERE: Record<EntryFilter, SQL> = {
+  unlisted: and(isNull(publication.removedAt), eq(collectionEntry.listing, "unlisted"))!,
+  listed: and(isNull(publication.removedAt), eq(collectionEntry.listing, "listed"))!,
+  discover: and(isNull(publication.removedAt), eq(collectionEntry.listing, "discover"))!,
+  removed: isNotNull(publication.removedAt),
+};
+
+const entryCountWhere = (f: EntryFilter) => sql<number>`count(*) filter (where ${ENTRY_WHERE[f]})`.mapWith(Number);
+/** Per-listing counts for a select over collection_entry joined to publication. */
+export const entryCounts = {
+  unlisted: entryCountWhere("unlisted"),
+  listed: entryCountWhere("listed"),
+  discover: entryCountWhere("discover"),
+  removed: entryCountWhere("removed"),
+};
+
+/** Needs publication joined. */
+export function entryListWhere(collectionId: string, s: CollectionListState) {
+  return and(
+    eq(collectionEntry.collectionId, collectionId),
+    s.access ? ENTRY_WHERE[s.access] : undefined,
+    s.kind ? eq(publication.kind, s.kind) : undefined,
+    s.q ? ilike(publication.title, `%${escapeLike(s.q)}%`) : undefined,
+  );
+}
+
+export function entryListOrder(s: CollectionListState) {
+  const dir = s.desc ? desc : asc;
+  if (s.sort === "title") return [dir(sql`lower(${publication.title})`), dir(publication.title), asc(collectionEntry.id)];
+  if (s.sort === "updated") return [dir(publication.updatedAt), asc(collectionEntry.id)];
+  if (s.sort === "added") return [dir(collectionEntry.addedAt), asc(collectionEntry.id)];
+  return [dir(collectionEntry.position), dir(collectionEntry.addedAt), asc(collectionEntry.id)];
+}
+
+/** A collection's page list on the dashboard. */
+export const collectionPagesPath = (slug: string) => `/dashboard/collections/${encodeURIComponent(slug)}`;
