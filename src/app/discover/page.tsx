@@ -4,10 +4,10 @@ import { SiteHeader } from "@/components/site-header";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import Link from "next/link";
 import { FeedLink } from "@/components/feed-link";
-import { discoverCollections, discoverPublications } from "@/lib/discover";
+import { discoverCollections, type DiscoverCollection, discoverPublications } from "@/lib/discover";
 import { DISCOVER_FEED_PATH } from "@/lib/feeds";
 import { collectionPath } from "@/lib/publications";
-import { DiscoverTable } from "./discover-table";
+import { DiscoverList, DiscoverSortTabs } from "./discover-list";
 import { PAGE_SIZE, parsePage, parseSort } from "./sort";
 
 export const metadata: Metadata = {
@@ -38,24 +38,6 @@ export default async function DiscoverPage(props: PageProps<"/discover">) {
             </div>
             <FeedLink href={DISCOVER_FEED_PATH} />
           </div>
-          {collections.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <h2 className="font-semibold">Collections</h2>
-              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {collections.map((c) => (
-                  <li key={c.slug} className="rounded-sm border p-3">
-                    <Link href={collectionPath(c.slug)} className="font-medium text-link hover:underline">
-                      {c.name}
-                    </Link>
-                    {c.description && <p className="line-clamp-2 text-sm text-muted-foreground">{c.description}</p>}
-                    <p className="text-xs text-muted-foreground">
-                      {c.pages} {c.pages === 1 ? "page" : "pages"}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
           {total === 0 && collections.length === 0 ? (
             <Empty className="border">
               <EmptyHeader>
@@ -64,11 +46,56 @@ export default async function DiscoverPage(props: PageProps<"/discover">) {
               </EmptyHeader>
             </Empty>
           ) : (
-            <DiscoverTable rows={rows} sort={sort} page={Math.min(page, pageCount)} pageCount={pageCount} />
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-10">
+              <div className="flex min-w-0 flex-col gap-3">
+                <DiscoverSortTabs sort={sort} />
+                {/* Phones: collections as a strip above the feed, so the ranking starts near the top. */}
+                {collections.length > 0 && (
+                  <section aria-label="Collections" className="-mx-4 lg:hidden">
+                    <ul className="flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1">
+                      {collections.map((c) => (
+                        <li key={c.slug} className="w-56 shrink-0 snap-start">
+                          <CollectionCard c={c} />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+                {total === 0 ? (
+                  <p className="py-6 text-sm text-muted-foreground">No pages yet.</p>
+                ) : (
+                  <DiscoverList rows={rows} sort={sort} page={Math.min(page, pageCount)} pageCount={pageCount} />
+                )}
+              </div>
+              {collections.length > 0 && (
+                <aside aria-label="Collections" className="hidden flex-col gap-2 lg:flex">
+                  <h2 className="text-sm font-semibold">Collections</h2>
+                  <ul className="flex flex-col gap-2">
+                    {collections.map((c) => (
+                      <li key={c.slug}>
+                        <CollectionCard c={c} />
+                      </li>
+                    ))}
+                  </ul>
+                </aside>
+              )}
+            </div>
           )}
         </div>
       </main>
       <SiteFooter />
     </>
+  );
+}
+
+function CollectionCard({ c }: { c: DiscoverCollection }) {
+  return (
+    <Link href={collectionPath(c.slug)} className="flex h-full flex-col gap-0.5 rounded-sm border bg-card p-3 hover:bg-muted/50">
+      <span className="line-clamp-1 font-medium text-link">{c.name}</span>
+      {c.description && <span className="line-clamp-2 text-sm text-muted-foreground">{c.description}</span>}
+      <span className="mt-auto text-xs text-muted-foreground">
+        {c.pages} {c.pages === 1 ? "page" : "pages"}
+      </span>
+    </Link>
   );
 }
