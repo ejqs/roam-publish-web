@@ -111,9 +111,17 @@ Only `graphName` + `rootUid` identify the publication; the trailing slug is deri
 ## Visibility
 
 - `unlisted` (default): reachable by direct link only, always `noindex`.
-- `public`: also listed on the graph's front page at `{server}/{graphName}` (when the graph's front page is on), and indexable unless the graph turned indexing off.
+- `public`: also listed on the graph's front page at `{server}/{graphName}` (when the graph's front page is on), and indexable unless the graph turned indexing off. If the owner turned on the graph's RSS feed, open public pages also appear in `{server}/{graphName}/feed.xml`.
 
-Public pages can also be listed on `{server}/discover`. Each page has its own setting, changed on the dashboard. A new publication starts from the graph's "List new pages on Discover" setting (off by default); changing that setting never affects existing pages. Discover only lists pages from live graphs with the front page and search engine indexing on. The extension API doesn't expose this setting.
+Public pages can also be listed on `{server}/discover`. Each page has its own setting, changed on the dashboard. A new publication starts from the graph's "List new pages on Discover" setting (off by default); changing that setting never affects existing pages. Discover only lists pages from live graphs with the front page and search engine indexing on. The extension API doesn't expose this setting. The newest Discover pages are also in `{server}/discover/feed.xml`.
+
+## RSS feeds (website only)
+
+- `/discover/feed.xml` — always on: the 50 newest pages on Discover.
+- `/{graphName}/feed.xml` — off by default (graph setting "RSS feed"). Needs the front page on and `indexAccess` `open`. Lists open, public, live pages in the graph.
+- `/c/{slug}/feed.xml` — off by default (collection setting "RSS feed"). Needs `indexAccess` `open`. Lists open, listed pages in the collection.
+
+Feed readers send no cookies, so feeds never include password-protected, members-only, unlisted or removed pages. A feed that is off, or whose front page isn't open, returns `404`. Items carry the title, link, date, a plain-text excerpt and, where bylines are on, the author. The extension API doesn't expose any of this.
 
 ## Places and access (website only)
 
@@ -124,7 +132,7 @@ Collections live at `/c/{slug}`; slugs and entry uids share one namespace. `/col
 Graphs and collections have `indexAccess` (who can open their front page) and `defaultAccess` (what their pages use),
 each `open`, `password` or `members`, plus an optional shared password. Each place has its own `access`
 (`inherit` or one of those), which replaces the default rather than stacking on it, and an optional password of its
-own. Password-protected and members-only pages are never on Discover, never indexed, and show a lock icon where they
+own. Password-protected and members-only pages are never on Discover, never in RSS feeds, never indexed, and show a lock icon where they
 are listed. Bylines (`showAuthors` on the graph or collection, overridable per place) show the extension's Author
 name, else the publisher's public @username.
 
