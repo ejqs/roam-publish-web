@@ -1,0 +1,1 @@
+ALTER TABLE "graph" ADD COLUMN "change_log_paused" boolean DEFAULT false NOT NULL;
