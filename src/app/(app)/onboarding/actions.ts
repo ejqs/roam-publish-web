@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { graph } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { isBlocked } from "@/lib/deletion";
 import { rateLimit } from "@/lib/rate-limit";
 import { appendToDailyNote } from "@/lib/roam-append";
 
@@ -51,6 +52,9 @@ export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyR
 
   const owner = await db.query.graph.findFirst({ where: eq(graph.name, graphName) });
   if (owner && owner.userId !== session.user.id) return { ok: false, error: TAKEN };
+  // Its account was deleted while a moderator had acted on it; see src/lib/deletion.ts.
+  if (!owner && (await isBlocked("graph", graphName)))
+    return { ok: false, error: "This graph can't be connected. Contact us if you think this is a mistake." };
 
   const result = await appendToDailyNote(
     graphName,

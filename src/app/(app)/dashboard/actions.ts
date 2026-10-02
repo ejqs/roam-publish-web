@@ -5,13 +5,14 @@ import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { ACCESS, graph, graphDefaultCollection, profile, publication, usernameAlias } from "@/db/schema";
+import { ACCESS, graph, graphDefaultCollection, moderationAction, profile, publication, usernameAlias } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { collectionRole } from "@/lib/collections";
 import { Description } from "@/lib/descriptions";
 import { clearGatedGraphDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
+import { graphUnderModeration, purgeGraph } from "@/lib/deletion";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { hasVerifiedGraph } from "@/lib/profiles";
@@ -251,4 +252,40 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
   revalidatePath("/");
   updateTag(DISCOVER_TAG);
   return { ok: true, message: "Access saved." };
+}
+
+/**
+ * Permanently deletes a graph and every page published from it, members' pages included. Refused while
+ * a moderator has acted on it, so deleting can't undo a suspension or removal; deleting the whole
+ * account still works and blocklists the graph (src/lib/deletion.ts).
+ */
+export async function deleteGraph(graphId: string, confirmName: string): Promise<FormState> {
+  const session = await getSession();
+  if (!session) return { ok: false, message: "Your session expired. Please log in again." };
+  const g = await db.query.graph.findFirst({
+    where: and(eq(graph.id, graphId), eq(graph.userId, session.user.id)),
+  });
+  if (!g) return { ok: false, message: "Graph not found." };
+  if (confirmName.trim() !== g.name) return { ok: false, message: "Type the graph's name to confirm." };
+  if (await graphUnderModeration(db, g))
+    return { ok: false, message: "A moderator acted on this graph, so it can't be deleted. Contact us to delete it." };
+
+  await db.transaction(async (tx) => {
+    await purgeGraph(tx, g);
+    await tx.insert(moderationAction).values({
+      adminId: null,
+      targetType: "graph",
+      targetId: g.id,
+      action: "delete_graph",
+      reason: `Deleted by its owner: ${g.name}`,
+    });
+  });
+
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/[graph]", "layout");
+  revalidatePath("/c/[id]", "layout");
+  revalidatePath("/u/[username]", "page");
+  revalidatePath("/");
+  updateTag(DISCOVER_TAG);
+  return { ok: true, message: `Deleted ${g.name}.` };
 }
