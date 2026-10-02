@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { graph } from "@/db/schema";
 import { canStoreTokens, encryptToken } from "@/lib/append-token";
 import { auth } from "@/lib/auth";
-import { validTimeZone } from "@/lib/changelog";
+import { setChangeLogPaused, validTimeZone } from "@/lib/changelog";
 import { rateLimit } from "@/lib/rate-limit";
 import { appendToDailyNote } from "@/lib/roam-append";
 import type { FormState } from "../../actions";
@@ -49,6 +49,7 @@ export async function setAppendToken(graphId: string, input: z.input<typeof Inpu
       appendTokenStatus: "ok",
       appendTokenAddedAt: new Date(),
       appendTokenOkAt: new Date(),
+      changeLogPaused: false,
       ...(validTimeZone(timeZone) && { timeZone }),
     })
     .where(eq(graph.id, graphId));
@@ -61,8 +62,24 @@ export async function removeAppendToken(graphId: string): Promise<FormState> {
   if (!owned) return { ok: false, message: "Graph not found." };
   await db
     .update(graph)
-    .set({ appendTokenEnc: null, appendTokenStatus: null, appendTokenAddedAt: null, appendTokenOkAt: null })
+    .set({
+      appendTokenEnc: null,
+      appendTokenStatus: null,
+      appendTokenAddedAt: null,
+      appendTokenOkAt: null,
+      changeLogPaused: false,
+    })
     .where(eq(graph.id, graphId));
   revalidatePath("/dashboard", "layout");
   return { ok: true, message: "Token removed. You can revoke it in Roam too." };
+}
+
+/** Turns the change log off or back on, keeping the stored token. */
+export async function setChangeLogOn(graphId: string, on: boolean): Promise<FormState> {
+  const owned = await ownedGraph(graphId);
+  if (!owned) return { ok: false, message: "Graph not found." };
+  if (!(await setChangeLogPaused(graphId, !on)))
+    return { ok: false, message: "Add an append-only token first." };
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, message: on ? "Change log is on." : "Change log is off. The token is kept." };
 }

@@ -42,12 +42,15 @@ export async function setAnchor(graphId: string, rootUid: string, anchorUid: str
     .where(and(eq(shortlink.graphId, graphId), eq(shortlink.rootUid, rootUid)));
 }
 
-/** "{server}/p/{id}" at the start of a block, as the extension writes it. Same rule as the extension. */
-const LEADING = /^https?:\/\/\S+?\/p\/([2-9A-HJ-NP-Za-km-z]{8})(?=\s|$)/;
+/**
+ * "{server}/p/{id}" at the start of a block, bare or as `[text]({server}/p/{id})`, as the extension
+ * writes it. Same rule as the extension's `isShortlinkText`.
+ */
+const LEADING = /^(?:\[[^\]\n]*\]\()?https?:\/\/[^\s)]+?\/p\/([2-9A-HJ-NP-Za-km-z]{8})(?=[\s)]|$)/;
 
 /**
  * Drops shortlink blocks of the given ids, with everything under them, at any depth, embeds
- * included. A shortlink block is "{tag}" with the "{server}/p/{id}" block and the change log under it,
+ * included. A shortlink block is "{tag}" with the "[{text}]({server}/p/{id})" block and the change log under it,
  * so a block goes when its own text or one of its children's starts with a known shortlink. The
  * extension already leaves them out; this covers trees sent by builds that don't, and shortlink
  * blocks of blocks published from inside this page that the extension didn't know about.
