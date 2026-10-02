@@ -205,7 +205,7 @@ export function OnboardingFlow({
                     <FieldContent>
                       <FieldLabel htmlFor="keepToken">Keep a change log in Roam</FieldLabel>
                       <FieldDescription>
-                        Adds a dated entry under each published page&apos;s shortlink block whenever it&apos;s
+                        Adds a dated entry under each published page&apos;s Roam Publish Status link whenever it&apos;s
                         published, changed or unpublished. You can turn it on or off later in the graph&apos;s
                         settings.
                       </FieldDescription>

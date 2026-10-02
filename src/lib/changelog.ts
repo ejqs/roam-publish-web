@@ -8,8 +8,8 @@ import { appendUnderBlock } from "./roam-append";
 
 /**
  * The roam.pub change log: one block per event, appended with the graph's stored append-only token
- * under the "Changelog" block of the page's shortlink block in Roam. Pages without a shortlink block,
- * and graphs without a working token, get nothing. Never blocks or fails the caller.
+ * under the page's status link block in Roam ("Changelog" from earlier extension builds). Pages
+ * without one, and graphs without a working token, get nothing. Never blocks or fails the caller.
  *
  * Not real time: events are queued (`changelog_entry`, deduplicated), and `flushChangeLog`, run in
  * the background every few seconds, sends each page's queued entries in one call once the page has
@@ -69,7 +69,7 @@ export async function logForPublications(ids: string[], text: string | ((p: { ti
   logChanges(rows.map((r) => ({ graphId: r.graphId, rootUid: r.rootUid, text: typeof text === "string" ? text : text(r) })));
 }
 
-/** Records non-duplicate entries for pages that have a shortlink block and a usable token. */
+/** Records non-duplicate entries for pages that have a shortlink block and a usable, unpaused token. */
 export async function queueChanges(changes: Change[], at = new Date()) {
   const pairs = [...new Map(changes.map((c) => [`${c.graphId}\u0000${c.rootUid}`, c])).values()];
   const rows = await db
@@ -82,6 +82,7 @@ export async function queueChanges(changes: Change[], at = new Date()) {
         isNull(shortlink.anchorMissingAt),
         isNotNull(graph.appendTokenEnc),
         sql`${graph.appendTokenStatus} is distinct from 'invalid'`,
+        eq(graph.changeLogPaused, false),
         or(...pairs.map((p) => and(eq(shortlink.graphId, p.graphId), eq(shortlink.rootUid, p.rootUid)))),
       ),
     );
@@ -126,6 +127,7 @@ export async function flushChangeLog(now = new Date()) {
       and s.anchor_confirmed_at >= ${new Date(now.getTime() - CONFIRM_WINDOW_MS)}
       and g.append_token_enc is not null
       and g.append_token_status is distinct from 'invalid'
+      and not g.change_log_paused
       and (g.append_next_at is null or g.append_next_at <= ${now})
     group by s.id, s.graph_id
     having max(e.created_at) <= ${new Date(now.getTime() - QUIET_MS)}
@@ -238,21 +240,56 @@ async function claim(shortlinkId: string, changes: Change[], at: Date) {
   });
 }
 
-export type ChangeLogStatus = { status: "ok" | "invalid" | "none"; lastOkAt: Date | null };
+export type ChangeLogStatus = { status: "ok" | "invalid" | "paused" | "none"; lastOkAt: Date | null };
 
-/** Whether the graph's change log can be written, for the extension to show. */
+/**
+ * Whether the graph's change log can be written, for the extension to show: "none" without a stored
+ * token, "paused" when the owner turned it off, "invalid" once Roam rejected the token, else "ok".
+ */
 export function changeLogStatus(g: {
   appendTokenEnc: string | null;
   appendTokenStatus: "ok" | "invalid" | null;
   appendTokenOkAt: Date | null;
+  changeLogPaused: boolean;
 }): ChangeLogStatus {
-  const status = g.appendTokenStatus === "invalid" ? "invalid" : g.appendTokenEnc ? "ok" : "none";
+  const status = !g.appendTokenEnc
+    ? "none"
+    : g.changeLogPaused
+      ? "paused"
+      : g.appendTokenStatus === "invalid"
+        ? "invalid"
+        : "ok";
   return { status, lastOkAt: g.appendTokenOkAt };
 }
 
 export async function changeLogStatusOf(graphId: string) {
   const g = await db.query.graph.findFirst({ where: eq(graph.id, graphId) });
   return g ? changeLogStatus(g) : { status: "none" as const, lastOkAt: null };
+}
+
+/**
+ * Pauses or resumes the graph's change log, keeping the token. Pausing drops what was queued:
+ * changes made while paused are never logged, and it continues from when it's turned back on.
+ * False when there's no stored token to resume with.
+ */
+export async function setChangeLogPaused(graphId: string, paused: boolean) {
+  const [g] = await db
+    .update(graph)
+    .set({ changeLogPaused: paused })
+    .where(and(eq(graph.id, graphId), isNotNull(graph.appendTokenEnc)))
+    .returning({ id: graph.id });
+  if (!g) return false;
+  if (paused)
+    await db
+      .update(changelogEntry)
+      .set({ status: "dropped" })
+      .where(
+        and(
+          eq(changelogEntry.status, "pending"),
+          inArray(changelogEntry.shortlinkId, db.select({ id: shortlink.id }).from(shortlink).where(eq(shortlink.graphId, graphId))),
+        ),
+      );
+  return true;
 }
 
 export type AnchorCheck = { rootUid: string; anchorUid: string };

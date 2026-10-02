@@ -78,6 +78,8 @@ export const graph = pgTable("graph", {
   appendNextAt: timestamp("append_next_at", { withTimezone: true }),
   /** Consecutive 429s from Roam, for exponential backoff. */
   appendBackoff: integer("append_backoff").notNull().default(0),
+  /** The owner paused the change log: the token is kept, but nothing is queued or sent. */
+  changeLogPaused: boolean("change_log_paused").notNull().default(false),
   /** IANA time zone from the owner's browser; dates change log entries. */
   timeZone: text("time_zone"),
   verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull().defaultNow(),
@@ -489,7 +491,10 @@ export const shortlink = pgTable(
       .notNull()
       .references(() => graph.id, { onDelete: "cascade" }),
     rootUid: text("root_uid").notNull(),
-    /** Uid of the "Changelog" block the extension wrote in Roam; the change log nests under it. */
+    /**
+     * Uid of the block the change log nests under in Roam: the status link block the extension wrote
+     * (a "Changelog" block from earlier builds).
+     */
     anchorUid: text("anchor_uid"),
     /**
      * Last time the extension saw that block in the graph. Roam's Append API writes to the daily

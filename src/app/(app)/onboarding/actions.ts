@@ -80,6 +80,7 @@ export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyR
       appendTokenStatus: "ok" as const,
       appendTokenAddedAt: new Date(),
       appendTokenOkAt: new Date(),
+      changeLogPaused: false,
     }),
     // Change log entries are dated in it, also once a token is added later.
     ...(timeZone && validTimeZone(timeZone) && { timeZone }),

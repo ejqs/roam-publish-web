@@ -78,6 +78,7 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
       <ChangeLogForm
         graphId={g.id}
         status={g.appendTokenStatus === "invalid" ? "invalid" : g.appendTokenEnc ? "ok" : null}
+        paused={g.changeLogPaused}
         addedAt={g.appendTokenAddedAt?.toISOString() ?? null}
       />
       <DeleteGraphCard graphId={g.id} graphName={g.name} pageCount={pages?.n ?? 0} locked={locked} />

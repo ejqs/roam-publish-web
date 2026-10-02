@@ -19,7 +19,7 @@ import { SHORT_ID, shortUrl } from "@/lib/shortlinks";
 import { plainText } from "@/lib/slug";
 import { viewerId } from "@/lib/viewer";
 
-export const metadata: Metadata = { title: "Shortlink · Roam Publish", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Roam Publish Status", robots: { index: false, follow: false } };
 
 const load = cache(async (id: string) => {
   if (!SHORT_ID.test(id)) return null;
@@ -91,14 +91,14 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6 sm:py-12">
       <Card>
         <CardHeader>
-          <CardDescription>Shortlink</CardDescription>
+          <CardDescription>Roam Publish Status</CardDescription>
           <CardTitle className="text-xl break-words">
             {pub ? plainText(pub.title) : "Not published right now"}
           </CardTitle>
           <code className="truncate pt-1 text-sm text-muted-foreground">{link}</code>
           <p className="text-sm text-muted-foreground">
-            Share the graph or collection links below. This shortlink sends visitors to the first public place
-            this page lives, so where it leads can change.
+            This status link is for you and your graph&apos;s members. To share the page, use one of the links
+            below: other visitors who open this one are sent to the first place they can read it, which can change.
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
