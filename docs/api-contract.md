@@ -131,11 +131,10 @@ Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. A
 - Every page or block gets a permanent `{server}/p/{id}`: 8 characters from
   `23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz`, unique (a colliding id is retried). It's keyed by graph
   + `rootUid`, so unpublishing and republishing keeps the same link.
-- `/p/{id}`: the graph's owner and members see where the page lives (graph and collection URLs, listing, access) with
-  copy buttons, and a note to share those rather than the shortlink. Anyone else is redirected (307) to the first
-  place anyone can read: the graph place if it's in the graph with open access, else the first open collection entry
-  (in the order added), else the page's main URL (as in `url` above), where its gate shows. Unpublished, removed or
-  unknown → 404 for them.
+- `/p/{id}`: a status page for the graph's owner and members: where the page lives (graph and collection URLs,
+  listing, access) with copy buttons, when it was last updated and first published, its author, and its history.
+  Signed-out visitors are redirected to `/login?next=/p/{id}`; signed-in non-members and unknown ids get a 404. It is
+  never a share link.
 - The extension writes the shortlink block as the first or last child of the published page or block, and sends the
   `Changelog` block's uid as `anchorUid`:
   ```
