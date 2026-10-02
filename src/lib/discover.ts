@@ -130,7 +130,7 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
     total,
     rows: rows.map(({ entryUid, collectionName, collectionSlug, ...r }): DiscoverRow => ({
       ...r,
-      href: entryUid ? entryPath(entryUid, r.title) : publicationPath(r.graphName, r.rootUid, r.title),
+      href: entryUid && collectionSlug ? entryPath(collectionSlug, entryUid, r.title) : publicationPath(r.graphName, r.rootUid, r.title),
       source:
         entryUid && collectionName && collectionSlug
           ? { label: collectionName, href: collectionPath(collectionSlug) }

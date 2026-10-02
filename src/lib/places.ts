@@ -1,6 +1,6 @@
-import { asc, inArray, sql, type SQL } from "drizzle-orm";
+import { asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { collectionEntry, graph, publication } from "@/db/schema";
+import { collection, collectionEntry, graph, publication } from "@/db/schema";
 import { entryUrl, publicationUrl } from "./publications";
 
 /**
@@ -17,17 +17,18 @@ export async function primaryUrls(graphName: string, pubs: { id: string; rootUid
   const onlyInCollections = pubs.filter((p) => !p.inGraph).map((p) => p.id);
   const entries = onlyInCollections.length
     ? await db
-        .select({ publicationId: collectionEntry.publicationId, entryUid: collectionEntry.entryUid })
+        .select({ publicationId: collectionEntry.publicationId, entryUid: collectionEntry.entryUid, slug: collection.slug })
         .from(collectionEntry)
+        .innerJoin(collection, eq(collection.id, collectionEntry.collectionId))
         .where(inArray(collectionEntry.publicationId, onlyInCollections))
         .orderBy(asc(collectionEntry.addedAt))
     : [];
-  const first = new Map<string, string>();
-  for (const e of entries) if (!first.has(e.publicationId)) first.set(e.publicationId, e.entryUid);
+  const first = new Map<string, { entryUid: string; slug: string }>();
+  for (const e of entries) if (!first.has(e.publicationId)) first.set(e.publicationId, e);
   return new Map(
     pubs.map((p) => {
-      const uid = first.get(p.id);
-      return [p.id, !p.inGraph && uid ? entryUrl(uid, p.title) : publicationUrl(graphName, p.rootUid, p.title)];
+      const e = first.get(p.id);
+      return [p.id, !p.inGraph && e ? entryUrl(e.slug, e.entryUid, p.title) : publicationUrl(graphName, p.rootUid, p.title)];
     }),
   );
 }
