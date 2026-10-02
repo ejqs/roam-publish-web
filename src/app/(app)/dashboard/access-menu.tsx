@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { ACCESS_DESCRIPTIONS, ACCESS_LABELS } from "@/components/manage/choice";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { PlaceAccess, ShowAuthor } from "@/db/schema";
+import type { Access as ReadAccess, ShowAuthor } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { type Access, setAccess } from "./actions";
@@ -41,12 +41,13 @@ export function AccessMenu({
   const [open, setOpen] = useState(false);
   const [optimistic, setOptimistic] = useOptimistic({
     access,
-    read: place.state.access,
+    // "inherit" only survives on rows from before pages stored their own access.
+    read: (place.state.access === "inherit" ? place.container.defaultAccess : place.state.access) as ReadAccess,
     showAuthor: place.state.showAuthor,
   });
   const [pending, start] = useTransition();
   const { container } = place;
-  const effectiveRead = optimistic.read === "inherit" ? container.defaultAccess : optimistic.read;
+  const effectiveRead = optimistic.read;
   const blocked = effectiveRead !== "open" ? "Protected pages can't go on Discover." : discoverBlocked;
   // Gating a page takes it off Discover; show that right away instead of after the refresh.
   const reach = optimistic.access === "discover" && effectiveRead !== "open" ? "public" : optimistic.access;
@@ -74,18 +75,15 @@ export function AccessMenu({
     },
   ];
 
-  const readOptions: Option<PlaceAccess>[] = [
-    { value: "inherit", label: `Use ${container.label}'s default (${ACCESS_LABELS[container.defaultAccess].toLowerCase()})` },
-    ...(["open", "password", "members"] as const).map((a) => ({
+  const readOptions: Option<ReadAccess>[] = (["open", "password", "members"] as const).map((a) => ({
       value: a,
       label: ACCESS_LABELS[a],
       description:
         a === "open" && container.defaultAccess !== "open"
           ? "Anyone with the link can read, even though the rest is protected."
           : ACCESS_DESCRIPTIONS[a],
-      disabled: a === "password" && !hasPassword ? "Set a password for this page in Manage first." : undefined,
-    })),
-  ];
+    disabled: a === "password" && !hasPassword ? "Set a password for this page in Manage first." : undefined,
+  }));
 
   const bylineOptions: Option<ShowAuthor>[] = [
     { value: "inherit", label: `Use ${container.label}'s setting (${container.showAuthors ? "shown" : "hidden"})` },
@@ -103,7 +101,7 @@ export function AccessMenu({
     });
   }
 
-  function choosePlace(next: { access?: PlaceAccess; showAuthor?: ShowAuthor }) {
+  function choosePlace(next: { access?: ReadAccess; showAuthor?: ShowAuthor }) {
     setOpen(false);
     if (next.access === optimistic.read || next.showAuthor === optimistic.showAuthor) return;
     start(async () => {
