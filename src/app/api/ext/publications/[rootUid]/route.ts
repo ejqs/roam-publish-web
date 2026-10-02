@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { publication } from "@/db/schema";
+import { logChange } from "@/lib/changelog";
 import { json, preflight } from "@/lib/cors";
 import { type ExtContext, notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
 import { primaryUrls } from "@/lib/places";
@@ -32,6 +33,7 @@ export async function DELETE(
   const pub = await ownPage(req, ctx, (await params).rootUid);
   if (pub instanceof Response) return pub;
   await db.delete(publication).where(eq(publication.id, pub.id));
+  logChange(pub, "Unpublished");
   return json(req, { deleted: true });
 }
 
@@ -49,6 +51,7 @@ export async function PATCH(
   const pub = await ownPage(req, ctx, (await params).rootUid);
   if (pub instanceof Response) return pub;
   await db.update(publication).set({ visibility: parsed.data.visibility }).where(eq(publication.id, pub.id));
+  if (parsed.data.visibility !== pub.visibility) logChange(pub, `Made ${parsed.data.visibility}`);
   const url = (await primaryUrls(ctx.graphName, [pub])).get(pub.id);
   return json(req, { visibility: parsed.data.visibility, url });
 }

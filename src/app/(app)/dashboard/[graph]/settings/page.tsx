@@ -8,6 +8,7 @@ import { graph, graphDefaultCollection, publication } from "@/db/schema";
 import { collectionsOf } from "@/lib/collections";
 import { requireSession } from "@/lib/session";
 import { GraphAccessForm } from "./access-form";
+import { ChangeLogForm } from "./change-log-form";
 import { GraphSettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "Graph settings · Roam Publish" };
@@ -70,6 +71,11 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
           defaultCollections: defaults.map((d) => d.collectionId),
         }}
         collections={collections.filter((c) => !c.suspendedAt).map((c) => ({ id: c.id, name: c.name }))}
+      />
+      <ChangeLogForm
+        graphId={g.id}
+        status={g.appendTokenEnc ? (g.appendTokenStatus ?? "ok") : null}
+        addedAt={g.appendTokenAddedAt?.toISOString() ?? null}
       />
     </div>
   );

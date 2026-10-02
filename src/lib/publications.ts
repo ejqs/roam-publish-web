@@ -30,3 +30,8 @@ export function entryUrl(collectionSlug: string, entryUid: string, title: string
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   return base + entryPath(collectionSlug, entryUid, title);
 }
+
+export function collectionUrl(slug: string) {
+  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  return base + collectionPath(slug);
+}

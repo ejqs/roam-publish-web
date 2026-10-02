@@ -12,7 +12,7 @@ Stack: Bun · Next.js (App Router) · shadcn/ui (Blueprint-styled) · better-aut
 
 ```bash
 bun install
-cp .env.example .env.local   # fill in BETTER_AUTH_SECRET (openssl rand -base64 32)
+cp .env.example .env.local   # fill in BETTER_AUTH_SECRET and APPEND_TOKEN_KEY (openssl rand -base64 32 each)
 bun run db:migrate
 bun dev
 ```

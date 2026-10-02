@@ -16,6 +16,7 @@ import {
   usernameAlias,
 } from "@/db/schema";
 import { isAdmin, requireAdmin } from "@/lib/admin";
+import { logChange } from "@/lib/changelog";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { graphPath } from "@/lib/graphs";
 import type { ModerationNotice } from "@/lib/moderation-email-templates";
@@ -103,12 +104,14 @@ export async function moderate(_prev: ActionState, formData: FormData): Promise<
         .set({ removedAt: new Date(), removedReason: reason })
         .where(eq(publication.id, targetId));
       await resolveReports(eq(report.publicationId, targetId), "actioned", adminId);
+      logChange(row.pub, `Removed by a moderator. Reason: ${reason}`);
       notice = { kind: "page_removed", ...page };
     } else if (op === "restore") {
       await db
         .update(publication)
         .set({ removedAt: null, removedReason: null })
         .where(eq(publication.id, targetId));
+      logChange(row.pub, "Restored by a moderator");
       notice = { kind: "page_restored", ...page };
     } else {
       await resolveReports(eq(report.publicationId, targetId), "dismissed", adminId);
