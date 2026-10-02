@@ -27,6 +27,7 @@ type Row = Pick<
   | "updatedAt"
   | "inGraph"
   | "access"
+  | "tags"
 >;
 
 /** A sortable column header: where clicking it goes, and which way it's sorted now, if at all. */
@@ -53,7 +54,7 @@ export function PublicationList({
   // Bulk changes cover the graph place, so only pages shown in the graph that the viewer manages.
   const selectable = rows.filter((p) => !p.removedAt && p.inGraph && manage.get(p.id)?.canManagePage).map((p) => p.id);
   return (
-    <BulkSelect ids={selectable} graphName={g.name}>
+    <BulkSelect ids={selectable} tags={Object.fromEntries(rows.map((p) => [p.id, p.tags]))} graphName={g.name}>
       <div className="text-sm">
         <div className={`hidden border-b px-2 pb-2 font-medium text-muted-foreground ${COLUMNS}`}>
           <span className="flex items-center gap-2">
@@ -87,6 +88,12 @@ export function PublicationList({
                     >
                       {p.title}
                     </Link>
+                    {p.tags.length > 0 && (
+                      <p className="truncate text-xs text-roam-ref">
+                        {p.tags.slice(0, 5).map((t) => `#${t}`).join(" ")}
+                        {p.tags.length > 5 && <span className="text-muted-foreground"> +{p.tags.length - 5}</span>}
+                      </p>
+                    )}
                     {m && m.entries.length > 0 && (
                       <p className="truncate text-xs text-muted-foreground">
                         In {m.entries.map((e) => e.collectionName).join(", ")}
