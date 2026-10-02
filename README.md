@@ -32,6 +32,17 @@ after changing better-auth plugins), then `bun run db:generate` and commit the m
 
 Feed readers send no cookies, so feeds only ever list pages open to everyone (see `src/lib/feeds.ts`).
 
+## Deletion
+
+Owners delete a graph in its settings, and themselves at the bottom of the dashboard. Deleting an account goes
+through better-auth's `deleteUser` with an email confirmation; `src/lib/deletion.ts` deletes everything first.
+Deleting can't be a way out of a moderation action:
+
+- A graph that's suspended or has a removed page can't be deleted on its own.
+- When an account is deleted after a moderator acted on it, its email (hashed), graph names and usernames go on
+  the `blocked_identity` blocklist, and its suspended collections keep their slugs. Sign-up, graph verification
+  and username claims check the blocklist. Admins lift entries at `/admin/blocked`.
+
 ## Extension API
 
 See [docs/api-contract.md](docs/api-contract.md), and [roam-publish-docs](https://github.com/ejqs/roam-publish-docs)

@@ -2,6 +2,7 @@ import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { profile, usernameAlias } from "@/db/schema";
+import { isBlocked } from "./deletion";
 
 const RESERVED = new Set([
   "admin", "api", "app", "auth", "dashboard", "discover", "forgot-password", "help", "login", "logout",
@@ -18,7 +19,10 @@ export const Username = z
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/** A name is free unless someone else holds it as a current or former username. */
+/**
+ * A name is free unless someone else holds it as a current or former username, or it belonged to an
+ * account deleted under a moderation action.
+ */
 export async function usernameTakenByOther(tx: Tx, username: string, userId: string) {
   const [current] = await tx
     .select({ userId: profile.userId })
@@ -31,7 +35,8 @@ export async function usernameTakenByOther(tx: Tx, username: string, userId: str
     .from(usernameAlias)
     .where(and(eq(usernameAlias.username, username), ne(usernameAlias.userId, userId)))
     .limit(1);
-  return !!alias;
+  if (alias) return true;
+  return isBlocked("username", username, tx);
 }
 
 /**
