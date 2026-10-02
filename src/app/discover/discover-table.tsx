@@ -170,7 +170,7 @@ export function DiscoverTable({
                   key={cell.id}
                   className={
                     cell.column.id === "title"
-                      ? "max-w-0 truncate whitespace-nowrap"
+                      ? "max-w-0 break-words whitespace-normal sm:truncate sm:whitespace-nowrap"
                       : `${width(cell.column.id)} truncate text-muted-foreground`
                   }
                 >

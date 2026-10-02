@@ -62,7 +62,7 @@ export default async function ProfilePage(props: PageProps<"/u/[username]">) {
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4 flex items-center gap-1">
+        <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
           <DashboardLink />
           {mine && <ManageLink href="/dashboard#profile" />}
           <ReportAbuseButton target={{ username: p.username }} />

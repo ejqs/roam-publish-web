@@ -11,7 +11,9 @@ export async function DashboardLink({ href = "/dashboard" }: { href?: string }) 
   if (!(await viewerId())) return null;
   return (
     <Link href={href} className={buttonVariants({ variant: "outline", size: "sm", className: "gap-1.5 bg-card" })}>
-      <ArrowLeftIcon /> Back to dashboard
+      <ArrowLeftIcon />
+      <span className="sm:hidden">Dashboard</span>
+      <span className="max-sm:hidden">Back to dashboard</span>
     </Link>
   );
 }
