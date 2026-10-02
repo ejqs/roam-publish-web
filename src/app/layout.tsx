@@ -7,6 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Roam Publish",
   description: "Publish Roam Research pages and blocks to the web.",
+  appleWebApp: { title: "Roam Publish" },
 };
 
 // Site-wide analytics for the operator only; users don't get their own tracking.
