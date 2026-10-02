@@ -7,7 +7,7 @@ export type AccessFilter = (typeof ACCESS)[number];
 export const ACCESS_LABELS: Record<AccessFilter, string> = {
   unlisted: "Not listed",
   public: "Listed",
-  discover: "Discover",
+  discover: "Discoverable",
   removed: "Removed",
 };
 
@@ -174,7 +174,7 @@ export type EntrySort = (typeof ENTRY_SORTS)[number];
 
 export const COLLECTION_LIST: ListConfig<EntryFilter, EntrySort> = {
   filters: ENTRY_FILTERS,
-  filterLabels: { unlisted: "Not listed", listed: "Listed", discover: "Discover", removed: "Removed" },
+  filterLabels: { unlisted: "Not listed", listed: "Listed", discover: "Discoverable", removed: "Removed" },
   sorts: ENTRY_SORTS,
   sortLabels: { order: "Order", added: "Added", updated: "Updated", title: "Title" },
   // The owner's order is what visitors see, so it's the default here.
