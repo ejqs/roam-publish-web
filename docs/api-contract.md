@@ -1,6 +1,7 @@
 # Roam Publish — Extension ↔ Server Contract
 
 Both `roam-publish` (extension) and `roam-publish-web` (server) implement this. Keep them in sync.
+Why it's shaped this way, and how to change it safely: [roam-publish-docs](https://github.com/ejqs/roam-publish-docs).
 
 ## Canonical content + hash
 

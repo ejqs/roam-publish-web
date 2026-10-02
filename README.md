@@ -3,6 +3,9 @@
 Server and website for [Roam Publish](https://github.com/ejqs/roam-publish), a Roam Research extension that publishes
 pages and blocks to the web.
 
+For how the server and extension work together (the contract, shared invariants, trust boundary, and how to ship
+changes across both), see [roam-publish-docs](https://github.com/ejqs/roam-publish-docs).
+
 Stack: Bun · Next.js (App Router) · shadcn/ui (Blueprint-styled) · better-auth (+ api-key plugin) · Drizzle · Postgres · Resend.
 
 ## Develop
@@ -23,7 +26,8 @@ after changing better-auth plugins), then `bun run db:generate` and commit the m
 
 ## Extension API
 
-See [docs/api-contract.md](docs/api-contract.md).
+See [docs/api-contract.md](docs/api-contract.md), and [roam-publish-docs](https://github.com/ejqs/roam-publish-docs)
+for the reasoning behind it.
 
 ---
 
