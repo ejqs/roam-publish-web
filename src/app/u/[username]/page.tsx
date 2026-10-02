@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { SiteFooter } from "@/components/site-footer";
 import { db } from "@/db";
 import { graph, profile, user, usernameAlias } from "@/db/schema";
@@ -57,8 +58,9 @@ export default async function ProfilePage(props: PageProps<"/u/[username]">) {
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4">
+        <div className="absolute top-3 right-4 flex items-center gap-1">
           <ReportAbuseButton target={{ username: p.username }} />
+          <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           <h1 className="text-[42px] leading-tight font-semibold break-words">@{p.username}</h1>

@@ -2,22 +2,22 @@ import { and, count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import { Breadcrumbs } from "@/components/breadcrumbs";
-import { BlockList } from "@/components/roam/block-tree";
+import { GateNotice } from "@/components/gate-notice";
 import type { PageLinks } from "@/components/roam/markup";
+import { PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
-import { ReportAbuseButton } from "@/components/report-abuse-button";
-import { SiteFooter } from "@/components/site-footer";
-import { UpvoteButton } from "@/components/upvote-button";
-import { ViewBeacon } from "@/components/view-beacon";
 import { db } from "@/db";
 import { publication, publicationVote } from "@/db/schema";
 import { isListed } from "@/lib/discover";
+import { type Container, effectiveAccess, gate, pageLock, type Place, showsAuthor } from "@/lib/gates";
+import { canManage, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
+import { manageDataFor } from "@/lib/manage-data";
 import { livePublication } from "@/lib/moderation";
 import { publicProfile } from "@/lib/profiles";
 import { publicationPath } from "@/lib/publications";
 import { plainText, slugify } from "@/lib/slug";
+import { bylineFor, viewerId } from "@/lib/viewer";
 
 // Only graph + uid identify a publication; the optional trailing slug is decorative.
 const load = cache(async (graphName: string, rootUid: string) => {
@@ -26,8 +26,11 @@ const load = cache(async (graphName: string, rootUid: string) => {
   const pub = await db.query.publication.findFirst({
     where: and(eq(publication.graphId, g.id), eq(publication.rootUid, rootUid)),
   });
-  if (!pub) return null;
-  return { g, pub };
+  // A page shown only in collections has no graph place.
+  if (!pub || !pub.inGraph) return null;
+  const container: Container = { ...g, kind: "graph" };
+  const place: Place = { ...pub, kind: "publication" };
+  return { g, pub, container, place, access: effectiveAccess(container, place) };
 });
 
 export async function generateMetadata(props: PageProps<"/[graph]/[uid]/[[...slug]]">): Promise<Metadata> {
@@ -36,11 +39,14 @@ export async function generateMetadata(props: PageProps<"/[graph]/[uid]/[[...slu
   if (!data) return { title: "Not found" };
   if (data.g.takenDown || data.pub.removedAt)
     return { title: "Removed", robots: { index: false, follow: false } };
+  // Protected pages never show their title in metadata and are never indexed.
+  if (data.access !== "open") return { title: "Protected page", robots: { index: false, follow: false } };
   return {
     title: `${plainText(data.pub.title)} · ${data.g.name}`,
     alternates: { canonical: publicationPath(data.g.name, data.pub.rootUid, data.pub.title) },
     // Unlisted pages are link-only; public ones follow the graph's indexing setting.
-    robots: data.pub.visibility === "public" && data.g.indexable ? undefined : { index: false },
+    robots:
+      data.pub.visibility === "public" && data.g.indexable && data.g.indexAccess === "open" ? undefined : { index: false },
   };
 }
 
@@ -48,24 +54,39 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
   const { graph: graphName, uid, slug } = await props.params;
   const data = await load(decodeURIComponent(graphName), decodeURIComponent(uid));
   if (!data) notFound();
-  const { g, pub } = data;
+  const { g, pub, container, place, access } = data;
   if (g.takenDown) return <RemovedNotice what="graph" />;
   if (pub.removedAt) return <RemovedNotice what="page" />;
 
   // The slug is decorative. A bare /{graph}/{uid} stays as-is; any slug that doesn't match the
   // current title is corrected. Temporary redirect, since the title can change on republish.
-  if (slug && (slug.length !== 1 || slug[0] !== slugify(pub.title))) {
-    redirect(publicationPath(g.name, pub.rootUid, pub.title));
-  }
+  const path = publicationPath(g.name, pub.rootUid, pub.title);
+  if (slug && (slug.length !== 1 || slug[0] !== slugify(pub.title))) redirect(path);
+
+  const me = await viewerId();
+  const role = me ? await graphRole(me, g.id) : null;
+  const manager = !!me && canManage(role, me, pub);
+  const blocker = await gate(access, pageLock(container, place), { member: !!role, manager, signedIn: !!me });
+  if (blocker)
+    return (
+      <GateNotice
+        blocker={blocker}
+        what="page"
+        next={path}
+        title={pub.visibility === "public" && g.indexAccess === "open" ? plainText(pub.title) : undefined}
+      />
+    );
 
   const showBreadcrumbs = pub.visibility === "public" || !g.hideUnlistedBreadcrumbs;
-  // Only pages listed on Discover can be upvoted.
-  const listed = isListed(g, pub);
-  const [pages, owner, votes] = await Promise.all([
+  // Only open pages listed on Discover can be upvoted.
+  const listed = access === "open" && isListed(g, pub);
+  const [pages, owner, votes, byline, manage] = await Promise.all([
     db
       .select({ title: publication.title, rootUid: publication.rootUid })
       .from(publication)
-      .where(and(eq(publication.graphId, g.id), eq(publication.kind, "page"), livePublication)),
+      .where(
+        and(eq(publication.graphId, g.id), eq(publication.kind, "page"), eq(publication.inGraph, true), livePublication),
+      ),
     showBreadcrumbs && g.showOwner ? publicProfile(g.userId) : null,
     listed
       ? db
@@ -73,48 +94,33 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           .from(publicationVote)
           .where(eq(publicationVote.publicationId, pub.id))
           .then(([r]) => r.n)
-      : 0,
+      : null,
+    bylineFor(pub, showsAuthor(container, place)),
+    me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : undefined,
   ]);
   const links: PageLinks = new Map(
     pages.map((p) => [p.title.toLowerCase(), publicationPath(g.name, p.rootUid, p.title)]),
   );
 
-  const tree = pub.tree;
   return (
-    <>
-      <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4">
-          <ReportAbuseButton target={{ graphName: g.name, rootUid: pub.rootUid }} />
-        </div>
-        <article className="mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
-          {showBreadcrumbs && (
-            <Breadcrumbs
-              items={[
-                ...(owner ? [{ label: `@${owner.username}`, href: `/u/${owner.username}` }] : []),
-                { label: g.name, href: g.frontPage ? graphPath(g.name) : undefined },
-                { label: plainText(pub.title) },
-              ]}
-            />
-          )}
-          {pub.kind === "page" ? (
-            <>
-              <h1 className="mb-6 text-[42px] leading-tight font-semibold break-words">{pub.title}</h1>
-              <BlockList nodes={tree.children} links={links} viewType={tree.viewType} />
-            </>
-          ) : (
-            <BlockList nodes={[tree]} links={links} />
-          )}
-          <div className="mt-12 flex items-center justify-between gap-4">
-            <p className="text-xs text-muted-foreground">
-              Last updated {pub.updatedAt.toLocaleDateString("en-US", { dateStyle: "medium" })}
-            </p>
-            {listed && <UpvoteButton publicationId={pub.id} initialCount={votes} />}
-          </div>
-        </article>
-        {pub.visibility === "public" && <ViewBeacon publicationId={pub.id} />}
-      </main>
-      <SiteFooter className="bg-card" />
-    </>
+    <PublicationView
+      pub={pub}
+      crumbs={
+        showBreadcrumbs
+          ? [
+              ...(owner ? [{ label: `@${owner.username}`, href: `/u/${owner.username}` }] : []),
+              { label: g.name, href: g.frontPage ? graphPath(g.name) : undefined },
+              { label: plainText(pub.title) },
+            ]
+          : null
+      }
+      links={links}
+      byline={byline}
+      report={{ graphName: g.name, rootUid: pub.rootUid }}
+      votes={votes}
+      countViews={pub.visibility === "public" && access === "open"}
+      manage={manage}
+      afterUnpublish="/dashboard"
+    />
   );
 }
-

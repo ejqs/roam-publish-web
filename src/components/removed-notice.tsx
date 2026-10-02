@@ -3,7 +3,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { buttonVariants } from "@/components/ui/button";
 
 /** Shown in place of content a moderator took down. The reason stays private to the owner. */
-export function RemovedNotice({ what }: { what: "page" | "graph" }) {
+export function RemovedNotice({ what }: { what: "page" | "graph" | "collection" }) {
   return (
     <>
       <main className="flex flex-1 items-center bg-card">

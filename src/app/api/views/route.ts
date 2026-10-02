@@ -20,15 +20,24 @@ export async function POST(req: Request) {
   if (!session) return noContent();
   const viewer = session.user.id;
 
-  // One statement: only public, live pages; never the owner's own; only viewers with a graph.
+  // One statement: only live pages listed somewhere open to everyone (public and open in their
+  // graph, or listed and open in a collection); never the owner's own; only viewers with a graph.
   await db.execute(sql`
     insert into publication_view (publication_id, user_id)
     select p.id, ${viewer}
     from publication p
     join graph g on g.id = p.graph_id
     where p.id = ${id}
-      and p.visibility = 'public'
       and p.removed_at is null
+      and (
+        (p.in_graph and p.visibility = 'public'
+          and (p.access = 'open' or (p.access = 'inherit' and g.default_access = 'open')))
+        or exists (
+          select 1 from collection_entry e join collection c on c.id = e.collection_id
+          where e.publication_id = p.id and e.listing <> 'unlisted'
+            and (e.access = 'open' or (e.access = 'inherit' and c.default_access = 'open'))
+        )
+      )
       and g.user_id <> ${viewer}
       and exists (select 1 from graph mine where mine.user_id = ${viewer})
     on conflict do nothing

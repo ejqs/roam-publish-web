@@ -1,14 +1,24 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { graph, user } from "@/db/schema";
+import { graph, graphMember, user } from "@/db/schema";
 import { auth } from "./auth";
 import { json } from "./cors";
+import type { GraphRole } from "./graph-access";
+import { keyGraphId } from "./keys";
 
-export type ExtContext = { userId: string; graphId: string; graphName: string };
+export type ExtContext = {
+  /** Whose key this is: the owner or a member. */
+  userId: string;
+  ownerId: string;
+  role: GraphRole;
+  graphId: string;
+  graphName: string;
+};
 
 /**
- * Resolves the x-api-key header to the user + graph it was issued for, or the error response to
- * return: 401 for a bad key or a banned owner, 403 for a graph a moderator suspended.
+ * Resolves the x-api-key header to the person and graph it was issued for, or the error response to
+ * return: 401 for a bad key, a banned key holder or owner, or someone no longer in the graph; 403
+ * for a graph a moderator suspended.
  */
 export async function requireExtKey(req: Request): Promise<ExtContext | Response> {
   const invalid = () => json(req, { error: "Invalid API key" }, 401);
@@ -16,21 +26,44 @@ export async function requireExtKey(req: Request): Promise<ExtContext | Response
   if (!key) return invalid();
   const res = await auth.api.verifyApiKey({ body: { key } }).catch(() => null);
   if (!res?.valid || !res.key) return invalid();
-  const graphId = (res.key.metadata as { graphId?: string } | null)?.graphId;
+  const graphId = keyGraphId(res.key.metadata);
   if (!graphId) return invalid();
+  const holderId = res.key.referenceId;
   const [row] = await db
-    .select({ g: graph, banned: user.banned })
+    .select({ g: graph, ownerBanned: user.banned })
     .from(graph)
     .innerJoin(user, eq(user.id, graph.userId))
     .where(eq(graph.id, graphId))
     .limit(1);
-  if (!row || row.g.userId !== res.key.referenceId) return invalid();
-  if (row.banned) return json(req, { error: "This account has been suspended" }, 401);
+  if (!row) return invalid();
+
+  let role: GraphRole;
+  if (row.g.userId === holderId) role = "owner";
+  else {
+    const m = await db.query.graphMember.findFirst({
+      where: and(eq(graphMember.graphId, graphId), eq(graphMember.userId, holderId)),
+    });
+    if (!m) return invalid();
+    role = "member";
+  }
+  const holder =
+    role === "owner"
+      ? { banned: row.ownerBanned }
+      : await db.query.user.findFirst({ where: eq(user.id, holderId), columns: { banned: true } });
+  if (holder?.banned || row.ownerBanned) return json(req, { error: "This account has been suspended" }, 401);
   if (row.g.suspendedAt)
     return json(req, { error: "This graph was suspended by a moderator", reason: row.g.suspendedReason }, 403);
-  return { userId: row.g.userId, graphId: row.g.id, graphName: row.g.name };
+  return { userId: holderId, ownerId: row.g.userId, role, graphId: row.g.id, graphName: row.g.name };
 }
 
 export function removedResponse(req: Request, reason: string | null) {
   return json(req, { error: "This page was removed by a moderator", reason }, 403);
+}
+
+export function notYoursResponse(req: Request) {
+  return json(
+    req,
+    { error: "Only the person who published this page or the graph owner can change it" },
+    403,
+  );
 }

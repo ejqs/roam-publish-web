@@ -2,7 +2,7 @@
 
 import { CheckCircle2Icon, ShieldCheckIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { checkVerification, startVerification } from "./actions";
+import { KeyReveal } from "@/components/key-reveal";
+import { verifyGraph } from "./actions";
 
 function todayMMDDYYYY() {
   const d = new Date();
@@ -34,17 +35,14 @@ function todayMMDDYYYY() {
 
 const PREREQUISITES = [
   {
-    id: "installed",
-    label: "I've installed the Roam Publish extension",
-    description: "Roam Depot → Roam Publish → Install, in this graph.",
+    id: "personal",
+    label: "This is my own graph, or I manage this shared graph",
+    description:
+      "Start with your personal graph. For a shared graph, whoever connects it first owns it on roam.pub and invites everyone else, who then don't need a token.",
   },
 ] as const;
 
-type State =
-  | { step: "form" }
-  | { step: "waiting"; verificationId: string; graphName: string }
-  | { step: "done"; graphName: string }
-  | { step: "expired" };
+type State = { step: "form" } | { step: "done"; graphId: string; graphName: string };
 
 export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
   const [state, setState] = useState<State>({ step: "form" });
@@ -62,29 +60,19 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
     });
   }
 
-  useEffect(() => {
-    if (state.step !== "waiting") return;
-    const id = setInterval(async () => {
-      const r = await checkVerification(state.verificationId);
-      if (r.consumed) setState({ step: "done", graphName: state.graphName });
-      else if (r.expired) setState({ step: "expired" });
-    }, 3000);
-    return () => clearInterval(id);
-  }, [state]);
-
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     setPending(true);
     setError(null);
-    const r = await startVerification({
+    const r = await verifyGraph({
       graphName: String(form.get("graphName")),
       token: String(form.get("token")),
       date: todayMMDDYYYY(),
     });
     setPending(false);
     if (!r.ok) return setError(r.error);
-    setState({ step: "waiting", verificationId: r.verificationId, graphName: r.graphName });
+    setState({ step: "done", graphId: r.graphId, graphName: r.graphName });
   }
 
   return (
@@ -92,7 +80,7 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold">Connect your graph</h1>
         <p className="text-muted-foreground">
-          Link a Roam graph to your account so the extension can publish from it.
+          Link a Roam graph you own to your account. Shared graphs are joined by invite from their owner.
         </p>
       </div>
 
@@ -101,8 +89,8 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
           <CardHeader>
             <CardTitle>Verify graph ownership</CardTitle>
             <CardDescription>
-              We&apos;ll write a one-time code to today&apos;s daily note. The Roam Publish
-              extension reads it and finishes setup automatically.
+              We&apos;ll add one block to today&apos;s daily note with your append-only token. If Roam
+              accepts it, the graph is yours on roam.pub.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -152,41 +140,16 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
                   <ShieldCheckIcon />
                   <AlertTitle>How we use this token</AlertTitle>
                   <AlertDescription>
-                    Used once to add a verification block to today&apos;s daily note, then
-                    discarded. You can delete the token and the block after setup.
+                    Used once to add a block to today&apos;s daily note, then discarded. You can delete
+                    the token and the block right after.
                   </AlertDescription>
                 </Alert>
                 <Button type="submit" disabled={pending || !ready}>
                   {pending && <Spinner data-icon="inline-start" />}
                   Verify graph
                 </Button>
-                {!ready && (
-                  <FieldDescription className="-mt-3 text-center">
-                    Install the extension first. It reads the verification code from your daily
-                    note and finishes setup, so it must be in place before you verify.
-                  </FieldDescription>
-                )}
               </FieldGroup>
             </form>
-          </CardContent>
-        </Card>
-      )}
-
-      {state.step === "waiting" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Spinner /> Return to Roam
-            </CardTitle>
-            <CardDescription>
-              A verification block was added to today&apos;s daily note in{" "}
-              <strong>{state.graphName}</strong>. Keep Roam open with the Roam Publish extension
-              enabled. It will finish setup automatically. If nothing happens, open the extension
-              settings and click <strong>Finish setup</strong>.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            This page updates once the extension connects. The code expires in 15 minutes.
           </CardContent>
         </Card>
       )}
@@ -195,25 +158,15 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
         <Alert>
           <CheckCircle2Icon />
           <AlertTitle>{state.graphName} is connected</AlertTitle>
-          <AlertDescription>
+          <AlertDescription className="flex flex-col gap-3">
             <p>
-              You can now right-click any page or block in Roam and choose Publish. Feel free to delete
-              the verification block and the append-only token.
+              Get an API key for the Roam Publish extension, then paste it in Roam under Settings → Roam
+              Publish. You can delete the block on today&apos;s daily note and the append-only token now.
             </p>
-            <Link href="/dashboard" className={buttonVariants({ variant: "outline", className: "mt-2" })}>
+            <KeyReveal graphId={state.graphId} hasKey={false} size="default" />
+            <Link href="/dashboard" className={buttonVariants({ variant: "outline", className: "self-start" })}>
               Go to dashboard
             </Link>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {state.step === "expired" && (
-        <Alert variant="destructive">
-          <AlertTitle>The verification code expired</AlertTitle>
-          <AlertDescription>
-            <Button variant="outline" className="mt-2" onClick={() => setState({ step: "form" })}>
-              Try again
-            </Button>
           </AlertDescription>
         </Alert>
       )}

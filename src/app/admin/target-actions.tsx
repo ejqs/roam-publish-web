@@ -1,5 +1,5 @@
 import { graphPath } from "@/lib/graphs";
-import { publicationUrl } from "@/lib/publications";
+import { collectionPath, publicationUrl } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
 import { ModerateDialog } from "./moderate-dialog";
 
@@ -74,6 +74,33 @@ export function UserActions({ owner }: { owner: Owner }) {
       subject={owner.email}
       description="Signs the user out everywhere, blocks sign-in and publishing, and hides all their graphs and their profile. All open reports on their graphs and profile are marked actioned."
       notice={{ kind: "account_banned" }}
+      replyTo={replyTo()}
+    />
+  );
+}
+
+type Collection = { id: string; name: string; slug: string; suspendedAt: Date | null };
+
+export function CollectionActions({ c }: { c: Collection }) {
+  const notice = { collectionName: c.name, url: appUrl() + collectionPath(c.slug) };
+  return c.suspendedAt ? (
+    <ModerateDialog
+      op="unsuspend"
+      targetId={c.id}
+      targetType="collection"
+      subject={c.name}
+      description="The collection and its pages become visible again."
+      notice={{ kind: "collection_restored", ...notice }}
+      replyTo={replyTo()}
+    />
+  ) : (
+    <ModerateDialog
+      op="suspend"
+      targetId={c.id}
+      targetType="collection"
+      subject={c.name}
+      description="Hides the collection and its pages there (they stay in their graphs) and takes it off Discover. Open reports on it are marked actioned."
+      notice={{ kind: "collection_suspended", ...notice }}
       replyTo={replyTo()}
     />
   );

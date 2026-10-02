@@ -20,7 +20,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { DiscoverRow } from "@/lib/discover";
-import { graphPath, publicationPath } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
 import { type DiscoverSort, listHref, PAGE_SIZE } from "./sort";
 
@@ -49,19 +48,22 @@ const columns = helper.columns([
     cell: (info) => {
       const r = info.row.original;
       return (
-        <Link href={publicationPath(r.graphName, r.rootUid, r.title)} className="text-link hover:underline">
+        <Link href={r.href} className="text-link hover:underline">
           {plainText(r.title) || "Untitled"}
         </Link>
       );
     },
   }),
   helper.accessor("graphName", {
-    header: "Graph",
-    cell: (info) => (
-      <Link href={graphPath(info.getValue())} className="text-link hover:underline">
-        {info.getValue()}
-      </Link>
-    ),
+    header: "From",
+    cell: (info) => {
+      const { source } = info.row.original;
+      return (
+        <Link href={source.href} className="text-link hover:underline">
+          {source.label}
+        </Link>
+      );
+    },
   }),
   helper.accessor("votes", { header: "Votes", cell: (info) => info.getValue().toLocaleString("en-US") }),
   helper.accessor("views", { header: "Views", cell: (info) => info.getValue().toLocaleString("en-US") }),

@@ -7,7 +7,7 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, LockIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
@@ -24,6 +24,12 @@ import { plainText } from "@/lib/slug";
 import { listHref, PAGE_SIZE, type Sort } from "./sort";
 
 export type Row = {
+  /** Where the title links; defaults to the graph page. */
+  href?: string;
+  /** Needs a password or membership to read. */
+  locked?: boolean;
+  /** Byline, when the container shows authors. */
+  author?: string;
   rootUid: string;
   kind: "page" | "block";
   title: string;
@@ -47,13 +53,16 @@ const SORT_LABELS: [Sort, string][] = [
 ];
 
 export function PublicationTable({
-  graphName,
+  graphName = "",
   rows,
   sort,
   page,
   pageCount,
+  sortable = true,
 }: {
-  graphName: string;
+  /** Off where the order is fixed, like a collection's. */
+  sortable?: boolean;
+  graphName?: string;
   rows: Row[];
   sort: Sort;
   page: number;
@@ -66,12 +75,15 @@ export function PublicationTable({
       cell: (info) => {
         const r = info.row.original;
         return (
-          <Link
-            href={publicationPath(graphName, r.rootUid, r.title)}
-            className="text-link hover:underline"
-          >
-            {plainText(r.title) || "Untitled"}
-          </Link>
+          <span className="flex flex-col">
+            <span className="flex items-center gap-1.5">
+              {r.locked && <LockIcon aria-label="Protected" className="size-3.5 shrink-0 text-muted-foreground" />}
+              <Link href={r.href ?? publicationPath(graphName, r.rootUid, r.title)} className="text-link hover:underline">
+                {plainText(r.title) || "Untitled"}
+              </Link>
+            </span>
+            {r.author && <span className="text-xs text-muted-foreground">By {r.author}</span>}
+          </span>
         );
       },
     }),
@@ -95,19 +107,21 @@ export function PublicationTable({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span>Sort by</span>
-        {SORT_LABELS.map(([value, label]) => (
-          <Link
-            key={value}
-            href={listHref(pathname, value, 1)}
-            aria-current={value === sort ? "true" : undefined}
-            className={buttonVariants({ variant: value === sort ? "secondary" : "ghost", size: "sm" })}
-          >
-            {label}
-          </Link>
-        ))}
-      </div>
+      {sortable && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>Sort by</span>
+          {SORT_LABELS.map(([value, label]) => (
+            <Link
+              key={value}
+              href={listHref(pathname, value, 1)}
+              aria-current={value === sort ? "true" : undefined}
+              className={buttonVariants({ variant: value === sort ? "secondary" : "ghost", size: "sm" })}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <Table>
         <TableHeader>
@@ -117,14 +131,18 @@ export function PublicationTable({
                 const sorted = header.column.getIsSorted();
                 return (
                   <TableHead key={header.id} className={header.column.id === "title" ? "" : "w-32"}>
-                    <Link
-                      href={listHref(pathname, SORT_BY_COLUMN[header.column.id], 1)}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                    >
+                    {!sortable ? (
                       <table.FlexRender header={header} />
-                      {sorted === "asc" && <ArrowUp className="size-3.5" />}
-                      {sorted === "desc" && <ArrowDown className="size-3.5" />}
-                    </Link>
+                    ) : (
+                      <Link
+                        href={listHref(pathname, SORT_BY_COLUMN[header.column.id], 1)}
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                      >
+                        <table.FlexRender header={header} />
+                        {sorted === "asc" && <ArrowUp className="size-3.5" />}
+                        {sorted === "desc" && <ArrowDown className="size-3.5" />}
+                      </Link>
+                    )}
                   </TableHead>
                 );
               })}

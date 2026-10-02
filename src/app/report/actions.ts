@@ -4,9 +4,10 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { profile, publication, report, usernameAlias } from "@/db/schema";
+import { collectionEntry, profile, publication, report, usernameAlias } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { sha256 } from "@/lib/content-hash";
+import { loadCollection } from "@/lib/collections";
 import { loadGraph } from "@/lib/graphs";
 import { rateLimit } from "@/lib/rate-limit";
 import { reportReasons } from "@/lib/report-reasons";
@@ -17,6 +18,8 @@ const Input = z.object({
   graphName: z.string().min(1).max(200).optional(),
   rootUid: z.string().max(64).optional(),
   username: z.string().min(1).max(64).optional(),
+  collectionSlug: z.string().min(1).max(64).optional(),
+  entryUid: z.string().max(64).optional(),
   reason: z.enum(reportReasons, {
     error: "Choose a reason.",
   }),
@@ -45,13 +48,16 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
     graphName: formData.get("graphName") || undefined,
     rootUid: formData.get("rootUid") || undefined,
     username: formData.get("username") || undefined,
+    collectionSlug: formData.get("collectionSlug") || undefined,
+    entryUid: formData.get("entryUid") || undefined,
     reason: formData.get("reason"),
     details: formData.get("details") ?? "",
     email: formData.get("email") ?? "",
   });
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const r = parsed.data;
-  if (!r.graphName === !r.username) return { ok: false, message: "Invalid report." };
+  if ([r.graphName, r.username, r.collectionSlug].filter(Boolean).length !== 1)
+    return { ok: false, message: "Invalid report." };
 
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
@@ -61,7 +67,19 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
   let graphId: string | null = null;
   let publicationId: string | null = null;
   let profileUserId: string | null = null;
-  if (r.username) {
+  let collectionId: string | null = null;
+  if (r.collectionSlug) {
+    const c = await loadCollection(r.collectionSlug);
+    if (!c) return GONE;
+    collectionId = c.id;
+    if (r.entryUid) {
+      const entry = await db.query.collectionEntry.findFirst({
+        where: and(eq(collectionEntry.collectionId, c.id), eq(collectionEntry.entryUid, r.entryUid.toLowerCase())),
+      });
+      if (!entry) return GONE;
+      publicationId = entry.publicationId;
+    }
+  } else if (r.username) {
     profileUserId = await profileOwner(r.username.toLowerCase());
     if (!profileUserId) return { ok: false, message: "That profile no longer exists." };
   } else {
@@ -84,7 +102,12 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
       eq(report.ipHash, ipHash),
       profileUserId
         ? eq(report.profileUserId, profileUserId)
-        : and(
+        : collectionId
+          ? and(
+              eq(report.collectionId, collectionId),
+              publicationId ? eq(report.publicationId, publicationId) : isNull(report.publicationId),
+            )
+          : and(
             eq(report.graphId, graphId!),
             publicationId ? eq(report.publicationId, publicationId) : isNull(report.publicationId),
           ),
@@ -97,6 +120,7 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
   const session = await auth.api.getSession({ headers: h });
   await db.insert(report).values({
     graphId,
+    collectionId,
     publicationId,
     profileUserId,
     reason: r.reason,
