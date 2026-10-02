@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { Access } from "@/db/schema";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
-import { deleteCollection, updateCollection } from "../actions";
+import { deleteCollection, updateCollection } from "../../actions";
 
 type Initial = {
   name: string;
