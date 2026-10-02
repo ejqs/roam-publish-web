@@ -12,10 +12,10 @@ import { cn } from "cn";
 import { type Access, setAccess } from "./actions";
 import { updateGraphPlace } from "./place-actions";
 
-const ICONS = { unlisted: LinkIcon, public: GlobeIcon, discover: CompassIcon };
-const LABELS = { unlisted: LISTING_LABELS.unlisted, public: LISTING_LABELS.listed, discover: LISTING_LABELS.discover };
+export const ICONS = { unlisted: LinkIcon, public: GlobeIcon, discover: CompassIcon };
+export const LABELS = { unlisted: LISTING_LABELS.unlisted, public: LISTING_LABELS.listed, discover: LISTING_LABELS.discover };
 
-type Option<T> = { value: T; label: string; description?: string; disabled?: string; icon?: LucideIcon };
+export type Option<T> = { value: T; label: string; description?: string; disabled?: string; icon?: LucideIcon };
 
 /**
  * One control for a page's place in its graph: how far it reaches (link only, the graph's front
@@ -151,7 +151,7 @@ export function AccessMenu({
   );
 }
 
-function Section<T extends string>({
+export function Section<T extends string>({
   label,
   value,
   options,
