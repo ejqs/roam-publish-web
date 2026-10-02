@@ -1,11 +1,12 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
 import {
+  ACCESS,
   collection,
   collectionEntry,
   ENTRY_LISTING,
@@ -212,4 +213,58 @@ export async function removeEntry(entryId: string): Promise<PlaceResult> {
   await db.delete(collectionEntry).where(eq(collectionEntry.id, entry.id));
   revalidateAll();
   return { ok: true, message: "Removed from the collection." };
+}
+
+/**
+ * Sets who can read every page in a graph or collection at once. Pages matching the container's
+ * default follow it; own passwords are kept. Owner only.
+ */
+export async function applyAccessToAllPages(
+  kind: "graph" | "collection",
+  containerId: string,
+  raw: (typeof ACCESS)[number],
+): Promise<PlaceResult> {
+  const uid = await userId();
+  if (!uid) return SESSION_EXPIRED;
+  const parsed = z.enum(ACCESS).safeParse(raw);
+  if (!parsed.success) return { ok: false, message: "Pick who can read." };
+  const access = parsed.data;
+
+  const c =
+    kind === "graph"
+      ? await db.query.graph.findFirst({ where: and(eq(graph.id, containerId), eq(graph.userId, uid)) })
+      : await db.query.collection.findFirst({
+          where: and(eq(collection.id, containerId), eq(collection.ownerId, uid)),
+        });
+  if (!c) return NOT_ALLOWED;
+  const value = access === c.defaultAccess ? ("inherit" as const) : access;
+
+  if (access === "password" && !c.passwordHash) {
+    // Every page would need its own password.
+    const table = kind === "graph" ? publication : collectionEntry;
+    const parent = kind === "graph" ? publication.graphId : collectionEntry.collectionId;
+    const [missing] = await db
+      .select({ n: count() })
+      .from(table)
+      .where(and(eq(parent, c.id), isNull(table.passwordHash)));
+    if (missing.n > 0) return { ok: false, message: NEEDS_PASSWORD(kind) };
+  }
+
+  const updated =
+    kind === "graph"
+      ? await db
+          .update(publication)
+          .set({ access: value })
+          .where(eq(publication.graphId, c.id))
+          .returning({ id: publication.id })
+      : await db
+          .update(collectionEntry)
+          .set({ access: value })
+          .where(eq(collectionEntry.collectionId, c.id))
+          .returning({ id: collectionEntry.id });
+  if (kind === "graph") await clearGatedGraphDiscover(c.id);
+  else await clearGatedCollectionDiscover(c.id);
+  revalidateAll();
+  const n = updated.length;
+  return { ok: true, message: `Updated ${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}.` };
 }

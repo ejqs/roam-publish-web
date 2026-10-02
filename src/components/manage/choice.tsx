@@ -36,9 +36,4 @@ export function Choice<T extends string>({
   );
 }
 
-export const ACCESS_LABELS = { open: "Open", password: "Password", members: "Members only" } as const;
-export const ACCESS_DESCRIPTIONS = {
-  open: "Anyone with the link can read.",
-  password: "Readers enter a password. Unlocking lasts 30 days on that browser.",
-  members: "Only signed-in members can read.",
-} as const;
+export { ACCESS_DESCRIPTIONS, ACCESS_LABELS, LISTING_LABELS, readOptions } from "./labels";

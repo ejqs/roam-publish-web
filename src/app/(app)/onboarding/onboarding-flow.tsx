@@ -44,12 +44,19 @@ const PREREQUISITES = [
 
 type State = { step: "form" } | { step: "done"; graphId: string; graphName: string };
 
-export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
+export function OnboardingFlow({
+  initialGraph,
+  hasGraph,
+}: {
+  initialGraph: string;
+  /** Already has a verified graph, so knows the drill: skip the "Before you start" checklist. */
+  hasGraph: boolean;
+}) {
   const [state, setState] = useState<State>({ step: "form" });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const ready = PREREQUISITES.every((p) => checked.has(p.id));
+  const ready = hasGraph || PREREQUISITES.every((p) => checked.has(p.id));
 
   function toggle(id: string, on: boolean) {
     setChecked((prev) => {
@@ -78,7 +85,7 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-12">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Connect your graph</h1>
+        <h1 className="text-2xl font-semibold">{hasGraph ? "Connect another graph" : "Connect your graph"}</h1>
         <p className="text-muted-foreground">
           Link a Roam graph you own to your account. Shared graphs are joined by invite from their owner.
         </p>
@@ -101,26 +108,28 @@ export function OnboardingFlow({ initialGraph }: { initialGraph: string }) {
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
-                <FieldSet>
-                  <FieldLegend variant="label">Before you start</FieldLegend>
-                  <FieldGroup data-slot="checkbox-group">
-                    {PREREQUISITES.map((p) => (
-                      <Field key={p.id} orientation="horizontal">
-                        <Checkbox
-                          id={`prereq-${p.id}`}
-                          checked={checked.has(p.id)}
-                          onCheckedChange={(v) => toggle(p.id, !!v)}
-                        />
-                        <FieldContent>
-                          <FieldLabel htmlFor={`prereq-${p.id}`} className="font-normal">
-                            {p.label}
-                          </FieldLabel>
-                          <FieldDescription>{p.description}</FieldDescription>
-                        </FieldContent>
-                      </Field>
-                    ))}
-                  </FieldGroup>
-                </FieldSet>
+                {!hasGraph && (
+                  <FieldSet>
+                    <FieldLegend variant="label">Before you start</FieldLegend>
+                    <FieldGroup data-slot="checkbox-group">
+                      {PREREQUISITES.map((p) => (
+                        <Field key={p.id} orientation="horizontal">
+                          <Checkbox
+                            id={`prereq-${p.id}`}
+                            checked={checked.has(p.id)}
+                            onCheckedChange={(v) => toggle(p.id, !!v)}
+                          />
+                          <FieldContent>
+                            <FieldLabel htmlFor={`prereq-${p.id}`} className="font-normal">
+                              {p.label}
+                            </FieldLabel>
+                            <FieldDescription>{p.description}</FieldDescription>
+                          </FieldContent>
+                        </Field>
+                      ))}
+                    </FieldGroup>
+                  </FieldSet>
+                )}
                 <Field>
                   <FieldLabel htmlFor="graphName">Graph name</FieldLabel>
                   <Input id="graphName" name="graphName" defaultValue={initialGraph} placeholder="my-graph" required />

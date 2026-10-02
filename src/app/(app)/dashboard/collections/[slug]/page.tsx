@@ -47,8 +47,8 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-12">
       <div className="flex flex-col gap-1">
-        <Link href="/dashboard/collections" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Collections
+        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+          ← Dashboard
         </Link>
         <h1 className="text-2xl font-semibold">{c.name}</h1>
         <Link href={collectionPath(c.slug)} className="text-sm text-link hover:underline">
@@ -76,7 +76,7 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
                 key={entry.id}
                 entryId={entry.id}
                 title={title}
-                path={entryPath(entry.entryUid, title)}
+                path={entryPath(c.slug, entry.entryUid, title)}
                 origin={`${entry.originGraphName} · ${entry.originRootUid}`}
                 addedBy={addedByEmail ?? "a former member"}
                 removed={!!removedAt}
@@ -117,6 +117,7 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
             discoverable: c.discoverable,
           }}
           hasPassword={!!c.passwordHash}
+          pageCount={entries.length}
         />
       )}
       <MembersPanel

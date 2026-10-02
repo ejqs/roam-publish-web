@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, LockIcon } from "lucide-react";
 import Link from "next/link";
+import { lockExplanation } from "@/components/access-lock";
 import { ManageDialog } from "@/components/manage/manage-dialog";
 import { Badge } from "@/components/ui/badge";
 import type { graph, publication } from "@/db/schema";
@@ -99,20 +100,24 @@ export function PublicationList({
                   </>
                 ) : !p.inGraph ? (
                   <Badge variant="outline">Collections only</Badge>
-                ) : !m ? (
-                  <Badge variant="outline" className="capitalize">{p.visibility === "public" ? "listed" : "unlisted"}</Badge>
+                ) : !m?.canManagePage ? (
+                  <Badge variant="outline">{p.visibility === "public" ? "Listed" : "Not listed"}</Badge>
                 ) : (
                   <AccessMenu
                     publicationId={p.id}
                     access={p.visibility === "unlisted" ? "unlisted" : p.discoverable ? "discover" : "public"}
                     frontPage={g.frontPage}
                     indexable={g.indexable}
-                    discoverBlocked={gAccess !== "open" ? "Protected pages can't go on Discover." : discoverBlocked}
+                    discoverBlocked={discoverBlocked}
+                    place={m.graphPlace}
                   />
                 )}
                 {!p.removedAt && p.inGraph && gAccess !== "open" && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                    <LockIcon className="size-3" /> {gAccess === "password" ? "Password" : "Members only"}
+                  <p
+                    title={lockExplanation(gAccess, "graph", g.name)}
+                    className="mt-1 flex w-fit cursor-help items-center gap-1 text-xs text-muted-foreground"
+                  >
+                    <LockIcon className="size-3" /> {gAccess === "password" ? "Password" : `Members of ${g.name}`}
                   </p>
                 )}
                 {!p.removedAt && p.discoverable && p.visibility === "public" && (
