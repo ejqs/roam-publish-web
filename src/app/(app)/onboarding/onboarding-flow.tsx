@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2Icon, ShieldCheckIcon, TriangleAlertIcon } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -50,12 +51,27 @@ function TokenDeletionSteps() {
       <li>
         <strong>Click</strong> the token&apos;s link under <em>Roam Page Title</em> in Settings → Graph → API
         tokens (e.g. <code>[[API Token: Roam Publish]]</code>) to open its page.
+        <Image
+          src="/onboarding/roam-token-page-title.png"
+          alt="Roam's API tokens table with the Roam Page Title link [[API Token: Roam Publish]] highlighted"
+          width={907}
+          height={188}
+          className="mt-2 rounded-md border"
+        />
       </li>
       <li>
         <strong>Delete</strong> that page: <em>⋯</em> menu (top right) → <em>Delete Page</em>.
+        <Image
+          src="/onboarding/roam-delete-page.png"
+          alt="The API Token: Roam Publish page in Roam with the ⋯ menu open and Delete Page highlighted"
+          width={861}
+          height={399}
+          className="mt-2 rounded-md border"
+        />
       </li>
       <li>
-        <strong>Revoke</strong> the token: back in API tokens, click the <em>✕</em> next to it.
+        <strong>Revoke</strong> the token: back in API tokens, click the <em>✕</em> next to it (far right in
+        the first screenshot). Only do this after the page is deleted.
       </li>
     </ol>
   );
