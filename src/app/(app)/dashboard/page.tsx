@@ -19,7 +19,6 @@ import { pendingInvitesFor } from "@/lib/invites";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { AttentionBanners, attentionItems } from "./attention-banners";
-import { LISTING_LABELS } from "@/components/manage/labels";
 import { AddCollectionDialog } from "./collections/create-form";
 import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
@@ -103,10 +102,12 @@ export default async function DashboardPage() {
           {c.suspendedAt && <Badge variant="destructive">Suspended</Badge>}
         </>
       ),
-      summary: { label: `${total.toLocaleString("en-US")} ${total === 1 ? "page" : "pages"}`, href: manageHref },
-      stats: ENTRY_LISTING.filter((l) => n[l] > 0).map((l) => ({
-        label: `${n[l].toLocaleString("en-US")} ${l === "discover" ? "on Discover" : LISTING_LABELS[l].toLowerCase()}`,
-      })),
+      counts: {
+        pages: { n: total, href: manageHref },
+        unlisted: { n: n.unlisted },
+        listed: { n: n.listed },
+        discover: { n: n.discover },
+      },
       viewHref: collectionPath(c.slug),
       viewLabel: "View collection",
       membersHref: `${manageHref}/members`,
@@ -120,7 +121,17 @@ export default async function DashboardPage() {
         ) : undefined,
     };
   });
-  const collectionCards = <ResourceList title="Collections" items={collectionItems} />;
+  const collectionCards = <ResourceList
+      title="Collections"
+      nameLabel="Collection"
+      columns={[
+        { key: "pages", label: "Pages" },
+        { key: "unlisted", label: "Not listed" },
+        { key: "listed", label: "Listed" },
+        { key: "discover", label: "Discover" },
+      ]}
+      items={collectionItems}
+    />;
 
   const graphItems: ResourceItem[] = graphs.map((g) => {
     const c = counts.get(g.id) ?? { ...EMPTY, total: 0 };
@@ -133,13 +144,19 @@ export default async function DashboardPage() {
       name: g.name,
       manageHref: pagesHref,
       badges: g.role === "member" ? <Badge variant="outline">Member</Badge> : undefined,
-      summary: { label: `${c.total.toLocaleString("en-US")} published`, href: pagesHref },
-      stats: ACCESS.filter((a) => c[a] > 0).map((a) => ({
-        label: `${c[a].toLocaleString("en-US")} ${a === "discover" ? "on Discover" : ACCESS_LABELS[a].toLowerCase()}${a === "discover" && paused ? " (paused)" : ""}`,
-        href: `${pagesHref}?access=${a}`,
-        tone: a === "removed" ? ("destructive" as const) : undefined,
-        title: a === "discover" && paused ? `Discover is paused: ${paused}` : undefined,
-      })),
+      counts: Object.fromEntries([
+        ["total", { n: c.total, href: pagesHref }],
+        ...ACCESS.map((a) => [
+          a,
+          {
+            n: c[a],
+            href: `${pagesHref}?access=${a}`,
+            tone: a === "removed" ? "destructive" : undefined,
+            title: a === "discover" && paused ? `Discover is paused: ${paused}` : undefined,
+            suffix: a === "discover" && paused ? " (paused)" : undefined,
+          },
+        ]),
+      ]),
       viewHref: g.frontPage ? graphPath(g.name) : undefined,
       viewLabel: "View front page",
       membersHref: `${base}/members`,
@@ -207,7 +224,17 @@ export default async function DashboardPage() {
       {nav}
       {banners}
       {profileCard}
-      <ResourceList title="Graphs" items={graphItems} />
+      <ResourceList
+        title="Graphs"
+        nameLabel="Graph"
+        columns={[
+          { key: "total", label: "Published" },
+          ...ACCESS.filter((a) => a !== "removed" || graphs.some((g) => (counts.get(g.id)?.removed ?? 0) > 0)).map(
+            (a) => ({ key: a, label: ACCESS_LABELS[a] }),
+          ),
+        ]}
+        items={graphItems}
+      />
       {collectionCards}
     </div>
   );
