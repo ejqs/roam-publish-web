@@ -19,7 +19,7 @@ import { collectionEntry, graph, publication, publicationVote, user } from "@/db
 import { canManageEntry, collectionRole, resolveC } from "@/lib/collections";
 import { collectionFeedPath, hasCollectionFeed } from "@/lib/feeds";
 import { type Container, containerLock, effectiveAccess, gate, pageLock, type Place, showsAuthor } from "@/lib/gates";
-import { canManage, graphRole } from "@/lib/graph-access";
+import { canManage, canSearchSite, graphRole } from "@/lib/graph-access";
 import { manageDataFor } from "@/lib/manage-data";
 import { liveGraph } from "@/lib/moderation";
 import { collectionPath, entryPath } from "@/lib/publications";
@@ -165,7 +165,7 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
-          <QuickSearch scope={{ path: collectionPath(c.slug), name: c.name }} />
+          <QuickSearch scope={{ path: collectionPath(c.slug), name: c.name }} siteSearch={await canSearchSite(me)} />
           <DashboardLink href={role ? `/dashboard/collections/${encodeURIComponent(c.slug)}` : undefined} />
           {role === "owner" && <ManageLink href={`/dashboard/collections/${encodeURIComponent(c.slug)}/settings`} />}
           {hasCollectionFeed(c) && <FeedLink href={collectionFeedPath(c.slug)} />}
@@ -267,6 +267,7 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
       crumbs={[{ label: c.name, href: collectionPath(c.slug) }, { label: plainText(pub.title) }]}
       links={links}
       related={related}
+      siteSearch={await canSearchSite(me)}
       byline={byline}
       report={{ collectionSlug: c.slug, entryUid: entry.entryUid }}
       votes={votes}

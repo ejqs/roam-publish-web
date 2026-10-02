@@ -15,14 +15,21 @@ let seen = 0;
 let changed = 0;
 for (;;) {
   const rows = await db
-    .select({ id: publication.id, tree: publication.tree, tags: publication.tags, searchText: publication.searchText })
+    .select({
+      id: publication.id,
+      tree: publication.tree,
+      tags: publication.tags,
+      searchText: publication.searchText,
+      tagsAdded: publication.tagsAdded,
+      tagsHidden: publication.tagsHidden,
+    })
     .from(publication)
     .where(gt(publication.id, after))
     .orderBy(asc(publication.id))
     .limit(BATCH);
   if (!rows.length) break;
   for (const r of rows) {
-    const next = indexFields(r.tree);
+    const next = indexFields(r.tree, r);
     if (next.searchText !== r.searchText || next.tags.join("\n") !== r.tags.join("\n")) {
       await db.update(publication).set(next).where(eq(publication.id, r.id));
       changed++;

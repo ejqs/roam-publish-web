@@ -1,6 +1,5 @@
 import { BookIcon, FolderIcon, SearchIcon, XIcon } from "lucide-react";
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import Link from "next/link";
 import { cn } from "cn";
 import { chipClass, formatDate } from "@/components/page-list";
@@ -11,10 +10,12 @@ import { buttonVariants } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { MAX_FILTER_TAGS, toggleTag } from "@/lib/list-params";
+import { canSearchSite } from "@/lib/graph-access";
 import { rateLimit } from "@/lib/rate-limit";
 import { SEARCH_PAGE_SIZE, type SearchSort, searchPages, searchPlaces } from "@/lib/site-search";
 import { plainText } from "@/lib/slug";
 import { normalizeTag } from "@/lib/tags";
+import { viewerId } from "@/lib/viewer";
 
 export const metadata: Metadata = {
   title: "Search · Roam Publish",
@@ -52,12 +53,14 @@ const side = (on: boolean) => cn(buttonVariants({ variant: "ghost" }), "justify-
 
 export default async function SearchPage(props: PageProps<"/search">) {
   const s = parse(await props.searchParams);
-  const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
+  const me = await viewerId();
+  const verified = await canSearchSite(me);
   const searching = !!s.q || s.tags.length > 0;
-  const allowed = !searching || rateLimit(`search:ip:${ip}`, 60, 60 * 1000);
+  const allowed = !searching || !verified || rateLimit(`search:user:${me}`, 60, 60 * 1000);
   const [pages, places] =
-    searching && allowed ? await Promise.all([searchPages(s), s.page === 1 ? searchPlaces(s.q) : []]) : [null, []];
+    searching && verified && allowed
+      ? await Promise.all([searchPages(s), s.page === 1 ? searchPlaces(s.q) : []])
+      : [null, []];
   const pageCount = pages ? Math.max(1, Math.ceil(pages.total / SEARCH_PAGE_SIZE)) : 1;
 
   return (
@@ -80,7 +83,25 @@ export default async function SearchPage(props: PageProps<"/search">) {
             />
           </form>
 
-          {!searching ? (
+          {!verified ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyTitle>{me ? "Connect a Roam graph to search" : "Log in to search"}</EmptyTitle>
+                <EmptyDescription>
+                  Searching all of Roam Publish is for people with a verified email and a verified Roam graph. You can
+                  still search inside any graph or collection from its page.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Link
+                  href={me ? "/onboarding" : `/login?next=${encodeURIComponent(href(s))}`}
+                  className={buttonVariants({ size: "sm" })}
+                >
+                  {me ? "Connect a graph" : "Log in"}
+                </Link>
+              </EmptyContent>
+            </Empty>
+          ) : !searching ? (
             <p className="text-sm text-muted-foreground">
               Search titles and text of pages listed on public graphs and collections. Add a #tag to narrow it down.
             </p>

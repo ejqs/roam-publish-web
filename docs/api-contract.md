@@ -191,10 +191,16 @@ sends nothing new and the hash is unchanged.
   `[[Page]]` refs alone aren't tags. Up to 50 per page. Logic: `src/lib/tags.ts`.
 - **Search text** (`publication.search_text`): plain text of every block. `publication.search` is a generated
   `tsvector` (`simple` config, title weighted above body).
+- **Website edits**: people who can manage a page add or remove tags in its Manage dialog
+  (`src/app/(app)/dashboard/tag-actions.ts`). They're stored as `tags_added` and `tags_hidden` and reapplied
+  on every republish, so a Roam `#tag` removed on the website stays removed. `tags` is always
+  (tags from the tree ∪ `tags_added`) − `tags_hidden`.
 - After changing `src/lib/tags.ts`, run `bun run search:backfill` to recompute existing rows.
 
 Graph front pages and collection pages take `?q=`, `?tag=` (repeatable, all must match), `?kind=page|block`,
-`?sort=` and `?page=`; `/{graph}/tags` lists a graph's tags. `/search` and `/api/search` search only pages anyone
+`?sort=` and `?page=`; `/{graph}/tags` lists a graph's tags. `/search` and `/api/search` are for verified people only: signed in (which needs a verified
+email) and the owner or a member of a graph that isn't suspended; otherwise `/search` explains why and
+`/api/search` returns `401` or `403`. Searching inside one graph or collection stays open to everyone. They search only pages anyone
 could find by browsing: open, listed pages on an open, indexable front page or collection. Unlisted, protected,
 removed and suspended content never appears there.
 
