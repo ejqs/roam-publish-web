@@ -31,9 +31,13 @@ const Input = z.object({
   token: z.string().trim().startsWith("roam-graph-token-", "Tokens start with roam-graph-token-"),
   date: z.string().regex(/^\d{2}-\d{2}-\d{4}$/),
   timeZone: z.string().max(64).optional(),
+  /** Keep the token, encrypted, for the change log. Off: it's only used to verify. */
+  keepToken: z.boolean().default(true),
 });
 
-export type VerifyResult = { ok: true; graphId: string; graphName: string } | { ok: false; error: string };
+export type VerifyResult =
+  | { ok: true; graphId: string; graphName: string; changeLog: boolean }
+  | { ok: false; error: string };
 
 const TAKEN = "This graph is already on roam.pub. Ask its owner to invite you from their dashboard.";
 
@@ -41,7 +45,8 @@ const TAKEN = "This graph is already on roam.pub. Ask its owner to invite you fr
  * Verifies a graph by writing one block to its daily note with the user's append-only token. Roam
  * only gives a graph's tokens to its admins and rejects a token used on another graph, so a write
  * that succeeds proves control of the graph. The first account to verify a graph owns it here.
- * The token is then kept, encrypted, for the change log under each page's shortlink block.
+ * Unless turned off, the token is then kept, encrypted, for the change log under each page's
+ * shortlink block. Turned off on a graph that already has one leaves the stored token alone.
  */
 export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyResult> {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -49,7 +54,7 @@ export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyR
 
   const parsed = Input.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  const { graphName, token, date, timeZone } = parsed.data;
+  const { graphName, token, date, timeZone, keepToken } = parsed.data;
 
   if (!rateLimit(`verify:user:${session.user.id}`, 10, 15 * 60 * 1000))
     return { ok: false, error: "Too many attempts. Try again in a few minutes." };
@@ -68,15 +73,17 @@ export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyR
   );
   if (!result.ok) return { ok: false, error: result.message };
 
-  const stored = canStoreTokens()
-    ? {
-        appendTokenEnc: encryptToken(token),
-        appendTokenStatus: "ok" as const,
-        appendTokenAddedAt: new Date(),
-        appendTokenOkAt: new Date(),
-        ...(timeZone && validTimeZone(timeZone) && { timeZone }),
-      }
-    : {};
+  const changeLog = keepToken && canStoreTokens();
+  const stored = {
+    ...(changeLog && {
+      appendTokenEnc: encryptToken(token),
+      appendTokenStatus: "ok" as const,
+      appendTokenAddedAt: new Date(),
+      appendTokenOkAt: new Date(),
+    }),
+    // Change log entries are dated in it, also once a token is added later.
+    ...(timeZone && validTimeZone(timeZone) && { timeZone }),
+  };
 
   const [g] = await db
     .insert(graph)
@@ -91,5 +98,5 @@ export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyR
   if (!g) return { ok: false, error: TAKEN };
 
   revalidatePath("/dashboard", "layout");
-  return { ok: true, graphId: g.id, graphName: g.name };
+  return { ok: true, graphId: g.id, graphName: g.name, changeLog };
 }

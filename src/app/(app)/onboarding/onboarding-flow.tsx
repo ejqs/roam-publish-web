@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { KeyReveal } from "@/components/key-reveal";
 import { verifyGraph } from "./actions";
 
@@ -43,20 +44,28 @@ const PREREQUISITES = [
   },
 ] as const;
 
-type State = { step: "warning" } | { step: "form" } | { step: "done"; graphId: string; graphName: string };
+type State =
+  | { step: "warning" }
+  | { step: "form" }
+  | { step: "done"; graphId: string; graphName: string; changeLog: boolean };
 
 export function OnboardingFlow({
   initialGraph,
   hasGraph,
+  changeLogAvailable,
 }: {
   initialGraph: string;
   /** Already has a verified graph, so knows the drill: skip the "Before you start" checklist. */
   hasGraph: boolean;
+  /** The server can store tokens, so the change log can be turned on. */
+  changeLogAvailable: boolean;
 }) {
   const [state, setState] = useState<State>({ step: "warning" });
   const [acknowledged, setAcknowledged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [keepToken, setKeepToken] = useState(true);
+  const changeLog = changeLogAvailable && keepToken;
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const ready = hasGraph || PREREQUISITES.every((p) => checked.has(p.id));
 
@@ -79,10 +88,11 @@ export function OnboardingFlow({
       token: String(form.get("token")),
       date: todayMMDDYYYY(),
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      keepToken: changeLog,
     });
     setPending(false);
     if (!r.ok) return setError(r.error);
-    setState({ step: "done", graphId: r.graphId, graphName: r.graphName });
+    setState({ step: "done", graphId: r.graphId, graphName: r.graphName, changeLog: r.changeLog });
   }
 
   return (
@@ -190,13 +200,35 @@ export function OnboardingFlow({
                     <strong>append-only access</strong>.
                   </FieldDescription>
                 </Field>
+                {changeLogAvailable && (
+                  <Field orientation="horizontal">
+                    <FieldContent>
+                      <FieldLabel htmlFor="keepToken">Keep a change log in Roam</FieldLabel>
+                      <FieldDescription>
+                        Adds a dated entry under each published page&apos;s shortlink block whenever it&apos;s
+                        published, changed or unpublished. You can turn it on or off later in the graph&apos;s
+                        settings.
+                      </FieldDescription>
+                    </FieldContent>
+                    <Switch id="keepToken" checked={keepToken} onCheckedChange={setKeepToken} />
+                  </Field>
+                )}
                 <Alert>
                   <ShieldCheckIcon />
                   <AlertTitle>How we use this token</AlertTitle>
                   <AlertDescription>
-                    We add one block to today&apos;s daily note to verify the graph, then keep the token
-                    encrypted to add a roam.pub change log under each published page&apos;s shortlink block.
-                    It can only append. Remove it in the graph&apos;s settings or revoke it in Roam at any time.
+                    {changeLog ? (
+                      <>
+                        We add one block to today&apos;s daily note to verify the graph, then keep the token
+                        encrypted for the change log. It can only append. Remove it in the graph&apos;s settings
+                        or revoke it in Roam at any time.
+                      </>
+                    ) : (
+                      <>
+                        We add one block to today&apos;s daily note to verify the graph. The token isn&apos;t
+                        stored, so you can revoke it in Roam right after.
+                      </>
+                    )}
                   </AlertDescription>
                 </Alert>
                 <Button type="submit" disabled={pending || !ready}>
@@ -216,8 +248,24 @@ export function OnboardingFlow({
           <AlertDescription className="flex flex-col gap-3">
             <p>
               Get an API key for the Roam Publish extension, then paste it in Roam under Settings → Roam
-              Publish. You can delete the block on today&apos;s daily note now. Keep the append-only token:
-              roam.pub uses it for the change log under each published page.
+              Publish. You can delete the block on today&apos;s daily note now.{" "}
+              {state.changeLog ? (
+                <>
+                  Keep the append-only token: roam.pub uses it for the change log under each published page.
+                </>
+              ) : (
+                <>
+                  roam.pub didn&apos;t keep the append-only token, so you can revoke it in Roam. Turn on the
+                  change log any time in the{" "}
+                  <Link
+                    href={`/dashboard/${encodeURIComponent(state.graphName)}/settings#change-log`}
+                    className="underline underline-offset-4"
+                  >
+                    graph&apos;s settings
+                  </Link>
+                  .
+                </>
+              )}
             </p>
             <KeyReveal graphId={state.graphId} hasKey={false} size="default" />
             <Link href="/dashboard" className={buttonVariants({ variant: "outline", className: "self-start" })}>
