@@ -5,6 +5,7 @@ import { ReportAbuseButton, type ReportTarget } from "@/components/report-abuse-
 import { BlockList } from "@/components/roam/block-tree";
 import type { PageLinks } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { UpvoteButton } from "@/components/upvote-button";
 import { ViewBeacon } from "@/components/view-beacon";
 import type { publication } from "@/db/schema";
@@ -44,9 +45,10 @@ export function PublicationView({
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4 flex items-center gap-2">
+        <div className="absolute top-3 right-4 flex items-center gap-1">
           {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
           <ReportAbuseButton target={report} />
+          <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
         <article className="mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
           {crumbs && <Breadcrumbs items={crumbs} />}

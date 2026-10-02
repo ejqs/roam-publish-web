@@ -4,6 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { isAdmin } from "@/lib/admin";
 import { auth } from "@/lib/auth";
 import { SignOutButton } from "./sign-out-button";
+import { ThemeToggle } from "./theme-toggle";
 
 export async function SiteHeader() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -42,6 +43,7 @@ export async function SiteHeader() {
               </Link>
             </>
           )}
+          <ThemeToggle />
         </nav>
       </div>
     </header>

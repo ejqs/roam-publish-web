@@ -7,6 +7,7 @@ import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
 import type { PageLinks } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { db } from "@/db";
 import { collectionEntry, graph, publication, publicationVote, user } from "@/db/schema";
@@ -93,8 +94,9 @@ async function CollectionIndex({ c, slug }: { c: C; slug?: string[] }) {
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4">
+        <div className="absolute top-3 right-4 flex items-center gap-1">
           <ReportAbuseButton target={{ collectionSlug: c.slug }} />
+          <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           <p className="mb-2 text-sm text-muted-foreground">Collection</p>
