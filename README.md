@@ -71,3 +71,7 @@ for the reasoning behind it.
 ---
 
 This is a third-party service made by [@ejqs](https://ejqs.net). Not affiliated with Roam Research.
+
+## License
+
+[MIT](LICENSE)
