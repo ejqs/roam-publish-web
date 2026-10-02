@@ -58,6 +58,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
       updatedAt: publication.updatedAt,
       inGraph: publication.inGraph,
       access: publication.access,
+      tags: publication.tags,
     })
     .from(publication)
     .where(where)

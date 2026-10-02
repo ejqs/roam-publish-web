@@ -69,6 +69,7 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
         removedAt: publication.removedAt,
         removedReason: publication.removedReason,
         updatedAt: publication.updatedAt,
+        tags: publication.tags,
       },
       addedByEmail: user.email,
     })
