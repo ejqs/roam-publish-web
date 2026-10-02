@@ -121,18 +121,40 @@ export default async function DashboardPage() {
                 </Link>
                 {g.role === "member" && <Badge variant="outline">Member</Badge>}
               </CardTitle>
-              <CardDescription>
-                {c.total} published
+              <CardDescription className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <Link href={pagesHref} className="text-link hover:underline">
+                  {c.total.toLocaleString("en-US")} published
+                </Link>
+                {c.total > 0 &&
+                  ACCESS.filter((a) => a !== "removed" || c.removed > 0).map((a) => (
+                    <span key={a} className="contents">
+                      <span aria-hidden>·</span>
+                      <Link
+                        href={`${pagesHref}?access=${a}`}
+                        title={a === "discover" && paused ? `Discover is paused: ${paused}` : undefined}
+                        className={`tabular-nums hover:underline ${a === "removed" ? "text-destructive" : "text-link"}`}
+                      >
+                        {c[a].toLocaleString("en-US")} {ACCESS_LABELS[a].toLowerCase()}
+                        {a === "discover" && paused && " (paused)"}
+                      </Link>
+                    </span>
+                  ))}
                 {g.frontPage && (
                   <>
-                    {" · "}
+                    <span aria-hidden>·</span>
                     <Link href={graphPath(g.name)} className="text-link hover:underline">
                       View front page
                     </Link>
                   </>
                 )}
               </CardDescription>
-              <CardAction className="flex gap-2">
+              <CardAction className="flex flex-wrap justify-end gap-2">
+                {c.total > 0 && (
+                  <Link href={pagesHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Manage pages
+                    <ChevronRightIcon />
+                  </Link>
+                )}
                 <Link
                   href={`/dashboard/${encodeURIComponent(g.name)}/members`}
                   className={buttonVariants({ variant: "outline", size: "sm" })}
@@ -149,7 +171,7 @@ export default async function DashboardPage() {
                 )}
               </CardAction>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4">
+            <CardContent className="flex flex-col gap-4 empty:hidden">
               {g.suspendedAt && (
                 <Alert variant="destructive">
                   <AlertTitle>This graph was suspended by a moderator</AlertTitle>
@@ -164,38 +186,7 @@ export default async function DashboardPage() {
                   Nothing published yet. Right-click a page or block in Roam and choose Publish.
                 </p>
               ) : (
-                <>
-                  <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {ACCESS.filter((a) => a !== "removed" || c.removed > 0).map((a) => (
-                      <li key={a}>
-                        <Link
-                          href={`${pagesHref}?access=${a}`}
-                          className="flex flex-col rounded-md border px-3 py-2 hover:bg-muted/50"
-                        >
-                          <span className="text-xs text-muted-foreground">
-                            {ACCESS_LABELS[a]}
-                            {a === "discover" && paused && " (paused)"}
-                          </span>
-                          <span
-                            className={`text-xl font-semibold tabular-nums ${a === "removed" ? "text-destructive" : ""}`}
-                          >
-                            {c[a].toLocaleString("en-US")}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                  {paused && (
-                    <p className="text-xs text-muted-foreground">Discover is paused: {paused}</p>
-                  )}
-                  <Link
-                    href={pagesHref}
-                    className={buttonVariants({ variant: "outline", size: "sm", className: "self-start" })}
-                  >
-                    Manage pages
-                    <ChevronRightIcon />
-                  </Link>
-                </>
+                paused && <p className="text-xs text-muted-foreground">Discover is paused: {paused}</p>
               )}
             </CardContent>
           </Card>
