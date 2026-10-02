@@ -25,6 +25,7 @@ export function PublicationView({
   crumbs,
   links,
   related = [],
+  siteSearch,
   byline,
   report,
   votes,
@@ -35,6 +36,8 @@ export function PublicationView({
   pub: typeof publication.$inferSelect;
   crumbs: Crumb[] | null;
   links: PageLinks;
+  /** Whether the viewer may search the whole site. */
+  siteSearch: boolean;
   /** Other listed pages sharing a tag with this one. */
   related?: { title: string; href: string }[];
   byline: Byline;
@@ -63,7 +66,7 @@ export function PublicationView({
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
-          <QuickSearch />
+          <QuickSearch siteSearch={siteSearch} />
           <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
           {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
           <ReportAbuseButton target={report} />

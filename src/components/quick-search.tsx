@@ -16,8 +16,11 @@ type Item = { key: string; label: React.ReactNode; detail?: React.ReactNode; hre
  */
 export function QuickSearch({
   scope,
+  siteSearch,
   variant = "icon",
 }: {
+  /** Whether the viewer may search the whole site (verified email and Roam graph). */
+  siteSearch: boolean;
   /** The graph or collection being viewed: its list path and name. */
   scope?: { path: string; name: string };
   variant?: "icon" | "field";
@@ -45,7 +48,7 @@ export function QuickSearch({
 
   useEffect(() => {
     const term = q.trim();
-    if (!open || !term) return;
+    if (!open || !term || !siteSearch) return;
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
       fetch(`/api/search?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
@@ -57,7 +60,7 @@ export function QuickSearch({
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [q, open]);
+  }, [q, open, siteSearch]);
 
   const term = q.trim();
   const results = found.term === term ? found.results : [];
@@ -90,7 +93,14 @@ export function QuickSearch({
           href: r.href,
           icon: <FileTextIcon />,
         })),
-        { key: "all", label: <>Search all of Roam Publish for “{term}”</>, href: `/search?q=${enc}`, icon: <SearchIcon /> },
+        siteSearch
+          ? { key: "all", label: <>Search all of Roam Publish for “{term}”</>, href: `/search?q=${enc}`, icon: <SearchIcon /> }
+          : {
+              key: "all",
+              label: <span className="text-muted-foreground">Searching everywhere needs a verified Roam graph</span>,
+              href: "/search",
+              icon: <SearchIcon />,
+            },
       ]
     : [];
   const current = Math.min(active, Math.max(0, items.length - 1));
@@ -147,7 +157,7 @@ export function QuickSearch({
                   setActive((a) => Math.max(a - 1, 0));
                 }
               }}
-              placeholder={scope ? `Search ${scope.name} or everywhere` : "Search Roam Publish"}
+              placeholder={scope ? (siteSearch ? `Search ${scope.name} or everywhere` : `Search ${scope.name}`) : "Search Roam Publish"}
               aria-label="Search"
               aria-controls={listId}
               aria-activedescendant={items[current] ? `${listId}-${current}` : undefined}

@@ -10,7 +10,7 @@ import { db } from "@/db";
 import { publication, publicationVote } from "@/db/schema";
 import { isListed } from "@/lib/discover";
 import { type Container, effectiveAccess, gate, pageLock, type Place, showsAuthor } from "@/lib/gates";
-import { canManage, graphRole } from "@/lib/graph-access";
+import { canManage, canSearchSite, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { tagsOverlap } from "@/lib/list-query";
 import { manageDataFor } from "@/lib/manage-data";
@@ -138,6 +138,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           : null
       }
       links={links}
+      siteSearch={await canSearchSite(me)}
       related={related.map((r) => ({ title: r.title, href: publicationPath(g.name, r.rootUid, r.title) }))}
       byline={byline}
       report={{ graphName: g.name, rootUid: pub.rootUid }}
