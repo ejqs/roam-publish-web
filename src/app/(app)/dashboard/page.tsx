@@ -28,7 +28,7 @@ import { pendingInvitesFor } from "@/lib/invites";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { AttentionBanners, attentionItems } from "./attention-banners";
-import { LISTING_LABELS } from "@/components/manage/choice";
+import { LISTING_LABELS } from "@/components/manage/labels";
 import { AddCollectionDialog } from "./collections/create-form";
 import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
