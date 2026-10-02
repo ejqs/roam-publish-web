@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2Icon, ShieldCheckIcon } from "lucide-react";
+import { CheckCircle2Icon, ShieldCheckIcon, TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -150,7 +150,7 @@ export function OnboardingFlow({
                   <AlertTitle>How we use this token</AlertTitle>
                   <AlertDescription>
                     Used once to add a block to today&apos;s daily note, then discarded. You can delete
-                    the token and the block right after.
+                    the token and the block right after. We&apos;ll show you the safe order to delete it.
                   </AlertDescription>
                 </Alert>
                 <Button type="submit" disabled={pending || !ready}>
@@ -164,13 +164,39 @@ export function OnboardingFlow({
       )}
 
       {state.step === "done" && (
+        <Alert variant="warning">
+          <TriangleAlertIcon />
+          <AlertTitle>Delete the API token in this exact order</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2">
+            <p>
+              Roam creates an <strong>API Token: …</strong> page for every token. If you revoke the token
+              first, that page (the token&apos;s display name) <strong>can&apos;t be deleted</strong> afterwards.
+            </p>
+            <ol className="list-decimal space-y-1 pl-5">
+              <li>
+                <strong>Click</strong> the token&apos;s link under <em>Roam Page Title</em> in Settings → Graph →
+                API tokens (e.g. <code>[[API Token: Roam Publish]]</code>) to open its page.
+              </li>
+              <li>
+                <strong>Delete</strong> that page: <em>⋯</em> menu (top right) → <em>Delete Page</em>.
+              </li>
+              <li>
+                <strong>Revoke</strong> the token: back in API tokens, click the <em>✕</em> next to it.
+              </li>
+            </ol>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {state.step === "done" && (
         <Alert>
           <CheckCircle2Icon />
           <AlertTitle>{state.graphName} is connected</AlertTitle>
           <AlertDescription className="flex flex-col gap-3">
             <p>
               Get an API key for the Roam Publish extension, then paste it in Roam under Settings → Roam
-              Publish. You can delete the block on today&apos;s daily note and the append-only token now.
+              Publish. You can delete the block on today&apos;s daily note now, and the append-only token using
+              the steps above.
             </p>
             <KeyReveal graphId={state.graphId} hasKey={false} size="default" />
             <Link href="/dashboard" className={buttonVariants({ variant: "outline", className: "self-start" })}>
