@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/db";
+import { pageHistory } from "@/lib/changelog";
 import { collection, collectionEntry, graph, publication, shortlink } from "@/db/schema";
 import { effectiveAccess } from "@/lib/gates";
 import { canManage, graphRole } from "@/lib/graph-access";
@@ -18,6 +19,26 @@ import { entryUrl, publicationUrl } from "@/lib/publications";
 import { SHORT_ID, shortUrl } from "@/lib/shortlinks";
 import { plainText } from "@/lib/slug";
 import { viewerId } from "@/lib/viewer";
+
+/** `[label](url)` and bare URLs in a history entry, as links. */
+const LINKS = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s)]+)/g;
+
+function EntryText({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  for (const m of text.matchAll(LINKS)) {
+    parts.push(text.slice(last, m.index));
+    const url = m[2] ?? m[3];
+    parts.push(
+      <a key={m.index} href={url} className="break-all underline underline-offset-2 hover:text-foreground">
+        {m[1] ?? url}
+      </a>,
+    );
+    last = m.index + m[0].length;
+  }
+  parts.push(text.slice(last));
+  return <>{parts}</>;
+}
 
 export const metadata: Metadata = { title: "Roam Publish Status", robots: { index: false, follow: false } };
 
@@ -37,7 +58,8 @@ const load = cache(async (id: string) => {
 });
 
 /**
- * A page's permanent link. People in its graph see where the page lives now, with links to copy.
+ * A page's permanent link. People in its graph see where the page lives now, with links to copy,
+ * and its history (the change log, also written into Roam when the graph has a token).
  * Everyone else goes to the first place anyone can read it (its graph, then its collections in the
  * order it was added), or, when every place is protected, to its main URL and that place's gate.
  */
@@ -86,6 +108,12 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
     redirect(places.find((p) => p.open)?.url ?? (await primaryUrls(g.name, [pub])).get(pub.id)!);
   }
   const link = shortUrl(id);
+  const history = await pageHistory(data.link.id);
+  const when = new Intl.DateTimeFormat("en-US", {
+    timeZone: g.timeZone ?? "UTC",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6 sm:py-12">
@@ -137,6 +165,35 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
             >
               Manage on the dashboard
             </Link>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>History</CardTitle>
+          <CardDescription>
+            What happened to this page, newest first{g.timeZone ? "" : " (times in UTC)"}.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nothing yet. Changes are recorded from now on.</p>
+          ) : (
+            <ol className="flex flex-col divide-y rounded-lg border">
+              {history.map((h) => (
+                <li key={h.id} className="flex flex-col gap-0.5 p-3 text-sm sm:flex-row sm:gap-3">
+                  <time
+                    dateTime={h.createdAt.toISOString()}
+                    className="shrink-0 text-muted-foreground tabular-nums sm:w-44"
+                  >
+                    {when.format(h.createdAt)}
+                  </time>
+                  <span className="min-w-0 break-words">
+                    <EntryText text={h.text} />
+                  </span>
+                </li>
+              ))}
+            </ol>
           )}
         </CardContent>
       </Card>
