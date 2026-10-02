@@ -85,6 +85,7 @@ export function CollectionSettingsForm({
           <FieldSeparator />
           <ContainerAccessFields
             kind="collection"
+            label={initial.name}
             containerId={collectionId}
             pageCount={pageCount}
             value={access}

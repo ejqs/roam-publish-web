@@ -3,7 +3,7 @@
 import { CheckIcon, ChevronDownIcon, CompassIcon, GlobeIcon, LinkIcon, type LucideIcon } from "lucide-react";
 import { useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ACCESS_DESCRIPTIONS, ACCESS_LABELS } from "@/components/manage/choice";
+import { LISTING_LABELS, readOptions } from "@/components/manage/choice";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Access as ReadAccess, ShowAuthor } from "@/db/schema";
@@ -13,7 +13,7 @@ import { type Access, setAccess } from "./actions";
 import { updateGraphPlace } from "./place-actions";
 
 const ICONS = { unlisted: LinkIcon, public: GlobeIcon, discover: CompassIcon };
-const LABELS = { unlisted: "Unlisted", public: "Public", discover: "Discover" };
+const LABELS = { unlisted: LISTING_LABELS.unlisted, public: LISTING_LABELS.listed, discover: LISTING_LABELS.discover };
 
 type Option<T> = { value: T; label: string; description?: string; disabled?: string; icon?: LucideIcon };
 
@@ -56,7 +56,7 @@ export function AccessMenu({
   const hasPassword = place.state.hasOwnPassword || container.hasPassword;
 
   const reachOptions: Option<Access>[] = [
-    { value: "unlisted", label: LABELS.unlisted, icon: ICONS.unlisted, description: "Only people with the link. Never indexed." },
+    { value: "unlisted", label: LABELS.unlisted, icon: ICONS.unlisted, description: "Only people with the link can find it. Never indexed." },
     {
       value: "public",
       label: LABELS.public,
@@ -70,19 +70,18 @@ export function AccessMenu({
       value: "discover",
       label: LABELS.discover,
       icon: ICONS.discover,
-      description: "Public, and also listed on roam.pub/discover.",
+      description: "Listed, and also on roam.pub/discover.",
       disabled: blocked,
     },
   ];
 
-  const readOptions: Option<ReadAccess>[] = (["open", "password", "members"] as const).map((a) => ({
-      value: a,
-      label: ACCESS_LABELS[a],
-      description:
-        a === "open" && container.defaultAccess !== "open"
-          ? "Anyone with the link can read, even though the rest is protected."
-          : ACCESS_DESCRIPTIONS[a],
-    disabled: a === "password" && !hasPassword ? "Set a password for this page in Manage first." : undefined,
+  const readChoices: Option<ReadAccess>[] = readOptions(container.label).map((o) => ({
+    ...o,
+    description:
+      o.value === "open" && container.defaultAccess !== "open"
+        ? "Anyone with the link can read, even though the rest is protected."
+        : o.description,
+    disabled: o.value === "password" && !hasPassword ? "Set a password for this page in Manage first." : undefined,
   }));
 
   const bylineOptions: Option<ShowAuthor>[] = [
@@ -134,11 +133,11 @@ export function AccessMenu({
         }
       />
       <PopoverContent align="start" className="max-h-(--available-height) w-80 gap-1 overflow-y-auto p-1">
-        <Section label="Who can find it" value={reach} options={reachOptions} onChoose={chooseReach} />
+        <Section label="Where it's listed" value={reach} options={reachOptions} onChoose={chooseReach} />
         <Section
           label="Who can read it"
           value={optimistic.read}
-          options={readOptions}
+          options={readChoices}
           onChoose={(a) => choosePlace({ access: a })}
         />
         <Section
