@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckCircle2Icon, ShieldCheckIcon, TriangleAlertIcon } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -43,39 +42,6 @@ const PREREQUISITES = [
       "Start with your personal graph. For a shared graph, whoever connects it first owns it on roam.pub and invites everyone else, who then don't need a token.",
   },
 ] as const;
-
-/** Revoking first leaves Roam's [[API Token: …]] page undeletable, so the order matters. */
-function TokenDeletionSteps() {
-  return (
-    <ol className="list-decimal space-y-2 pl-5">
-      <li>
-        <strong>Click</strong> the token&apos;s link under <em>Roam Page Title</em> in Settings → Graph → API
-        tokens (e.g. <code>[[API Token: Roam Publish]]</code>) to open its page.
-        <Image
-          src="/onboarding/roam-token-page-title.png"
-          alt="Roam's API tokens table with the Roam Page Title link [[API Token: Roam Publish]] highlighted"
-          width={907}
-          height={188}
-          className="mt-2 rounded-md border"
-        />
-      </li>
-      <li>
-        <strong>Delete</strong> that page: <em>⋯</em> menu (top right) → <em>Delete Page</em>.
-        <Image
-          src="/onboarding/roam-delete-page.png"
-          alt="The API Token: Roam Publish page in Roam with the ⋯ menu open and Delete Page highlighted"
-          width={861}
-          height={399}
-          className="mt-2 rounded-md border"
-        />
-      </li>
-      <li>
-        <strong>Revoke</strong> the token: back in API tokens, click the <em>✕</em> next to it (far right in
-        the first screenshot). Only do this after the page is deleted.
-      </li>
-    </ol>
-  );
-}
 
 type State = { step: "warning" } | { step: "form" } | { step: "done"; graphId: string; graphName: string };
 
@@ -132,38 +98,37 @@ export function OnboardingFlow({
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <TriangleAlertIcon className="size-5 text-warning" />
-              Before you create a token: how to delete it
+              This may leave a page you can&apos;t delete
             </CardTitle>
-            <CardDescription>
-              Read this first. Getting the order wrong leaves a page in your graph that you can&apos;t remove.
-            </CardDescription>
+            <CardDescription>Read this before you create a token.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 text-sm">
             <p>
-              When you create an API token, Roam also creates a page named after it, like{" "}
-              <code>[[API Token: Roam Publish]]</code>. Once you&apos;re verified you can delete the token, but{" "}
-              <strong>
-                if you revoke the token first, that page can never be deleted.
-              </strong>
+              Creating and verifying a Roam graph{" "}
+              <strong>may permanently leave a page in your graph that cannot be deleted</strong>: the{" "}
+              <code>[[API Token: …]]</code> page Roam creates for the API token.
             </p>
-            <div className="flex flex-col gap-2 rounded-lg bg-warning/10 p-3">
-              <p className="font-semibold">Always delete it in this order: Click → Delete → Revoke</p>
-              <TokenDeletionSteps />
-            </div>
+            <p>
+              This is not the fault of roam.pub, but a consequence of how display names are treated in Roam
+              Research.
+            </p>
+            <p className="text-muted-foreground">
+              If you believe this issue has been resolved, please contact me at ejqs [at] ejqs [dot] net.
+            </p>
             <Field orientation="horizontal">
               <Checkbox
-                id="ack-token-order"
+                id="ack-token-page"
                 checked={acknowledged}
                 onCheckedChange={(v) => setAcknowledged(!!v)}
               />
-              <FieldLabel htmlFor="ack-token-order" className="font-normal">
-                I understand: delete the token&apos;s page first, then revoke the token.
+              <FieldLabel htmlFor="ack-token-page" className="font-normal">
+                I understand that this may leave a page in my graph that can&apos;t be deleted.
               </FieldLabel>
             </Field>
           </CardContent>
           <CardFooter>
             <Button disabled={!acknowledged} onClick={() => setState({ step: "form" })}>
-              Continue to verification
+              I understand, continue
             </Button>
           </CardFooter>
         </Card>
@@ -228,7 +193,7 @@ export function OnboardingFlow({
                   <AlertTitle>How we use this token</AlertTitle>
                   <AlertDescription>
                     Used once to add a block to today&apos;s daily note, then discarded. You can delete
-                    the token and the block right after, deleting its page first, then revoking it.
+                    the token and the block right after.
                   </AlertDescription>
                 </Alert>
                 <Button type="submit" disabled={pending || !ready}>
@@ -242,27 +207,13 @@ export function OnboardingFlow({
       )}
 
       {state.step === "done" && (
-        <Alert variant="warning">
-          <TriangleAlertIcon />
-          <AlertTitle>Reminder: Click → Delete → Revoke</AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <p>
-              Delete the token&apos;s page before revoking the token, or the page can&apos;t be deleted.
-            </p>
-            <TokenDeletionSteps />
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {state.step === "done" && (
         <Alert>
           <CheckCircle2Icon />
           <AlertTitle>{state.graphName} is connected</AlertTitle>
           <AlertDescription className="flex flex-col gap-3">
             <p>
               Get an API key for the Roam Publish extension, then paste it in Roam under Settings → Roam
-              Publish. You can delete the block on today&apos;s daily note now, and the append-only token using
-              the steps above.
+              Publish. You can delete the block on today&apos;s daily note and the append-only token now.
             </p>
             <KeyReveal graphId={state.graphId} hasKey={false} size="default" />
             <Link href="/dashboard" className={buttonVariants({ variant: "outline", className: "self-start" })}>
