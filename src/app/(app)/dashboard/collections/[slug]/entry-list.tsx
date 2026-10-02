@@ -20,7 +20,7 @@ export type EntryRowData = {
     typeof collectionEntry.$inferSelect,
     "id" | "entryUid" | "listing" | "access" | "originGraphName" | "addedBy"
   >;
-  pub: Pick<typeof publication.$inferSelect, "id" | "title" | "kind" | "removedAt" | "removedReason" | "updatedAt">;
+  pub: Pick<typeof publication.$inferSelect, "id" | "title" | "kind" | "removedAt" | "removedReason" | "updatedAt" | "tags">;
   addedByEmail: string | null;
 };
 
@@ -49,7 +49,12 @@ export function EntryList({
   const selectable = rows.filter((r) => !r.pub.removedAt && placeOf(r)?.canManage).map((r) => r.entry.id);
 
   return (
-    <BulkSelect kind="collection" ids={selectable} graphName={c.name}>
+    <BulkSelect
+      kind="collection"
+      ids={selectable}
+      tags={Object.fromEntries(rows.map((r) => [r.entry.id, r.pub.tags]))}
+      graphName={c.name}
+    >
       <div className="text-sm">
         <div className={`hidden border-b px-2 pb-2 font-medium text-muted-foreground ${COLUMNS}`}>
           <span className="flex items-center gap-2">
@@ -80,6 +85,12 @@ export function EntryList({
                     >
                       {pub.title}
                     </Link>
+                    {pub.tags.length > 0 && (
+                      <p className="truncate text-xs text-roam-ref">
+                        {pub.tags.slice(0, 5).map((t) => `#${t}`).join(" ")}
+                        {pub.tags.length > 5 && <span className="text-muted-foreground"> +{pub.tags.length - 5}</span>}
+                      </p>
+                    )}
                     <p className="truncate text-xs text-muted-foreground">
                       From {entry.originGraphName} · added by {r.addedByEmail ?? "a former member"}
                     </p>
