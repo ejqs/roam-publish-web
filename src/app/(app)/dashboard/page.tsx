@@ -32,6 +32,7 @@ import { LISTING_LABELS } from "@/components/manage/labels";
 import { AddCollectionDialog } from "./collections/create-form";
 import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
+import { RevokeTokenReminder } from "./revoke-token-reminder";
 
 const EMPTY: AccessCounts = { unlisted: 0, public: 0, discover: 0, removed: 0 };
 
@@ -71,7 +72,12 @@ export default async function DashboardPage() {
   }
   const counts = new Map(countRows.map(({ graphId, ...c }) => [graphId, c]));
   const banners = (
-    <AttentionBanners items={attentionItems({ graphs: owned, counts, me, invites: invites.length })} />
+    <>
+      <RevokeTokenReminder
+        graphs={owned.map((g) => ({ id: g.id, name: g.name, verifiedAt: g.verifiedAt.toISOString() }))}
+      />
+      <AttentionBanners items={attentionItems({ graphs: owned, counts, me, invites: invites.length })} />
+    </>
   );
   const nav = (
     <div className="flex flex-wrap gap-2">
