@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { plainText } from "@/lib/slug";
 import { Breadcrumbs, type Crumb } from "@/components/breadcrumbs";
 import { DashboardLink } from "@/components/dashboard-link";
+import { QuickSearch } from "@/components/quick-search";
 import { ManageDialog } from "@/components/manage/manage-dialog";
 import { ReportAbuseButton, type ReportTarget } from "@/components/report-abuse-button";
 import { BlockList } from "@/components/roam/block-tree";
@@ -22,6 +24,7 @@ export function PublicationView({
   pub,
   crumbs,
   links,
+  related = [],
   byline,
   report,
   votes,
@@ -32,6 +35,8 @@ export function PublicationView({
   pub: typeof publication.$inferSelect;
   crumbs: Crumb[] | null;
   links: PageLinks;
+  /** Other listed pages sharing a tag with this one. */
+  related?: { title: string; href: string }[];
   byline: Byline;
   report: ReportTarget;
   /** Upvote count when this place is on Discover; null otherwise. */
@@ -43,10 +48,22 @@ export function PublicationView({
   afterUnpublish?: string;
 }) {
   const tree = pub.tree;
+  const tagHref = links.tagHref;
+  const tags =
+    pub.kind === "page" && tagHref && pub.tags.length > 0 ? (
+      <p className="mb-6 flex flex-wrap gap-x-2 text-sm">
+        {pub.tags.map((t) => (
+          <Link key={t} href={tagHref(t)} className="text-roam-ref hover:underline">
+            #{t}
+          </Link>
+        ))}
+      </p>
+    ) : null;
   return (
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
+          <QuickSearch />
           <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
           {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
           <ReportAbuseButton target={report} />
@@ -57,8 +74,9 @@ export function PublicationView({
           {pub.kind === "page" ? (
             <>
               <h1 className="mb-2 text-[42px] leading-tight font-semibold break-words">{pub.title}</h1>
-              <BylineLine byline={byline} className="mb-6" />
-              {!byline && <div className="mb-4" />}
+              <BylineLine byline={byline} className={tags ? "mb-2" : "mb-6"} />
+              {tags}
+              {!byline && !tags && <div className="mb-4" />}
               <BlockList nodes={tree.children} links={links} viewType={tree.viewType} />
             </>
           ) : (
@@ -66,6 +84,22 @@ export function PublicationView({
               <BylineLine byline={byline} className="mb-4" />
               <BlockList nodes={[tree]} links={links} />
             </>
+          )}
+          {related.length > 0 && (
+            <section aria-labelledby="related" className="mt-12 border-t pt-4 text-sm">
+              <h2 id="related" className="mb-3 font-semibold">
+                More with {pub.tags.length === 1 ? "this tag" : "these tags"}
+              </h2>
+              <ul className="flex flex-col gap-2">
+                {related.map((r) => (
+                  <li key={r.href}>
+                    <Link href={r.href} className="text-link hover:underline">
+                      {plainText(r.title) || "Untitled"}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
           <div className="mt-12 flex items-center justify-between gap-4">
             <p className="text-xs text-muted-foreground">

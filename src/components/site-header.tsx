@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { isAdmin } from "@/lib/admin";
+import { QuickSearch } from "./quick-search";
 import { auth } from "@/lib/auth";
 import { SignOutButton } from "./sign-out-button";
 import { ThemeToggle } from "./theme-toggle";
@@ -17,7 +18,13 @@ export async function SiteHeader() {
           </span>
           <span className="sr-only sm:not-sr-only">Roam Publish</span>
         </Link>
+        <div className="hidden flex-1 justify-center sm:flex">
+          <QuickSearch variant="field" />
+        </div>
         <nav className="flex min-w-0 items-center gap-0 whitespace-nowrap sm:gap-1">
+          <span className="sm:hidden">
+            <QuickSearch />
+          </span>
           <Link href="/discover" className={buttonVariants({ variant: "ghost" })}>
             Discover
           </Link>

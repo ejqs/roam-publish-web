@@ -180,6 +180,24 @@ Public pages can also be listed on `{server}/discover`. Each page has its own se
 
 Feed readers send no cookies, so feeds never include password-protected, members-only, unlisted or removed pages. A feed that is off, or whose front page isn't open, returns `404`. Items carry the title, link, date, a plain-text excerpt and, where bylines are on, the author. The extension API doesn't expose any of this.
 
+## Tags and search (website only)
+
+The server works out each publication's tags and search text from `tree` whenever it stores one; the extension
+sends nothing new and the hash is unchanged.
+
+- **Tags** (`publication.tags`, lowercase): every `#tag` and `#[[multi word tag]]`, plus the values of a
+  `Tags::` attribute (page refs, hashtags, or comma-separated words, on the attribute line or in its children).
+  Text in code, math and `{{components}}` is skipped, as is embedded content (it belongs to its own page).
+  `[[Page]]` refs alone aren't tags. Up to 50 per page. Logic: `src/lib/tags.ts`.
+- **Search text** (`publication.search_text`): plain text of every block. `publication.search` is a generated
+  `tsvector` (`simple` config, title weighted above body).
+- After changing `src/lib/tags.ts`, run `bun run search:backfill` to recompute existing rows.
+
+Graph front pages and collection pages take `?q=`, `?tag=` (repeatable, all must match), `?kind=page|block`,
+`?sort=` and `?page=`; `/{graph}/tags` lists a graph's tags. `/search` and `/api/search` search only pages anyone
+could find by browsing: open, listed pages on an open, indexable front page or collection. Unlisted, protected,
+removed and suspended content never appears there.
+
 ## Places and access (website only)
 
 A publication can appear in its graph (`/{graph}/{rootUid}/{slug}`, while `inGraph`) and/or in any number of

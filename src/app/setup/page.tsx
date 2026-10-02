@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { BlockList } from "@/components/roam/block-tree";
 import { block, siteLinks } from "@/components/roam/outline";
-import type { PageLinks } from "@/components/roam/markup";
+import { PageLinks } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = { title: "Setting it up · Roam Publish" };
 
-const links: PageLinks = new Map([...siteLinks, ["sign up", "/signup"]]);
+const links = new PageLinks([...siteLinks, ["sign up", "/signup"]]);
 
 const outline = [
   block("You'll need an active [[Roam Research]] account."),

@@ -12,7 +12,8 @@
     "db:studio": "drizzle-kit studio",
     "typecheck": "next typegen && tsc --noEmit",
     "tokens:rotate": "bun scripts/rotate-append-token-key.ts",
-    "tokens:revoke-all": "bun scripts/revoke-append-tokens.ts"
+    "tokens:revoke-all": "bun scripts/revoke-append-tokens.ts",
+    "search:backfill": "bun scripts/backfill-search.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
