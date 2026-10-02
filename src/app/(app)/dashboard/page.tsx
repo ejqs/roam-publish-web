@@ -32,6 +32,7 @@ import { LISTING_LABELS } from "@/components/manage/labels";
 import { AddCollectionDialog } from "./collections/create-form";
 import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
+import { DeleteAccountCard } from "./delete-account";
 
 const EMPTY: AccessCounts = { unlisted: 0, public: 0, discover: 0, removed: 0 };
 
@@ -82,6 +83,14 @@ export default async function DashboardPage() {
         Invites{invites.length > 0 && ` (${invites.length})`}
       </Link>
     </div>
+  );
+  const deleteAccountCard = (
+    <DeleteAccountCard
+      email={session.user.email}
+      graphs={owned.map((g) => g.name)}
+      pages={owned.reduce((n, g) => n + (counts.get(g.id)?.total ?? 0), 0)}
+      collections={collections.filter((c) => c.role === "owner").length}
+    />
   );
   const profileCard = (
     <ProfileCard
@@ -174,6 +183,7 @@ export default async function DashboardPage() {
         {nav}
         {profileCard}
         {collectionCards}
+        {deleteAccountCard}
       </div>
     );
   }
@@ -277,6 +287,7 @@ export default async function DashboardPage() {
         );
       })}
       {collectionCards}
+      {deleteAccountCard}
     </div>
   );
 }

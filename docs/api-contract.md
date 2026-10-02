@@ -80,6 +80,7 @@ republish, change or unpublish someone else's page.
 Moderators can remove a page, suspend a graph, or ban an account. The extension shows `error` (plus `reason` when present) as-is.
 
 - Every authenticated endpoint: `401 { error: "This account has been suspended" }` when the owner is banned, and `403 { error: "This graph was suspended by a moderator", reason }` when the graph is suspended.
+- Keys for a graph its owner deleted, or for a deleted account: `401 { error: "Invalid API key" }`.
 - Publishing, changing visibility, or unpublishing a removed page: `403 { error: "This page was removed by a moderator", reason }`. A removed page can't be deleted, so a republish can't bring it back.
 
 ## CORS
