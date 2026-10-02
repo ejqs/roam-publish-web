@@ -1,17 +1,8 @@
 import { count, eq, inArray } from "drizzle-orm";
-import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Empty,
   EmptyContent,
@@ -32,7 +23,7 @@ import { LISTING_LABELS } from "@/components/manage/labels";
 import { AddCollectionDialog } from "./collections/create-form";
 import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
-import { DeleteAccountCard } from "./delete-account";
+import { type ResourceItem, ResourceList } from "./resource-list";
 
 const EMPTY: AccessCounts = { unlisted: 0, public: 0, discover: 0, removed: 0 };
 
@@ -82,15 +73,10 @@ export default async function DashboardPage() {
       <Link href="/dashboard/invites" className={buttonVariants({ variant: "outline", size: "sm" })}>
         Invites{invites.length > 0 && ` (${invites.length})`}
       </Link>
+      <Link href="/dashboard/advanced" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+        Advanced
+      </Link>
     </div>
-  );
-  const deleteAccountCard = (
-    <DeleteAccountCard
-      email={session.user.email}
-      graphs={owned.map((g) => g.name)}
-      pages={owned.reduce((n, g) => n + (counts.get(g.id)?.total ?? 0), 0)}
-      collections={collections.filter((c) => c.role === "owner").length}
-    />
   );
   const profileCard = (
     <ProfileCard
@@ -102,65 +88,85 @@ export default async function DashboardPage() {
     />
   );
 
-  const collectionCards = collections.map((c) => {
+  const collectionItems: ResourceItem[] = collections.map((c) => {
     const n = entryCounts.get(c.id) ?? { unlisted: 0, listed: 0, discover: 0 };
     const total = n.unlisted + n.listed + n.discover;
     const manageHref = collectionPagesPath(c.slug);
-    return (
-      <Card key={c.id} id={`collection-${c.id}`} className="scroll-mt-4">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Link href={manageHref} className="hover:underline">
-              {c.name}
-            </Link>
-            <Badge variant="secondary">Collection</Badge>
-            {c.role === "member" && <Badge variant="outline">Member</Badge>}
-            {c.suspendedAt && <Badge variant="destructive">Suspended</Badge>}
-          </CardTitle>
-          <CardDescription className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-            <Link href={manageHref} className="text-link hover:underline">
-              {total.toLocaleString("en-US")} {total === 1 ? "page" : "pages"}
-            </Link>
-            {total > 0 &&
-              ENTRY_LISTING.map((l) => (
-                <span key={l} className="contents">
-                  <span aria-hidden>·</span>
-                  <span className="tabular-nums">
-                    {n[l].toLocaleString("en-US")} {l === "discover" ? "on Discover" : LISTING_LABELS[l].toLowerCase()}
-                  </span>
-                </span>
-              ))}
-            <span aria-hidden>·</span>
-            <Link href={collectionPath(c.slug)} className="text-link hover:underline">
-              View collection
-            </Link>
-          </CardDescription>
-          <CardAction className="flex flex-wrap justify-end gap-2">
-            {total > 0 && (
-              <Link href={manageHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                Manage pages
-                <ChevronRightIcon />
-              </Link>
+    return {
+      id: c.id,
+      anchor: `collection-${c.id}`,
+      name: c.name,
+      manageHref,
+      badges: (
+        <>
+          {c.role === "member" && <Badge variant="outline">Member</Badge>}
+          {c.suspendedAt && <Badge variant="destructive">Suspended</Badge>}
+        </>
+      ),
+      summary: { label: `${total.toLocaleString("en-US")} ${total === 1 ? "page" : "pages"}`, href: manageHref },
+      stats: ENTRY_LISTING.filter((l) => n[l] > 0).map((l) => ({
+        label: `${n[l].toLocaleString("en-US")} ${l === "discover" ? "on Discover" : LISTING_LABELS[l].toLowerCase()}`,
+      })),
+      viewHref: collectionPath(c.slug),
+      viewLabel: "View collection",
+      membersHref: `${manageHref}/members`,
+      settingsHref: c.role === "owner" ? `${manageHref}/settings` : undefined,
+      canManage: total > 0,
+      note:
+        total === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No pages yet. Add pages from a graph&apos;s list or a published page&apos;s Manage button.
+          </p>
+        ) : undefined,
+    };
+  });
+  const collectionCards = <ResourceList title="Collections" items={collectionItems} />;
+
+  const graphItems: ResourceItem[] = graphs.map((g) => {
+    const c = counts.get(g.id) ?? { ...EMPTY, total: 0 };
+    const pagesHref = graphPagesPath(g.name);
+    const paused = c.discover > 0 && discoverBlocked(g);
+    const base = `/dashboard/${encodeURIComponent(g.name)}`;
+    return {
+      id: g.id,
+      anchor: `graph-${g.id}`,
+      name: g.name,
+      manageHref: pagesHref,
+      badges: g.role === "member" ? <Badge variant="outline">Member</Badge> : undefined,
+      summary: { label: `${c.total.toLocaleString("en-US")} published`, href: pagesHref },
+      stats: ACCESS.filter((a) => c[a] > 0).map((a) => ({
+        label: `${c[a].toLocaleString("en-US")} ${a === "discover" ? "on Discover" : ACCESS_LABELS[a].toLowerCase()}${a === "discover" && paused ? " (paused)" : ""}`,
+        href: `${pagesHref}?access=${a}`,
+        tone: a === "removed" ? ("destructive" as const) : undefined,
+        title: a === "discover" && paused ? `Discover is paused: ${paused}` : undefined,
+      })),
+      viewHref: g.frontPage ? graphPath(g.name) : undefined,
+      viewLabel: "View front page",
+      membersHref: `${base}/members`,
+      settingsHref: g.role === "owner" ? `${base}/settings` : undefined,
+      canManage: c.total > 0,
+      note:
+        g.suspendedAt || c.total === 0 || paused ? (
+          <>
+            {g.suspendedAt && (
+              <Alert variant="destructive">
+                <AlertTitle>This graph was suspended by a moderator</AlertTitle>
+                <AlertDescription>
+                  Its pages are hidden and publishing is turned off.
+                  {g.suspendedReason && <> Reason: {g.suspendedReason}</>}
+                </AlertDescription>
+              </Alert>
             )}
-            <Link href={`${manageHref}/members`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              Members
-            </Link>
-            {c.role === "owner" && (
-              <Link href={`${manageHref}/settings`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                Settings
-              </Link>
+            {c.total === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nothing published yet. Right-click a page or block in Roam and choose Publish.
+              </p>
+            ) : (
+              paused && <p className="text-xs text-muted-foreground">Discover is paused: {paused}</p>
             )}
-          </CardAction>
-        </CardHeader>
-        {total === 0 && (
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              No pages yet. Add pages from a graph&apos;s list or a published page&apos;s Manage button.
-            </p>
-          </CardContent>
-        )}
-      </Card>
-    );
+          </>
+        ) : undefined,
+    };
   });
 
   if (graphs.length === 0) {
@@ -183,7 +189,6 @@ export default async function DashboardPage() {
         {nav}
         {profileCard}
         {collectionCards}
-        {deleteAccountCard}
       </div>
     );
   }
@@ -202,92 +207,8 @@ export default async function DashboardPage() {
       {nav}
       {banners}
       {profileCard}
-      {graphs.map((g) => {
-        const c = counts.get(g.id) ?? { ...EMPTY, total: 0 };
-        const pagesHref = graphPagesPath(g.name);
-        const paused = c.discover > 0 && discoverBlocked(g);
-        return (
-          <Card key={g.id} id={`graph-${g.id}`} className="scroll-mt-4">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Link href={pagesHref} className="hover:underline">
-                  {g.name}
-                </Link>
-                {g.role === "member" && <Badge variant="outline">Member</Badge>}
-              </CardTitle>
-              <CardDescription className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                <Link href={pagesHref} className="text-link hover:underline">
-                  {c.total.toLocaleString("en-US")} published
-                </Link>
-                {c.total > 0 &&
-                  ACCESS.filter((a) => a !== "removed" || c.removed > 0).map((a) => (
-                    <span key={a} className="contents">
-                      <span aria-hidden>·</span>
-                      <Link
-                        href={`${pagesHref}?access=${a}`}
-                        title={a === "discover" && paused ? `Discover is paused: ${paused}` : undefined}
-                        className={`tabular-nums hover:underline ${a === "removed" ? "text-destructive" : "text-link"}`}
-                      >
-                        {c[a].toLocaleString("en-US")} {a === "discover" ? "on Discover" : ACCESS_LABELS[a].toLowerCase()}
-                        {a === "discover" && paused && " (paused)"}
-                      </Link>
-                    </span>
-                  ))}
-                {g.frontPage && (
-                  <>
-                    <span aria-hidden>·</span>
-                    <Link href={graphPath(g.name)} className="text-link hover:underline">
-                      View front page
-                    </Link>
-                  </>
-                )}
-              </CardDescription>
-              <CardAction className="flex flex-wrap justify-end gap-2">
-                {c.total > 0 && (
-                  <Link href={pagesHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                    Manage pages
-                    <ChevronRightIcon />
-                  </Link>
-                )}
-                <Link
-                  href={`/dashboard/${encodeURIComponent(g.name)}/members`}
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  Members
-                </Link>
-                {g.role === "owner" && (
-                  <Link
-                    href={`/dashboard/${encodeURIComponent(g.name)}/settings`}
-                    className={buttonVariants({ variant: "outline", size: "sm" })}
-                  >
-                    Settings
-                  </Link>
-                )}
-              </CardAction>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4 empty:hidden">
-              {g.suspendedAt && (
-                <Alert variant="destructive">
-                  <AlertTitle>This graph was suspended by a moderator</AlertTitle>
-                  <AlertDescription>
-                    Its pages are hidden and publishing is turned off.
-                    {g.suspendedReason && <> Reason: {g.suspendedReason}</>}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {c.total === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nothing published yet. Right-click a page or block in Roam and choose Publish.
-                </p>
-              ) : (
-                paused && <p className="text-xs text-muted-foreground">Discover is paused: {paused}</p>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+      <ResourceList title="Graphs" items={graphItems} />
       {collectionCards}
-      {deleteAccountCard}
     </div>
   );
 }
