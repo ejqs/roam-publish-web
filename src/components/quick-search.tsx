@@ -10,21 +10,22 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 type Item = { key: string; label: React.ReactNode; detail?: React.ReactNode; href: string; icon: React.ReactNode };
 
-/**
- * Search from anywhere: ⌘K, Ctrl+K or `/`. Lists the best site-wide matches as you type; Enter on
- * the first rows searches this graph or collection (`scope`) or the whole site.
- */
-export function QuickSearch({
-  scope,
-  siteSearch,
-  variant = "icon",
-}: {
-  /** Whether the viewer may search the whole site (verified email and Roam graph). */
-  siteSearch: boolean;
+type Props = {
   /** The graph or collection being viewed: its list path and name. */
   scope?: { path: string; name: string };
   variant?: "icon" | "field";
-}) {
+};
+
+/**
+ * Search from anywhere: ⌘K, Ctrl+K or `/`. Lists the best site-wide matches as you type; Enter on
+ * the first rows searches this graph or collection (`scope`) or the whole site. Only shown, shortcuts
+ * included, to people who may search the whole site (verified email and Roam graph).
+ */
+export function QuickSearch({ siteSearch, ...props }: Props & { siteSearch: boolean }) {
+  return siteSearch ? <QuickSearchDialog {...props} /> : null;
+}
+
+function QuickSearchDialog({ scope, variant = "icon" }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -48,7 +49,7 @@ export function QuickSearch({
 
   useEffect(() => {
     const term = q.trim();
-    if (!open || !term || !siteSearch) return;
+    if (!open || !term) return;
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
       fetch(`/api/search?q=${encodeURIComponent(term)}`, { signal: ctrl.signal })
@@ -60,7 +61,7 @@ export function QuickSearch({
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [q, open, siteSearch]);
+  }, [q, open]);
 
   const term = q.trim();
   const results = found.term === term ? found.results : [];
@@ -93,14 +94,7 @@ export function QuickSearch({
           href: r.href,
           icon: <FileTextIcon />,
         })),
-        siteSearch
-          ? { key: "all", label: <>Search all of Roam Publish for “{term}”</>, href: `/search?q=${enc}`, icon: <SearchIcon /> }
-          : {
-              key: "all",
-              label: <span className="text-muted-foreground">Searching everywhere needs a verified Roam graph</span>,
-              href: "/search",
-              icon: <SearchIcon />,
-            },
+        { key: "all", label: <>Search all of Roam Publish for “{term}”</>, href: `/search?q=${enc}`, icon: <SearchIcon /> },
       ]
     : [];
   const current = Math.min(active, Math.max(0, items.length - 1));
@@ -157,7 +151,7 @@ export function QuickSearch({
                   setActive((a) => Math.max(a - 1, 0));
                 }
               }}
-              placeholder={scope ? (siteSearch ? `Search ${scope.name} or everywhere` : `Search ${scope.name}`) : "Search Roam Publish"}
+              placeholder={scope ? `Search ${scope.name} or everywhere` : "Search Roam Publish"}
               aria-label="Search"
               aria-controls={listId}
               aria-activedescendant={items[current] ? `${listId}-${current}` : undefined}
