@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { graph, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
 import { json, preflight } from "@/lib/cors";
-import { logChange, validTimeZone } from "@/lib/changelog";
+import { changeLogStatusOf, logChange, validTimeZone } from "@/lib/changelog";
 import { addEntry } from "@/lib/collections";
 import { notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
 import { defaultCollectionsFor, primaryUrls } from "@/lib/places";
@@ -55,6 +55,7 @@ export async function GET(req: Request) {
     (await db.select().from(shortlink).where(eq(shortlink.graphId, ctx.graphId))).map((l) => [l.rootUid, l]),
   );
   return json(req, {
+    changeLog: await changeLogStatusOf(ctx.graphId),
     publications: rows.map((p) => ({
       rootUid: p.rootUid,
       kind: p.kind,
@@ -121,7 +122,7 @@ export async function POST(req: Request) {
     // Older extensions don't send an author; leave the stored one alone then.
     const authorChanged = p.author !== undefined && authorName !== existing.authorName;
     if (existing.contentHash === hash && !authorChanged)
-      return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility });
+      return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility, changeLog: await changeLogStatusOf(ctx.graphId) });
     await db
       .update(publication)
       .set(
@@ -138,7 +139,7 @@ export async function POST(req: Request) {
       )
       .where(eq(publication.id, existing.id));
     logChange(page, existing.contentHash === hash ? `Byline changed to "${authorName ?? "(none)"}"` : "Republished");
-    return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility });
+    return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, changeLog: await changeLogStatusOf(ctx.graphId) });
   }
 
   // New pages go where the graph's "New pages go to" setting says. If that leaves them nowhere
@@ -169,5 +170,12 @@ export async function POST(req: Request) {
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
   const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
   logChange(page, `Published as ${created.visibility}: ${url}`);
-  return json(req, { status: "created", url, shortUrl: short, contentHash: hash, visibility: created.visibility });
+  return json(req, {
+    status: "created",
+    url,
+    shortUrl: short,
+    contentHash: hash,
+    visibility: created.visibility,
+    changeLog: await changeLogStatusOf(ctx.graphId),
+  });
 }

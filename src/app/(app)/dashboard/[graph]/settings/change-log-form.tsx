@@ -92,7 +92,8 @@ export function ChangeLogForm({
             <FieldDescription>
               In Roam: Settings → Graph → API tokens → New API token, with <strong>append-only access</strong>. We
               check it by adding one block to today&apos;s daily note. Roam also creates an{" "}
-              <code>[[API Token: …]]</code> page for the token, which may not be deletable.
+              <code>[[API Token: …]]</code> page for the token, which may not be deletable. If you know how to remove
+              it reliably, please let me know at ejqs [at] ejqs [dot] net.
             </FieldDescription>
           </Field>
         )}

@@ -69,6 +69,8 @@ export const graph = pgTable("graph", {
   /** "invalid" once Roam rejects the stored token; the change log stops until it's replaced. */
   appendTokenStatus: text("append_token_status", { enum: ["ok", "invalid"] }),
   appendTokenAddedAt: timestamp("append_token_added_at", { withTimezone: true }),
+  /** Last time Roam accepted the token (verification, settings, or a change log entry). */
+  appendTokenOkAt: timestamp("append_token_ok_at", { withTimezone: true }),
   /** IANA time zone from the owner's browser; dates change log entries. */
   timeZone: text("time_zone"),
   verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull().defaultNow(),

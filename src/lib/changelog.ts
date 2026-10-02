@@ -96,7 +96,10 @@ export async function writeChanges(changes: Change[], at = new Date()) {
       continue;
     }
     const res = await appendUnderBlock(r.graphName, token, r.anchorUid!, texts);
-    if (res.ok) continue;
+    if (res.ok) {
+      await db.update(graph).set({ appendTokenOkAt: new Date() }).where(eq(graph.id, r.graphId));
+      continue;
+    }
     if (res.status === 401 || res.status === 403) {
       // Revoked or replaced in Roam: stop until the owner adds a new one.
       rejected.add(r.graphId);
@@ -111,4 +114,21 @@ export async function writeChanges(changes: Change[], at = new Date()) {
         .where(and(eq(shortlink.graphId, r.graphId), eq(shortlink.rootUid, r.rootUid)));
     }
   }
+}
+
+export type ChangeLogStatus = { status: "ok" | "invalid" | "none"; lastOkAt: Date | null };
+
+/** Whether the graph's change log can be written, for the extension to show. */
+export function changeLogStatus(g: {
+  appendTokenEnc: string | null;
+  appendTokenStatus: "ok" | "invalid" | null;
+  appendTokenOkAt: Date | null;
+}): ChangeLogStatus {
+  const status = g.appendTokenStatus === "invalid" ? "invalid" : g.appendTokenEnc ? "ok" : "none";
+  return { status, lastOkAt: g.appendTokenOkAt };
+}
+
+export async function changeLogStatusOf(graphId: string) {
+  const g = await db.query.graph.findFirst({ where: eq(graph.id, graphId) });
+  return g ? changeLogStatus(g) : { status: "none" as const, lastOkAt: null };
 }
