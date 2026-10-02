@@ -1,10 +1,11 @@
 "use client";
 
-import { ChevronDownIcon, LockIcon, PlusIcon, Settings2Icon, TriangleAlertIcon } from "lucide-react";
+import { ChevronDownIcon, KeyRoundIcon, LockIcon, PlusIcon, Settings2Icon, TriangleAlertIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { AccessMenu } from "@/app/(app)/dashboard/access-menu";
 import { unpublish } from "@/app/(app)/dashboard/actions";
 import { addToCollection, removeEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
 import { setPageTags } from "@/app/(app)/dashboard/tag-actions";
@@ -16,7 +17,7 @@ import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
 import { ACCESS_LABELS, LISTING_LABELS } from "./choice";
-import { PlaceAccessForm, type PlaceState } from "./place-access-form";
+import { PlacePasswordForm, type PlaceState } from "./place-access-form";
 import { TagsEditor } from "./tags-editor";
 
 const effective = (s: PlaceState, def: keyof typeof ACCESS_LABELS) => (s.access === "inherit" ? def : s.access);
@@ -36,7 +37,6 @@ export function ManageDialog({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const refresh = () => router.refresh();
 
@@ -108,97 +108,106 @@ export function ManageDialog({
         )}
 
         <section className="flex flex-col gap-2">
-          <h3 className="font-medium">In its graph</h3>
-          <div className="flex items-start justify-between gap-3 rounded-sm border p-3">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              {g.inGraph ? (
-                <Link href={g.path} className="block truncate text-link hover:underline">
-                  {g.path}
-                </Link>
-              ) : (
-                <span className="text-muted-foreground">Not shown in {data.origin.graphName}</span>
-              )}
-              {g.inGraph && (
-                <PlaceBadges
-                  access={gAccess}
-                  listing={g.visibility === "unlisted" ? "unlisted" : g.discoverable && gAccess === "open" ? "discover" : "listed"}
-                  lock={lockExplanation(gAccess, "graph", g.container.label)}
-                />
-              )}
-            </div>
-            {data.canManagePage && (
-              <div className="flex shrink-0 items-center gap-2">
-                <Switch
-                  aria-label="Show in graph"
-                  checked={g.inGraph}
-                  disabled={pending}
-                  onCheckedChange={(inGraph) => run(() => updateGraphPlace(data.publicationId, { inGraph }))}
-                />
-                {g.inGraph && (
-                  <Button variant="outline" size="sm" onClick={() => setEditing(editing === "graph" ? null : "graph")}>
-                    Access <ChevronDownIcon className={cn(editing === "graph" && "rotate-180")} />
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-          {editing === "graph" && g.inGraph && (
-            <div className="rounded-sm border p-3">
-              <PlaceAccessForm kind="graph" id={data.publicationId} initial={g.state} container={g.container} onSaved={refresh} />
-            </div>
-          )}
-        </section>
-
-        <section className="flex flex-col gap-2">
-          <h3 className="font-medium">In collections</h3>
-          {data.entries.length === 0 && <p className="text-muted-foreground">Not in any collection.</p>}
-          {data.entries.map((e) => (
-            <div key={e.entryId} className="flex flex-col gap-2">
-              <div className="flex items-start justify-between gap-3 rounded-sm border p-3">
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="font-medium">{e.collectionName}</span>
-                  <Link href={e.path} className="block truncate text-link hover:underline">
-                    {e.path}
-                  </Link>
-                  <PlaceBadges
-                    access={effective(e.state, e.container.defaultAccess)}
-                    listing={e.state.listing ?? "listed"}
-                    lock={lockExplanation(effective(e.state, e.container.defaultAccess), "collection", e.collectionName)}
+          <h3 className="font-medium">Where it&apos;s published</h3>
+          <ul className="divide-y rounded-sm border">
+            <PlaceRow
+              label={`Graph · ${data.origin.graphName}`}
+              path={g.inGraph ? g.path : undefined}
+              empty={`Not shown in ${data.origin.graphName}`}
+              access={gAccess}
+              lock={lockExplanation(gAccess, "graph", g.container.label)}
+              menu={
+                data.canManagePage && g.inGraph ? (
+                  <AccessMenu
+                    target={{ kind: "graph", publicationId: data.publicationId, frontPage: g.frontPage, indexable: g.indexable }}
+                    access={g.visibility === "unlisted" ? "unlisted" : g.discoverable ? "discover" : "public"}
+                    discoverBlocked={g.discoverBlocked}
+                    place={g}
                   />
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {e.canManage && (
-                    <Button variant="outline" size="sm" onClick={() => setEditing(editing === e.entryId ? null : e.entryId)}>
-                      Access <ChevronDownIcon className={cn(editing === e.entryId && "rotate-180")} />
-                    </Button>
-                  )}
-                  {(e.canManage || data.canManagePage) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground"
-                      disabled={pending}
-                      onClick={() => run(() => removeEntry(e.entryId))}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {editing === e.entryId && (
-                <div className="rounded-sm border p-3">
-                  <PlaceAccessForm kind="entry" id={e.entryId} initial={e.state} container={e.container} onSaved={refresh} />
-                </div>
-              )}
-            </div>
-          ))}
+                ) : undefined
+              }
+              listing={g.visibility === "unlisted" ? "unlisted" : g.discoverable && gAccess === "open" ? "discover" : "listed"}
+              action={
+                data.canManagePage && (
+                  <Switch
+                    aria-label="Show in graph"
+                    title={g.inGraph ? `Shown in ${data.origin.graphName}` : `Not shown in ${data.origin.graphName}`}
+                    checked={g.inGraph}
+                    disabled={pending}
+                    onCheckedChange={(inGraph) => run(() => updateGraphPlace(data.publicationId, { inGraph }))}
+                  />
+                )
+              }
+              password={
+                data.canManagePage && g.inGraph && gAccess === "password" ? (
+                  <PlacePasswordForm
+                    kind="graph"
+                    id={data.publicationId}
+                    hasOwnPassword={g.state.hasOwnPassword}
+                    container={g.container}
+                    onSaved={refresh}
+                  />
+                ) : undefined
+              }
+            />
+            {data.entries.map((e) => {
+              const access = effective(e.state, e.container.defaultAccess);
+              return (
+                <PlaceRow
+                  key={e.entryId}
+                  label={`Collection · ${e.collectionName}`}
+                  path={e.path}
+                  access={access}
+                  lock={lockExplanation(access, "collection", e.collectionName)}
+                  menu={
+                    e.canManage ? (
+                      <AccessMenu
+                        target={{ kind: "entry", entryId: e.entryId }}
+                        access={e.state.listing === "listed" || !e.state.listing ? "public" : e.state.listing}
+                        discoverBlocked={e.container.discoverBlocked}
+                        place={e}
+                          />
+                    ) : undefined
+                  }
+                  listing={e.state.listing ?? "listed"}
+                  action={
+                    (e.canManage || data.canManagePage) && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Remove from ${e.collectionName}`}
+                        title={`Remove from ${e.collectionName}`}
+                        className="text-muted-foreground"
+                        disabled={pending}
+                        onClick={() => run(() => removeEntry(e.entryId))}
+                      >
+                        <XIcon />
+                      </Button>
+                    )
+                  }
+                  password={
+                    e.canManage && access === "password" ? (
+                      <PlacePasswordForm
+                        kind="entry"
+                        id={e.entryId}
+                        hasOwnPassword={e.state.hasOwnPassword}
+                        container={e.container}
+                        onSaved={refresh}
+                      />
+                    ) : undefined
+                  }
+                />
+              );
+            })}
+          </ul>
           {data.addable.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Add to</span>
               {data.addable.map((c) => (
                 <Button
                   key={c.id}
                   variant="outline"
-                  size="sm"
+                  size="xs"
                   disabled={pending}
                   onClick={() => run(() => addToCollection(data.publicationId, c.id))}
                 >
@@ -245,6 +254,72 @@ function mostOpenPlace(places: PlaceSummary[]) {
   const sorted = [...places].sort((a, b) => STRICTNESS[a.access] - STRICTNESS[b.access]);
   const [least, most] = [sorted[0], sorted[sorted.length - 1]];
   return STRICTNESS[least.access] < STRICTNESS[most.access] ? { least, most } : null;
+}
+
+/** One place a page appears: its link, where it's listed and who can read it, and its own password. */
+function PlaceRow({
+  label,
+  path,
+  empty,
+  access,
+  lock,
+  listing,
+  menu,
+  action,
+  password,
+}: {
+  label: string;
+  path?: string;
+  empty?: string;
+  access: keyof typeof ACCESS_LABELS;
+  lock?: string;
+  listing: keyof typeof LISTING_LABELS;
+  /** The AccessMenu, for people who can change this place. */
+  menu?: React.ReactNode;
+  action?: React.ReactNode;
+  password?: React.ReactNode;
+}) {
+  const [showPassword, setShowPassword] = useState(false);
+  return (
+    <li className="flex flex-col gap-2 p-3">
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-xs text-muted-foreground">{label}</span>
+          {path ? (
+            <Link href={path} className="truncate text-link hover:underline">
+              {path}
+            </Link>
+          ) : (
+            <span className="text-muted-foreground">{empty}</span>
+          )}
+        </div>
+        {action && <div className="flex shrink-0 items-center">{action}</div>}
+      </div>
+      {path && (
+        <div className="flex flex-wrap items-center gap-2">
+          {menu ?? <PlaceBadges access={access} listing={listing} lock={lock} />}
+          {menu && access !== "open" && (
+            <span title={lock} className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
+              <LockIcon className="size-3" /> {ACCESS_LABELS[access]}
+            </span>
+          )}
+          {password && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-muted-foreground"
+              aria-expanded={showPassword}
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              <KeyRoundIcon /> Page password
+              <ChevronDownIcon className={cn(showPassword && "rotate-180")} />
+            </Button>
+          )}
+        </div>
+      )}
+      {path && showPassword && password}
+    </li>
+  );
 }
 
 function PlaceBadges({

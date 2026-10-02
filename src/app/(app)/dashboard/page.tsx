@@ -134,7 +134,7 @@ export default async function DashboardPage() {
         { key: "pages", label: "Pages" },
         { key: "unlisted", label: "Not listed" },
         { key: "listed", label: "Listed" },
-        { key: "discover", label: "Discover" },
+        { key: "discover", label: "Discoverable" },
       ]}
       items={collectionItems}
     />;
