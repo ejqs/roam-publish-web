@@ -1,5 +1,6 @@
 import { and, asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
@@ -8,17 +9,16 @@ import { CopyButton } from "@/components/copy-button";
 import { ACCESS_LABELS, LISTING_LABELS } from "@/components/manage/labels";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/db";
 import { pageHistory } from "@/lib/changelog";
 import { collection, collectionEntry, graph, publication, shortlink } from "@/db/schema";
 import { effectiveAccess } from "@/lib/gates";
 import { canManage, graphRole } from "@/lib/graph-access";
-import { primaryUrls } from "@/lib/places";
 import { entryUrl, publicationUrl } from "@/lib/publications";
-import { SHORT_ID, shortUrl } from "@/lib/shortlinks";
+import { SHORT_ID } from "@/lib/shortlinks";
 import { plainText } from "@/lib/slug";
-import { viewerId } from "@/lib/viewer";
+import { bylineFor, viewerId } from "@/lib/viewer";
 
 /** `[label](url)` and bare URLs in a history entry, as links. */
 const LINKS = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s)]+)/g;
@@ -58,16 +58,19 @@ const load = cache(async (id: string) => {
 });
 
 /**
- * A page's permanent link. People in its graph see where the page lives now, with links to copy,
- * and its history (the change log, also written into Roam when the graph has a token).
- * Everyone else goes to the first place anyone can read it (its graph, then its collections in the
- * order it was added), or, when every place is protected, to its main URL and that place's gate.
+ * A page's status link, for people in its graph: where the page lives now, with links to copy, and
+ * its history (the change log, also written into Roam when the graph has a token). Signed-out
+ * visitors are sent to log in; anyone else signed in gets a 404, never the page itself.
  */
 export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
   const { id } = await props.params;
   const data = await load(id);
   if (!data) notFound();
   const { g, pub } = data;
+  const uid = await viewerId();
+  if (!uid) redirect(`/login?next=${encodeURIComponent(`/p/${id}`)}`);
+  const role = await graphRole(uid, g.id);
+  if (!role) notFound();
 
   const entries = pub
     ? await db
@@ -87,7 +90,6 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
                 url: publicationUrl(g.name, pub.rootUid, pub.title),
                 listing: pub.visibility === "unlisted" ? "Not listed" : pub.discoverable ? "Discoverable" : "Listed",
                 access: ACCESS_LABELS[effectiveAccess({ ...g, kind: "graph" }, pub)],
-                open: effectiveAccess({ ...g, kind: "graph" }, pub) === "open",
               },
             ]
           : []),
@@ -97,23 +99,17 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
           url: entryUrl(c.slug, entry.entryUid, pub.title),
           listing: LISTING_LABELS[entry.listing],
           access: ACCESS_LABELS[effectiveAccess({ ...c, kind: "collection" }, entry)],
-          open: !c.suspendedAt && effectiveAccess({ ...c, kind: "collection" }, entry) === "open",
         })),
       ]
     : [];
-  const uid = await viewerId();
-  const role = uid ? await graphRole(uid, g.id) : null;
-  if (!role) {
-    if (!pub || pub.removedAt || g.suspendedAt) notFound();
-    redirect(places.find((p) => p.open)?.url ?? (await primaryUrls(g.name, [pub])).get(pub.id)!);
-  }
-  const link = shortUrl(id);
   const history = await pageHistory(data.link.id);
+  const byline = pub ? await bylineFor(pub, true) : null;
   const when = new Intl.DateTimeFormat("en-US", {
     timeZone: g.timeZone ?? "UTC",
     dateStyle: "medium",
     timeStyle: "short",
   });
+  const at = (d: Date) => when.format(d) + (g.timeZone ? "" : " UTC");
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6 sm:py-12">
@@ -123,10 +119,17 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
           <CardTitle className="text-xl break-words">
             {pub ? plainText(pub.title) : "Not published right now"}
           </CardTitle>
-          <code className="truncate pt-1 text-sm text-muted-foreground">{link}</code>
           <p className="text-sm text-muted-foreground">
-            This status link is for you and your graph&apos;s members. To share the page, use one of the links
-            below: other visitors who open this one are sent to the first place they can read it, which can change.
+            {[
+              pub && `Last updated ${at(pub.updatedAt)}`,
+              `First published ${at(data.link.createdAt)}`,
+              byline && `By ${byline.label}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Only your graph&apos;s members see this page. Share one of the links below.
           </p>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -158,7 +161,7 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
               ))}
             </ul>
           )}
-          {pub && uid && canManage(role, uid, pub) && (
+          {pub && canManage(role, uid, pub) && (
             <Link
               href={graphPagesPath(g.name)}
               className={buttonVariants({ variant: "outline", className: "self-start" })}
@@ -167,35 +170,36 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
             </Link>
           )}
         </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>History</CardTitle>
-          <CardDescription>
-            What happened to this page, newest first{g.timeZone ? "" : " (times in UTC)"}.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {history.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing yet. Changes are recorded from now on.</p>
-          ) : (
-            <ol className="flex flex-col divide-y rounded-lg border">
-              {history.map((h) => (
-                <li key={h.id} className="flex flex-col gap-0.5 p-3 text-sm sm:flex-row sm:gap-3">
-                  <time
-                    dateTime={h.createdAt.toISOString()}
-                    className="shrink-0 text-muted-foreground tabular-nums sm:w-44"
-                  >
-                    {when.format(h.createdAt)}
-                  </time>
-                  <span className="min-w-0 break-words">
-                    <EntryText text={h.text} />
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </CardContent>
+        <CardFooter className="block p-0">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-1.5 px-(--card-spacing) py-3 text-sm font-medium text-muted-foreground select-none hover:text-foreground [&::-webkit-details-marker]:hidden">
+              <ChevronRight className="size-4 transition-transform group-open:rotate-90" />
+              History
+              {history.length > 0 && <span className="font-normal">({history.length})</span>}
+            </summary>
+            <div className="px-(--card-spacing) pb-(--card-spacing)">
+              {history.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nothing yet. Changes are recorded from now on.</p>
+              ) : (
+                <ol className="flex flex-col divide-y rounded-lg border bg-card">
+                  {history.map((h) => (
+                    <li key={h.id} className="flex flex-col gap-0.5 p-3 text-sm sm:flex-row sm:gap-3">
+                      <time
+                        dateTime={h.createdAt.toISOString()}
+                        className="shrink-0 text-muted-foreground tabular-nums sm:w-44"
+                      >
+                        {when.format(h.createdAt)}
+                      </time>
+                      <span className="min-w-0 break-words">
+                        <EntryText text={h.text} />
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
+          </details>
+        </CardFooter>
       </Card>
     </main>
   );
