@@ -11,8 +11,9 @@ const roamPageUrl = (graph: string, uid: string) =>
   `https://roamresearch.com/#/app/${encodeURIComponent(graph)}/page/${encodeURIComponent(uid)}`;
 
 /**
- * Pages whose Changelog block was deleted in Roam. roam.pub stopped their change log rather than let
- * Roam put entries on the daily note; the owner adds the blocks back or ignores it.
+ * Pages whose status link block (or, from earlier builds, Changelog block) was deleted in Roam.
+ * roam.pub stopped their change log rather than let Roam put entries on the daily note; the owner
+ * adds it back or ignores it.
  */
 export function ChangeLogIssues({ issues }: { issues: Issue[] }) {
   if (issues.length === 0) return null;
@@ -22,8 +23,8 @@ export function ChangeLogIssues({ issues }: { issues: Issue[] }) {
       <AlertTitle>Change log stopped for {issues.length === 1 ? "1 page" : `${issues.length} pages`}</AlertTitle>
       <AlertDescription className="flex flex-col gap-2 text-pretty">
         <p>
-          Its <code>Changelog</code> block was deleted in Roam, so roam.pub stopped writing there (Roam would put the
-          entries on your daily note instead). Open the page in Roam and publish it again to add the blocks back;
+          Its Roam Publish Status link was deleted in Roam, so roam.pub stopped writing there (Roam would put the
+          entries on your daily note instead). Open the page in Roam and publish it again to add it back;
           changes are logged from then on. Or ignore it to leave the page without a change log.
         </p>
         <ul className="flex flex-col divide-y rounded-md border bg-card">

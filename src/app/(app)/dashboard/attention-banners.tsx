@@ -108,7 +108,7 @@ export function attentionItems({
       id: `append-token-${g.id}`,
       severity: "warning",
       title: `Roam rejected ${g.name}'s append-only token`,
-      body: "The change log under your pages' shortlink blocks has stopped. Add a new append-only token to restart it.",
+      body: "The change log under your pages' Roam Publish Status links has stopped. Add a new append-only token to restart it.",
       action: { label: "Settings", href: `/dashboard/${encodeURIComponent(g.name)}/settings#change-log` },
     });
   }
