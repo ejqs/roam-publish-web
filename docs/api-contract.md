@@ -137,7 +137,10 @@ Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. A
   (`location: { block: { uid: anchorUid } }`), e.g. `[[October 2nd, 2026]] 14:03 Republished`. Events: published,
   republished, byline changed, unpublished, visibility and Discover, shown in or hidden from the graph, added to or
   removed from a collection, access and passwords, collection deleted, and moderator removal or restore. Writes happen
-  after the response and never fail the request. A 401/403 from Roam marks the token invalid (the dashboard asks
+  after the response and never fail the request. Entries are idempotent: each is recorded in `changelog_entry` under a
+  key unique per page before it's sent, so a retried or concurrent request never appends the same entry twice.
+  Content events are keyed by the state they changed from. Other entries are skipped when identical to the page's
+  previous entry, and events are only logged when something actually changed. Failed sends aren't retried. A 401/403 from Roam marks the token invalid (the dashboard asks
   for a new one). A 400 clears `anchorUid` until the extension writes a new block.
 
 ## Members, invites and transfers
