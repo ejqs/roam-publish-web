@@ -85,7 +85,7 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
                 key: "graph",
                 where: `Graph · ${g.name}`,
                 url: publicationUrl(g.name, pub.rootUid, pub.title),
-                listing: pub.visibility === "unlisted" ? "Not listed" : pub.discoverable ? "Discover" : "Listed",
+                listing: pub.visibility === "unlisted" ? "Not listed" : pub.discoverable ? "Discoverable" : "Listed",
                 access: ACCESS_LABELS[effectiveAccess({ ...g, kind: "graph" }, pub)],
                 open: effectiveAccess({ ...g, kind: "graph" }, pub) === "open",
               },

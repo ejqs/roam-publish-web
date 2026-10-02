@@ -1,6 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, collectionEntry, graph, publication } from "@/db/schema";
+import { discoverBlocked } from "@/app/(app)/dashboard/filters";
 import { canManageEntry, collectionsOf } from "./collections";
 import { canManage, graphsOf } from "./graph-access";
 import { entryPath, publicationPath } from "./publications";
@@ -18,6 +19,11 @@ export type ManageData = {
     path: string;
     visibility: "public" | "unlisted";
     discoverable: boolean;
+    /** The graph's front page lists its pages, and search engines may index them. */
+    frontPage: boolean;
+    indexable: boolean;
+    /** Why the graph can't list pages on Discover right now, if it can't. */
+    discoverBlocked?: string;
     state: PlaceState;
     container: { label: string; defaultAccess: "open" | "password" | "members"; hasPassword: boolean; showAuthors: boolean };
   };
@@ -111,6 +117,9 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
         path: publicationPath(g.name, pub.rootUid, pub.title),
         visibility: pub.visibility,
         discoverable: pub.discoverable,
+        frontPage: g.frontPage,
+        indexable: g.indexable,
+        discoverBlocked: discoverBlocked(g),
         state: { access: pub.access, hasOwnPassword: !!pub.passwordHash, showAuthor: pub.showAuthor },
         container: {
           label: g.name,
