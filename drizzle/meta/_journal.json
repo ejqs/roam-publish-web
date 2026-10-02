@@ -85,6 +85,13 @@
       "when": 1790910320631,
       "tag": "0011_rss_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790911295916,
+      "tag": "0012_account_deletion",
+      "breakpoints": true
     }
   ]
 }

@@ -265,6 +265,7 @@ export const moderationAction = pgTable(
       enum: [
         "remove", "restore", "suspend", "unsuspend", "ban", "unban", "dismiss",
         "rename_username", "clear_username", "release_username", "clear_bio", "clear_description",
+        "delete_account", "delete_graph", "lift_block",
       ],
     }).notNull(),
     reason: text("reason").notNull().default(""),
@@ -272,6 +273,28 @@ export const moderationAction = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("moderation_action_created_idx").on(t.createdAt)],
+);
+
+export const BLOCKED_KINDS = ["email", "graph", "username"] as const;
+export type BlockedKind = (typeof BLOCKED_KINDS)[number];
+
+/**
+ * What a deleted account leaves behind when a moderator had acted on it, so deleting the account
+ * doesn't lift the ban: its email can't sign up, its Roam graphs can't be connected again, and its
+ * usernames can't be claimed. Emails are kept only as a hash (see src/lib/deletion.ts); graph names
+ * and usernames are lowercase. Admins lift entries at /admin/blocked.
+ */
+export const blockedIdentity = pgTable(
+  "blocked_identity",
+  {
+    kind: text("kind", { enum: BLOCKED_KINDS }).notNull(),
+    value: text("value").notNull(),
+    reason: text("reason").notNull().default(""),
+    /** The moderation_action row (delete_account) that created it. */
+    moderationActionId: text("moderation_action_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.kind, t.value] })],
 );
 
 /**

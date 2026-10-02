@@ -1,10 +1,12 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins/admin";
 import { apiKey } from "@better-auth/api-key";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { deleteAccountData, isBlocked } from "@/lib/deletion";
 import { sendEmail } from "@/lib/email";
 
 /** Bootstrap admins by user id; anyone with role "admin" is also an admin. */
@@ -42,6 +44,38 @@ export const auth = betterAuth({
         subject: "Verify your Roam Publish email",
         text: `Verify your email: ${url}`,
       });
+    },
+  },
+  user: {
+    deleteUser: {
+      enabled: true,
+      // Deleting needs the link in this email, opened while signed in.
+      sendDeleteAccountVerification: async ({ user, url }) => {
+        void sendEmail({
+          to: user.email,
+          subject: "Confirm deleting your Roam Publish account",
+          text:
+            `Open this link to permanently delete your account, your graphs, their pages and your collections:\n${url}\n\n` +
+            "This can't be undone. If you didn't ask for this, ignore this email.",
+        });
+      },
+      beforeDelete: async (user) => {
+        await deleteAccountData(user);
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        // Emails of accounts deleted under a moderation action can't sign up again; see src/lib/deletion.ts.
+        before: async (user) => {
+          // Not 403: sign-up turns a 403 into its generic "check your email" reply, and nothing would arrive.
+          if (await isBlocked("email", user.email))
+            throw new APIError("BAD_REQUEST", {
+              message: "This email can't be used on Roam Publish. Contact us if you think this is a mistake.",
+            });
+        },
+      },
     },
   },
   plugins: [
