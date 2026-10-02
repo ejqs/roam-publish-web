@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, eq, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -267,4 +267,119 @@ export async function applyAccessToAllPages(
   revalidateAll();
   const n = updated.length;
   return { ok: true, message: `Updated ${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}.` };
+}
+
+const BulkInput = z.object({
+  ids: z.array(z.string()).min(1).max(100),
+  /** Where it's listed in its graph. */
+  reach: z.enum(["unlisted", "public", "discover"]).optional(),
+  /** Who can read it in its graph. */
+  read: z.enum(ACCESS).optional(),
+});
+export type BulkInput = z.input<typeof BulkInput>;
+
+const plural = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
+
+/**
+ * Changes where several pages are listed or who can read them, in their graphs. Pages the viewer
+ * can't manage are skipped, and so are changes a page can't take: Password without any password
+ * to use, and Discover for a protected page (it's listed instead).
+ */
+export async function bulkUpdatePublications(raw: BulkInput): Promise<PlaceResult> {
+  const uid = await userId();
+  if (!uid) return SESSION_EXPIRED;
+  const parsed = BulkInput.safeParse(raw);
+  if (!parsed.success || (!parsed.data.reach && !parsed.data.read)) return { ok: false, message: "Nothing to change." };
+  const { ids, reach, read } = parsed.data;
+
+  const rows = await db
+    .select({ pub: publication, g: graph })
+    .from(publication)
+    .innerJoin(graph, eq(graph.id, publication.graphId))
+    .where(and(inArray(publication.id, ids), manageablePublications(uid), isNull(publication.removedAt)));
+  if (rows.length === 0) return NOT_ALLOWED;
+
+  let noPassword = 0;
+  let notDiscover = 0;
+  let changed = 0;
+  for (const { pub, g } of rows) {
+    const set: Partial<typeof publication.$inferInsert> = {};
+    let access = pub.access === "inherit" ? g.defaultAccess : pub.access;
+    if (read) {
+      if (read === "password" && !pub.passwordHash && !g.passwordHash) noPassword++;
+      else set.access = access = read;
+    }
+    if (reach === "unlisted") set.visibility = "unlisted";
+    else if (reach === "public") Object.assign(set, { visibility: "public", discoverable: false });
+    else if (reach === "discover") {
+      const ok = access === "open" && g.indexAccess === "open" && pub.inGraph;
+      Object.assign(set, { visibility: "public", discoverable: ok });
+      if (!ok) notDiscover++;
+    }
+    if (Object.keys(set).length === 0) continue;
+    await db.update(publication).set(set).where(eq(publication.id, pub.id));
+    changed++;
+  }
+  for (const graphId of new Set(rows.map((r) => r.g.id))) await clearGatedGraphDiscover(graphId);
+  revalidateAll();
+
+  const notes = [
+    noPassword && `${plural(noPassword)} kept their access: set a graph password, or one per page, to use Password.`,
+    notDiscover && `${plural(notDiscover)} can't go on Discover while protected, so they're listed instead.`,
+  ].filter(Boolean);
+  if (changed === 0) return { ok: false, message: notes.join(" ") || "Nothing changed." };
+  return { ok: true, message: [`Updated ${plural(changed)}.`, ...notes].join(" ") };
+}
+
+/**
+ * Collection entries' version of bulkUpdatePublications: where several pages are listed in the
+ * collection, or who can read them there. Entries the viewer can't manage are skipped.
+ */
+export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
+  const uid = await userId();
+  if (!uid) return SESSION_EXPIRED;
+  const parsed = BulkInput.safeParse(raw);
+  if (!parsed.success || (!parsed.data.reach && !parsed.data.read)) return { ok: false, message: "Nothing to change." };
+  const { ids, reach, read } = parsed.data;
+
+  const rows = await db
+    .select({ entry: collectionEntry, c: collection })
+    .from(collectionEntry)
+    .innerJoin(collection, eq(collection.id, collectionEntry.collectionId))
+    .where(inArray(collectionEntry.id, ids));
+  const roles = new Map<string, Awaited<ReturnType<typeof collectionRole>>>();
+  for (const id of new Set(rows.map((r) => r.c.id))) roles.set(id, await collectionRole(uid, id));
+  const mine = rows.filter(({ entry, c }) => canManageEntry(roles.get(c.id) ?? null, uid, entry));
+  if (mine.length === 0) return NOT_ALLOWED;
+
+  let noPassword = 0;
+  let notDiscover = 0;
+  let changed = 0;
+  for (const { entry, c } of mine) {
+    const set: Partial<typeof collectionEntry.$inferInsert> = {};
+    let access = entry.access === "inherit" ? c.defaultAccess : entry.access;
+    if (read) {
+      if (read === "password" && !entry.passwordHash && !c.passwordHash) noPassword++;
+      else set.access = access = read;
+    }
+    if (reach === "unlisted") set.listing = "unlisted";
+    else if (reach === "public") set.listing = "listed";
+    else if (reach === "discover") {
+      const ok = access === "open" && c.indexAccess === "open" && c.indexable && !c.suspendedAt;
+      set.listing = ok ? "discover" : "listed";
+      if (!ok) notDiscover++;
+    }
+    if (Object.keys(set).length === 0) continue;
+    await db.update(collectionEntry).set(set).where(eq(collectionEntry.id, entry.id));
+    changed++;
+  }
+  for (const id of roles.keys()) await clearGatedCollectionDiscover(id);
+  revalidateAll();
+
+  const notes = [
+    noPassword && `${plural(noPassword)} kept their access: set a collection password, or one per page, to use Password.`,
+    notDiscover && `${plural(notDiscover)} can't go on Discover here, so they're listed instead.`,
+  ].filter(Boolean);
+  if (changed === 0) return { ok: false, message: notes.join(" ") || "Nothing changed." };
+  return { ok: true, message: [`Updated ${plural(changed)}.`, ...notes].join(" ") };
 }

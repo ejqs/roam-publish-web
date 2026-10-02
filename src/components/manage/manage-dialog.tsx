@@ -50,8 +50,12 @@ export function ManageDialog({
   const g = data.graphPlace;
   const gAccess = effective(g.state, g.container.defaultAccess);
   const exposure = mostOpenPlace([
-    ...(g.inGraph ? [{ path: g.path, access: gAccess }] : []),
-    ...data.entries.map((e) => ({ path: e.path, access: effective(e.state, e.container.defaultAccess) })),
+    ...(g.inGraph ? [{ name: `${data.origin.graphName} (its graph)`, path: g.path, access: gAccess }] : []),
+    ...data.entries.map((e) => ({
+      name: e.collectionName,
+      path: e.path,
+      access: effective(e.state, e.container.defaultAccess),
+    })),
   ]);
 
   return (
@@ -69,7 +73,7 @@ export function ManageDialog({
           )
         }
       />
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="pr-6 break-words">{data.title}</DialogTitle>
           <DialogDescription>
@@ -81,21 +85,23 @@ export function ManageDialog({
           <p className="flex gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <span>
-              {exposure.access === "open" ? "Anyone with the link" : "Anyone with the password"} can read this page at{" "}
-              <Link href={exposure.path} className="text-link break-all hover:underline">
-                {exposure.path}
+              {exposure.least.access === "open" ? "Anyone with the link" : "Anyone with the password"} can read this
+              page in{" "}
+              <Link href={exposure.least.path} className="font-medium text-link hover:underline">
+                {exposure.least.name}
               </Link>
-              , even though it&apos;s protected more strictly elsewhere.
+              , even though it&apos;s {exposure.most.access === "members" ? "members only" : "password protected"} in{" "}
+              {exposure.most.name}.
             </span>
           </p>
         )}
 
         <section className="flex flex-col gap-2">
           <h3 className="font-medium">In its graph</h3>
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border p-3">
-            <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex items-start justify-between gap-3 rounded-sm border p-3">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
               {g.inGraph ? (
-                <Link href={g.path} className="truncate text-link hover:underline">
+                <Link href={g.path} className="block truncate text-link hover:underline">
                   {g.path}
                 </Link>
               ) : (
@@ -110,7 +116,7 @@ export function ManageDialog({
               )}
             </div>
             {data.canManagePage && (
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <Switch
                   aria-label="Show in graph"
                   checked={g.inGraph}
@@ -137,10 +143,10 @@ export function ManageDialog({
           {data.entries.length === 0 && <p className="text-muted-foreground">Not in any collection.</p>}
           {data.entries.map((e) => (
             <div key={e.entryId} className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border p-3">
-                <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex items-start justify-between gap-3 rounded-sm border p-3">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="font-medium">{e.collectionName}</span>
-                  <Link href={e.path} className="truncate text-link hover:underline">
+                  <Link href={e.path} className="block truncate text-link hover:underline">
                     {e.path}
                   </Link>
                   <PlaceBadges
@@ -149,7 +155,7 @@ export function ManageDialog({
                     lock={lockExplanation(effective(e.state, e.container.defaultAccess), "collection", e.collectionName)}
                   />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   {e.canManage && (
                     <Button variant="outline" size="sm" onClick={() => setEditing(editing === e.entryId ? null : e.entryId)}>
                       Access <ChevronDownIcon className={cn(editing === e.entryId && "rotate-180")} />
@@ -220,12 +226,14 @@ export function ManageDialog({
 
 const STRICTNESS = { open: 0, password: 1, members: 2 } as const;
 
-/** The least protected place, when another place is protected more strictly. */
-function mostOpenPlace(places: { path: string; access: keyof typeof ACCESS_LABELS }[]) {
+type PlaceSummary = { name: string; path: string; access: keyof typeof ACCESS_LABELS };
+
+/** The least and most protected places, when they differ. */
+function mostOpenPlace(places: PlaceSummary[]) {
   if (places.length < 2) return null;
   const sorted = [...places].sort((a, b) => STRICTNESS[a.access] - STRICTNESS[b.access]);
   const [least, most] = [sorted[0], sorted[sorted.length - 1]];
-  return STRICTNESS[least.access] < STRICTNESS[most.access] ? least : null;
+  return STRICTNESS[least.access] < STRICTNESS[most.access] ? { least, most } : null;
 }
 
 function PlaceBadges({

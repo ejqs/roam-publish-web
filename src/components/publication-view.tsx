@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Breadcrumbs, type Crumb } from "@/components/breadcrumbs";
+import { DashboardLink } from "@/components/dashboard-link";
 import { ManageDialog } from "@/components/manage/manage-dialog";
 import { ReportAbuseButton, type ReportTarget } from "@/components/report-abuse-button";
 import { BlockList } from "@/components/roam/block-tree";
@@ -46,6 +47,7 @@ export function PublicationView({
     <>
       <main className="relative flex-1 bg-card">
         <div className="absolute top-3 right-4 flex items-center gap-1">
+          <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
           {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
           <ReportAbuseButton target={report} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
@@ -93,4 +95,11 @@ function BylineLine({ byline, className }: { byline: Byline; className?: string 
       )}
     </p>
   );
+}
+
+/** The dashboard list this page sits in: its graph's, or else the first collection the viewer manages it in. */
+function dashboardHref(m: ManageData) {
+  if (m.canManagePage) return `/dashboard/${encodeURIComponent(m.origin.graphName)}#pub-${m.publicationId}`;
+  const e = m.entries.find((x) => x.canManage);
+  return e ? `/dashboard/collections/${encodeURIComponent(e.collectionSlug)}` : "/dashboard";
 }

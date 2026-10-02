@@ -10,33 +10,35 @@ import type { Access as ReadAccess, ShowAuthor } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { type Access, setAccess } from "./actions";
-import { updateGraphPlace } from "./place-actions";
+import { updateEntry, updateGraphPlace } from "./place-actions";
 
-const ICONS = { unlisted: LinkIcon, public: GlobeIcon, discover: CompassIcon };
-const LABELS = { unlisted: LISTING_LABELS.unlisted, public: LISTING_LABELS.listed, discover: LISTING_LABELS.discover };
+export const ICONS = { unlisted: LinkIcon, public: GlobeIcon, discover: CompassIcon };
+export const LABELS = { unlisted: LISTING_LABELS.unlisted, public: LISTING_LABELS.listed, discover: LISTING_LABELS.discover };
 
-type Option<T> = { value: T; label: string; description?: string; disabled?: string; icon?: LucideIcon };
+export type Option<T> = { value: T; label: string; description?: string; disabled?: string; icon?: LucideIcon };
+
+/** The place a menu changes: a page in its graph, or a page's entry in a collection. */
+export type MenuTarget =
+  | { kind: "graph"; publicationId: string; frontPage: boolean; indexable: boolean }
+  | { kind: "entry"; entryId: string };
 
 /**
- * One control for a page's place in its graph: how far it reaches (link only, the graph's front
- * page and search engines, or also roam.pub/discover), who can read it, and its byline. Each
- * option saves on click; setting a page's own password still happens in Manage.
+ * One control for one place a page appears: where it's listed (link only, the graph's or
+ * collection's page, or also roam.pub/discover), who can read it, and its byline. Each option
+ * saves on click; setting a page's own password still happens in Manage.
  */
 export function AccessMenu({
-  publicationId,
+  target,
   access,
-  frontPage,
-  indexable,
   discoverBlocked,
   place,
 }: {
-  publicationId: string;
+  target: MenuTarget;
+  /** Where it's listed; a collection's "listed" is "public" here. */
   access: Access;
-  frontPage: boolean;
-  indexable: boolean;
-  /** Why this graph can't list pages on Discover right now, if it can't (ignoring the page's own access). */
+  /** Why this graph or collection can't list pages on Discover right now, if it can't (ignoring the page's own access). */
   discoverBlocked?: string;
-  place: ManageData["graphPlace"];
+  place: Pick<ManageData["graphPlace"], "state" | "container">;
 }) {
   const [open, setOpen] = useState(false);
   const [optimistic, setOptimistic] = useOptimistic({
@@ -61,10 +63,13 @@ export function AccessMenu({
       value: "public",
       label: LABELS.public,
       icon: ICONS.public,
-      description: [
-        frontPage ? "Listed on your front page." : "Your front page is off, so it isn't listed anywhere.",
-        indexable ? "Search engines can index it." : "Hidden from search engines.",
-      ].join(" "),
+      description:
+        target.kind === "entry"
+          ? `Listed on ${container.label}'s page.`
+          : [
+              target.frontPage ? "Listed on your front page." : "Your front page is off, so it isn't listed anywhere.",
+              target.indexable ? "Search engines can index it." : "Hidden from search engines.",
+            ].join(" "),
     },
     {
       value: "discover",
@@ -95,7 +100,10 @@ export function AccessMenu({
     if (next === reach) return;
     start(async () => {
       setOptimistic((s) => ({ ...s, access: next }));
-      const res = await setAccess(publicationId, next);
+      const res =
+        target.kind === "graph"
+          ? await setAccess(target.publicationId, next)
+          : await updateEntry(target.entryId, { listing: next === "public" ? "listed" : next });
       if (res && !res.ok) toast.error(res.message);
     });
   }
@@ -109,7 +117,8 @@ export function AccessMenu({
         ...(next.access && { read: next.access }),
         ...(next.showAuthor && { showAuthor: next.showAuthor }),
       }));
-      const res = await updateGraphPlace(publicationId, next);
+      const res =
+        target.kind === "graph" ? await updateGraphPlace(target.publicationId, next) : await updateEntry(target.entryId, next);
       if (!res.ok) toast.error(res.message);
     });
   }
@@ -151,7 +160,7 @@ export function AccessMenu({
   );
 }
 
-function Section<T extends string>({
+export function Section<T extends string>({
   label,
   value,
   options,

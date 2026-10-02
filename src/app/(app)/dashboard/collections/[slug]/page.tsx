@@ -1,15 +1,28 @@
-import { asc, eq } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MembersPanel } from "@/components/manage/members-panel";
+import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/db";
 import { collectionEntry, publication, user } from "@/db/schema";
 import { collectionRole, loadCollection } from "@/lib/collections";
 import { membersOf, pendingInvitesOn } from "@/lib/invites";
-import { collectionPath, entryPath } from "@/lib/publications";
+import { manageDataFor } from "@/lib/manage-data";
+import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
-import { EntryRow } from "./entry-row";
+import {
+  COLLECTION_LIST,
+  collectionPagesPath,
+  entryCounts,
+  entryListOrder,
+  entryListWhere,
+  PAGE_SIZE,
+  parseListState,
+  sortHref,
+} from "../../filters";
+import { ListEmpty, ListPagination, ListToolbar } from "../../list-toolbar";
+import { EntryList } from "./entry-list";
 import { CollectionSettingsForm } from "./settings-form";
 
 export const metadata: Metadata = { title: "Collection · Roam Publish" };
@@ -23,19 +36,56 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
   if (!role) notFound();
   const isOwner = role === "owner";
   const me = session.user.id;
+  const path = collectionPagesPath(c.slug);
 
-  const [members, invites, owner, entries] = await Promise.all([
+  const state = parseListState(COLLECTION_LIST, await props.searchParams);
+  const where = entryListWhere(c.id, state);
+  const [members, invites, owner, [totals], [{ matching }]] = await Promise.all([
     membersOf("collection", c.id),
     isOwner ? pendingInvitesOn("collection", c.id) : [],
     db.query.user.findFirst({ where: eq(user.id, c.ownerId), columns: { email: true } }),
     db
-      .select({ entry: collectionEntry, title: publication.title, removedAt: publication.removedAt, addedByEmail: user.email })
+      .select({ total: count(), ...entryCounts })
       .from(collectionEntry)
       .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
-      .leftJoin(user, eq(user.id, collectionEntry.addedBy))
-      .where(eq(collectionEntry.collectionId, c.id))
-      .orderBy(asc(collectionEntry.position), asc(collectionEntry.addedAt)),
+      .where(eq(collectionEntry.collectionId, c.id)),
+    db
+      .select({ matching: count() })
+      .from(collectionEntry)
+      .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
+      .where(where),
   ]);
+  const pageCount = Math.max(1, Math.ceil(matching / PAGE_SIZE));
+  const page = Math.min(state.page, pageCount);
+  const rows = await db
+    .select({
+      entry: {
+        id: collectionEntry.id,
+        entryUid: collectionEntry.entryUid,
+        listing: collectionEntry.listing,
+        access: collectionEntry.access,
+        originGraphName: collectionEntry.originGraphName,
+        addedBy: collectionEntry.addedBy,
+      },
+      pub: {
+        id: publication.id,
+        title: publication.title,
+        kind: publication.kind,
+        removedAt: publication.removedAt,
+        removedReason: publication.removedReason,
+        updatedAt: publication.updatedAt,
+      },
+      addedByEmail: user.email,
+    })
+    .from(collectionEntry)
+    .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
+    .leftJoin(user, eq(user.id, collectionEntry.addedBy))
+    .where(where)
+    .orderBy(...entryListOrder(state))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE);
+  const manage = await manageDataFor(me, rows.map((r) => r.pub.id));
+
   const discoverBlocked = c.suspendedAt
     ? "This collection is suspended."
     : c.indexAccess !== "open"
@@ -43,17 +93,27 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
       : !c.indexable
         ? "Turn on search engines to use Discover."
         : undefined;
+  const filtered = !!(state.access || state.kind || state.q);
+  // Up and down only make sense on the owner's whole order.
+  const inOrder = isOwner && state.sort === "order" && !state.desc && !filtered;
+  const header = (sort: "title" | "updated") => ({
+    href: sortHref(COLLECTION_LIST, path, state, sort),
+    dir: state.sort === sort ? (state.desc ? ("desc" as const) : ("asc" as const)) : null,
+  });
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-12">
       <div className="flex flex-col gap-1">
         <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
           ← Dashboard
         </Link>
-        <h1 className="text-2xl font-semibold">{c.name}</h1>
-        <Link href={collectionPath(c.slug)} className="text-sm text-link hover:underline">
-          roam.pub{collectionPath(c.slug)}
-        </Link>
+        <h1 className="text-2xl font-semibold break-words">{c.name}</h1>
+        <p className="text-sm text-muted-foreground">
+          {totals.total.toLocaleString("en-US")} {totals.total === 1 ? "page" : "pages"} ·{" "}
+          <Link href={collectionPath(c.slug)} className="text-link hover:underline">
+            roam.pub{collectionPath(c.slug)}
+          </Link>
+        </p>
         {c.suspendedAt && (
           <p className="text-sm text-destructive">
             Suspended by a moderator{c.suspendedReason ? `: ${c.suspendedReason}` : "."}
@@ -61,47 +121,39 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
         )}
       </div>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold">Pages</h2>
-        <p className="text-sm text-muted-foreground">
-          Add pages from the dashboard or from a published page&apos;s Manage button. Where each page came from is only
-          shown here.
-        </p>
-        {entries.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No pages yet.</p>
-        ) : (
-          <ul className="divide-y rounded-sm border text-sm">
-            {entries.map(({ entry, title, removedAt, addedByEmail }, i) => (
-              <EntryRow
-                key={entry.id}
-                entryId={entry.id}
-                title={title}
-                path={entryPath(c.slug, entry.entryUid, title)}
-                origin={`${entry.originGraphName} · ${entry.originRootUid}`}
-                addedBy={addedByEmail ?? "a former member"}
-                removed={!!removedAt}
-                canManage={isOwner || entry.addedBy === me}
-                canReorder={isOwner}
-                first={i === 0}
-                last={i === entries.length - 1}
-                state={{
-                  access: entry.access,
-                  hasOwnPassword: !!entry.passwordHash,
-                  showAuthor: entry.showAuthor,
-                  listing: entry.listing,
-                }}
-                container={{
-                  label: c.name,
-                  defaultAccess: c.defaultAccess,
-                  hasPassword: !!c.passwordHash,
-                  showAuthors: c.showAuthors,
-                  discoverBlocked,
-                }}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
+      <Card>
+        <CardContent className="flex flex-col gap-4">
+          <ListToolbar
+            cfg={COLLECTION_LIST}
+            path={path}
+            state={state}
+            counts={{ all: totals.total, ...totals }}
+            hidden={["removed"]}
+          />
+          {rows.length === 0 ? (
+            <ListEmpty filtered={filtered} path={path}>
+              No pages yet. Add pages from a graph&apos;s list or a published page&apos;s Manage button.
+            </ListEmpty>
+          ) : (
+            <EntryList
+              c={c}
+              rows={rows}
+              manage={manage}
+              discoverBlocked={discoverBlocked}
+              reorder={
+                inOrder
+                  ? {
+                      firstId: page === 1 ? rows[0].entry.id : undefined,
+                      lastId: page === pageCount ? rows[rows.length - 1].entry.id : undefined,
+                    }
+                  : undefined
+              }
+              sort={{ title: header("title"), updated: header("updated") }}
+            />
+          )}
+          <ListPagination cfg={COLLECTION_LIST} path={path} state={state} page={page} matching={matching} />
+        </CardContent>
+      </Card>
 
       {isOwner && (
         <CollectionSettingsForm
@@ -117,7 +169,7 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
             discoverable: c.discoverable,
           }}
           hasPassword={!!c.passwordHash}
-          pageCount={entries.length}
+          pageCount={totals.total}
         />
       )}
       <MembersPanel
