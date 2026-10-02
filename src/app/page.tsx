@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { connection } from "next/server";
 import { BlockList } from "@/components/roam/block-tree";
-import { RoamText } from "@/components/roam/markup";
 import { block, siteLinks } from "@/components/roam/outline";
 import { ISSUES_URL, SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { TrendingPages } from "@/components/trending-pages";
 import { discoverPublications } from "@/lib/discover";
 import { plainText } from "@/lib/slug";
 
@@ -28,7 +27,7 @@ const about = [
 
 export default async function Home() {
   await connection(); // Render per request (cached query), never at build time.
-  const { rows: trending } = await discoverPublications("trending", 5, 0);
+  const { rows: trending } = await discoverPublications("trending", 10, 0);
 
   return (
     <>
@@ -43,52 +42,18 @@ export default async function Home() {
           </section>
           {/* Same markup as BlockList, with live rows that aren't Roam text. */}
           <ul className="flex flex-col">
-            <li className="relative pl-6">
-              <Bullet />
-              <div className="py-0.5 leading-[1.6]">
-                <RoamText text="Trending pages on [[Discover]]" links={siteLinks} />
-              </div>
-              <ul className="ml-2 flex flex-col border-l border-border/70">
-                <li className="relative pl-6">
-                  <Bullet />
-                  <div className="py-0.5 leading-[1.6]">
-                    <RoamText
-                      text="__Discovery is opt-in. Pages only show up here if their owner turns it on for their graph; otherwise they're reachable only by link.__"
-                      links={siteLinks}
-                    />
-                  </div>
-                </li>
-                {trending.length === 0 ? (
-                  <li className="relative pl-6">
-                    <Bullet />
-                    <div className="py-0.5 leading-[1.6] text-muted-foreground">Nothing here yet.</div>
-                  </li>
-                ) : (
-                  trending.map((p) => (
-                    <li key={`${p.graphName}:${p.rootUid}`} className="relative pl-6">
-                      <Bullet />
-                      <div className="py-0.5 leading-[1.6] break-words">
-                        <Link
-                          href={p.href}
-                          className="text-link hover:underline"
-                        >
-                          {plainText(p.title) || "Untitled"}
-                        </Link>{" "}
-                        <span className="text-muted-foreground">in {p.source.label}</span>
-                      </div>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </li>
+            <TrendingPages
+              rows={trending.map((p) => ({
+                key: `${p.graphName}:${p.rootUid}`,
+                href: p.href,
+                title: plainText(p.title) || "Untitled",
+                source: p.source.label,
+              }))}
+            />
           </ul>
         </article>
       </main>
       <SiteFooter />
     </>
   );
-}
-
-function Bullet() {
-  return <span aria-hidden className="absolute top-[9px] left-2 size-[5px] rounded-full bg-roam-bullet" />;
 }
