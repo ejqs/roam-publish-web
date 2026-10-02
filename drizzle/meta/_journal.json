@@ -120,6 +120,13 @@
       "when": 1790918774307,
       "tag": "0016_changelog_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790919601992,
+      "tag": "0017_changelog_confirm",
+      "breakpoints": true
     }
   ]
 }

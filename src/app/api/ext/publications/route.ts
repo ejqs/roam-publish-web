@@ -104,7 +104,7 @@ export async function POST(req: Request) {
   if (existing && ctx.role !== "owner" && existing.publishedBy !== ctx.userId) return notYoursResponse(req);
 
   const link = await ensureShortlink(ctx.graphId, p.rootUid);
-  if (p.anchorUid && p.anchorUid !== link.anchorUid) await setAnchor(ctx.graphId, p.rootUid, p.anchorUid);
+  if (p.anchorUid) await setAnchor(ctx.graphId, p.rootUid, p.anchorUid);
   if (p.timeZone && validTimeZone(p.timeZone))
     await db
       .update(graph)
