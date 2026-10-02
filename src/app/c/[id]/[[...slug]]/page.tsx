@@ -24,7 +24,18 @@ import { PublicationTable } from "../../../[graph]/publication-table";
 
 type Resolved = NonNullable<Awaited<ReturnType<typeof resolveC>>>;
 type C = Resolved["c"];
+type Entry = Extract<Resolved, { kind: "entry" }>;
 const asContainer = (c: C): Container => ({ ...c, kind: "collection" });
+
+/** What /c/{id}/{...slug} points at: a collection, or a page at /c/{collection}/{entryUid}/{title}. */
+async function resolveRoute(rawId: string, slug: string[] = []) {
+  const r = await resolveC(decodeURIComponent(rawId));
+  if (r?.kind !== "collection") return null;
+  if (!slug.length) return { kind: "collection" as const, r };
+  const e = await resolveC(decodeURIComponent(slug[0]));
+  if (e?.kind !== "entry" || e.c.id !== r.c.id) return null;
+  return { kind: "entry" as const, r: e, rest: slug.slice(1) };
+}
 
 /** Live pages in a collection, in the owner's order. */
 function liveEntries(collectionId: string) {
@@ -39,9 +50,10 @@ function liveEntries(collectionId: string) {
 }
 
 export async function generateMetadata(props: PageProps<"/c/[id]/[[...slug]]">): Promise<Metadata> {
-  const { id } = await props.params;
-  const r = await resolveC(decodeURIComponent(id));
-  if (!r) return { title: "Not found" };
+  const { id, slug } = await props.params;
+  const route = await resolveRoute(id, slug);
+  if (!route) return { title: "Not found" };
+  const r = route.r;
   if (r.c.takenDown) return { title: "Removed", robots: { index: false, follow: false } };
   const c = r.c;
   const indexable = c.indexable && c.indexAccess === "open";
@@ -57,21 +69,24 @@ export async function generateMetadata(props: PageProps<"/c/[id]/[[...slug]]">):
   if (access !== "open") return { title: "Protected page", robots: { index: false, follow: false } };
   return {
     title: `${plainText(r.pub.title)} · ${c.name}`,
-    alternates: { canonical: entryPath(r.entry.entryUid, r.pub.title) },
+    alternates: { canonical: entryPath(c.slug, r.entry.entryUid, r.pub.title) },
     robots: indexable && r.entry.listing !== "unlisted" ? undefined : { index: false },
   };
 }
 
 export default async function CollectionRoute(props: PageProps<"/c/[id]/[[...slug]]">) {
   const { id, slug } = await props.params;
-  const r = await resolveC(decodeURIComponent(id));
-  if (!r) notFound();
-  if (r.c.takenDown) return <RemovedNotice what="collection" />;
-  return r.kind === "collection" ? <CollectionIndex c={r.c} slug={slug} /> : <EntryPage r={r} slug={slug} />;
+  const route = await resolveRoute(id, slug);
+  if (!route) notFound();
+  if (route.r.c.takenDown) return <RemovedNotice what="collection" />;
+  return route.kind === "collection" ? (
+    <CollectionIndex c={route.r.c} />
+  ) : (
+    <EntryPage r={route.r} rest={route.rest} />
+  );
 }
 
-async function CollectionIndex({ c, slug }: { c: C; slug?: string[] }) {
-  if (slug?.length) redirect(collectionPath(c.slug));
+async function CollectionIndex({ c }: { c: C }) {
   const me = await viewerId();
   const role = me ? await collectionRole(me, c.id) : null;
   const container = asContainer(c);
@@ -81,7 +96,7 @@ async function CollectionIndex({ c, slug }: { c: C; slug?: string[] }) {
   const rows = (await liveEntries(c.id)).filter(({ entry }) => entry.listing !== "unlisted");
   const items = await Promise.all(
     rows.map(async ({ entry, pub }) => ({
-      href: entryPath(entry.entryUid, pub.title),
+      href: entryPath(c.slug, entry.entryUid, pub.title),
       lock: lockExplanation(effectiveAccess(container, entry), "collection", c.name),
       author: (await bylineFor(pub, showsAuthor(container, entry)))?.label,
       rootUid: entry.entryUid,
@@ -126,12 +141,13 @@ async function CollectionIndex({ c, slug }: { c: C; slug?: string[] }) {
   );
 }
 
-async function EntryPage({ r, slug }: { r: Extract<Resolved, { kind: "entry" }>; slug?: string[] }) {
+async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
   const { c, entry, pub } = r;
   if (r.graphTakenDown) return <RemovedNotice what="graph" />;
   if (pub.removedAt) return <RemovedNotice what="page" />;
-  const path = entryPath(entry.entryUid, pub.title);
-  if (slug && (slug.length !== 1 || slug[0] !== slugify(pub.title))) redirect(path);
+  const path = entryPath(c.slug, entry.entryUid, pub.title);
+  // Fix up the title slug (and any extra segments) like graph pages do.
+  if (rest.length !== 1 || rest[0] !== slugify(pub.title)) redirect(path);
 
   const container = asContainer(c);
   const place: Place = { ...entry, kind: "entry" };
@@ -168,7 +184,7 @@ async function EntryPage({ r, slug }: { r: Extract<Resolved, { kind: "entry" }>;
   const links: PageLinks = new Map(
     siblings
       .filter(({ pub: p }) => p.kind === "page")
-      .map(({ entry: e, pub: p }) => [p.title.toLowerCase(), entryPath(e.entryUid, p.title)]),
+      .map(({ entry: e, pub: p }) => [p.title.toLowerCase(), entryPath(c.slug, e.entryUid, p.title)]),
   );
 
   return (

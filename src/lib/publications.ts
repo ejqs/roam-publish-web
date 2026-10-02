@@ -18,12 +18,15 @@ export function collectionPath(slug: string) {
   return `/c/${encodeURIComponent(slug)}`;
 }
 
-/** A page in a collection: its own random uid, then the same decorative slug as graph pages. */
-export function entryPath(entryUid: string, title: string) {
-  return `/c/${encodeURIComponent(entryUid)}/${slugify(title)}`;
+/**
+ * A page in a collection: the collection, the entry's own random uid, then the same decorative
+ * slug as graph pages. /c/{entryUid}/… links from before still redirect here.
+ */
+export function entryPath(collectionSlug: string, entryUid: string, title: string) {
+  return `${collectionPath(collectionSlug)}/${encodeURIComponent(entryUid)}/${slugify(title)}`;
 }
 
-export function entryUrl(entryUid: string, title: string) {
+export function entryUrl(collectionSlug: string, entryUid: string, title: string) {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  return base + entryPath(entryUid, title);
+  return base + entryPath(collectionSlug, entryUid, title);
 }

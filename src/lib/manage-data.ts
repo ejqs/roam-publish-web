@@ -71,7 +71,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
       .filter((e) => e.entry.publicationId === pub.id)
       .map(({ entry, c }) => ({
         entryId: entry.id,
-        path: entryPath(entry.entryUid, pub.title),
+        path: entryPath(c.slug, entry.entryUid, pub.title),
         collectionName: c.name,
         collectionSlug: c.slug,
         canManage: !pub.removedAt && canManageEntry(collectionRoles.get(c.id) ?? null, userId, entry),

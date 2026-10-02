@@ -76,7 +76,7 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
                 key={entry.id}
                 entryId={entry.id}
                 title={title}
-                path={entryPath(entry.entryUid, title)}
+                path={entryPath(c.slug, entry.entryUid, title)}
                 origin={`${entry.originGraphName} · ${entry.originRootUid}`}
                 addedBy={addedByEmail ?? "a former member"}
                 removed={!!removedAt}
