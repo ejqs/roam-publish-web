@@ -471,3 +471,27 @@ export const shortlink = pgTable(
   },
   (t) => [uniqueIndex("shortlink_graph_root_idx").on(t.graphId, t.rootUid)],
 );
+
+/**
+ * Every change log entry roam.pub has queued for a shortlink, so the same entry is never appended to
+ * Roam twice. `key` is unique per shortlink: content events use the content hash (a retried or
+ * concurrent publish of the same content can't log twice), other events a fresh id.
+ */
+export const changelogEntry = pgTable(
+  "changelog_entry",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    shortlinkId: text("shortlink_id")
+      .notNull()
+      .references(() => shortlink.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    text: text("text").notNull(),
+    /** "sent" once Roam accepted it; "failed" entries are not retried, so nothing is ever sent twice. */
+    status: text("status", { enum: ["pending", "sent", "failed"] }).notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("changelog_entry_key_idx").on(t.shortlinkId, t.key),
+    index("changelog_entry_recent_idx").on(t.shortlinkId, t.createdAt),
+  ],
+);
