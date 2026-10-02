@@ -524,11 +524,15 @@ export const changelogEntry = pgTable(
     key: text("key").notNull(),
     text: text("text").notNull(),
     /**
-     * Queued as "pending", claimed as "sending" by the background sender, then "sent" or "failed".
-     * Only entries Roam definitely didn't apply (429) go back to pending, so nothing is sent twice.
+     * Every entry is the page's history on its status page; status is only about Roam. Queued as
+     * "pending", claimed as "sending" by the background sender, then "sent" or "failed". Only
+     * entries Roam definitely didn't apply (429) go back to pending, so nothing is sent twice.
      * "dropped" entries were queued for a block that turned out to be gone, or waited too long.
+     * "local" entries were never for Roam: no token, change log off, or no status link block.
      */
-    status: text("status", { enum: ["pending", "sending", "sent", "failed", "dropped"] }).notNull().default("pending"),
+    status: text("status", { enum: ["pending", "sending", "sent", "failed", "dropped", "local"] })
+      .notNull()
+      .default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
