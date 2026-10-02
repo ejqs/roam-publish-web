@@ -10,9 +10,9 @@ import { AccessMenu } from "./access-menu";
 import { AllCheckbox, BulkSelect, RowCheckbox } from "./bulk-select";
 
 // One grid for header and rows, so columns line up from sm up. Below sm each row stacks instead.
-const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_11rem_7.5rem_6.5rem] sm:items-center sm:gap-3";
+export const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_11rem_7.5rem_6.5rem] sm:items-center sm:gap-3";
 
-const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { dateStyle: "medium" });
+export const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { dateStyle: "medium" });
 
 type Row = Pick<
   typeof publication.$inferSelect,
@@ -114,10 +114,8 @@ export function PublicationList({
                       <Badge variant="outline">{p.visibility === "public" ? "Listed" : "Not listed"}</Badge>
                     ) : (
                       <AccessMenu
-                        publicationId={p.id}
+                        target={{ kind: "graph", publicationId: p.id, frontPage: g.frontPage, indexable: g.indexable }}
                         access={p.visibility === "unlisted" ? "unlisted" : p.discoverable ? "discover" : "public"}
-                        frontPage={g.frontPage}
-                        indexable={g.indexable}
                         discoverBlocked={discoverBlocked}
                         place={m.graphPlace}
                       />
@@ -148,7 +146,7 @@ export function PublicationList({
   );
 }
 
-function HeaderCell({ label, sort }: { label: string; sort?: SortHeader }) {
+export function HeaderCell({ label, sort }: { label: string; sort?: SortHeader }) {
   if (!sort) return <span>{label}</span>;
   return (
     <Link href={sort.href} className="inline-flex items-center gap-1 hover:text-foreground">
