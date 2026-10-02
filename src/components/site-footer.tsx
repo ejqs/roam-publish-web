@@ -1,8 +1,43 @@
+import Link from "next/link";
 import { cn } from "cn";
 
+export const SOURCE_URL = "https://github.com/ejqs/roam-publish-web";
+export const ISSUES_URL = `${SOURCE_URL}/issues`;
+
+const LINKS = [
+  { label: "About", href: "/#about" },
+  { label: "Contact", href: "/#contact" },
+  { label: "Source code", href: SOURCE_URL, external: true },
+];
+
+function FooterLinks({ className }: { className: string }) {
+  return (
+    <nav aria-label="Footer" className="flex flex-wrap gap-x-3 gap-y-1">
+      {LINKS.map((l) =>
+        l.external ? (
+          <a key={l.label} href={l.href} target="_blank" rel="noopener" className={className}>
+            {l.label}
+          </a>
+        ) : (
+          <Link key={l.label} href={l.href} className={className}>
+            {l.label}
+          </Link>
+        ),
+      )}
+    </nav>
+  );
+}
+
+const ejqs = (className: string) => (
+  <a href="https://ejqs.net" target="_blank" rel="noopener" className={className}>
+    @ejqs
+  </a>
+);
+
 /**
- * `full` is the home page's footer. Everywhere else gets the quiet one: no border, small muted
- * text, and the background of whatever it sits under (pass `className="bg-card"` on card pages).
+ * The disclaimer on the left, About, Contact and Source code on the right. `full` is the home page's
+ * footer. Everywhere else gets the quiet one: no border, small muted text, and the background of
+ * whatever it sits under (pass `className="bg-card"` on card pages).
  */
 export function SiteFooter({
   variant = "subtle",
@@ -12,39 +47,27 @@ export function SiteFooter({
   className?: string;
 }) {
   if (variant === "subtle") {
+    const link = "underline-offset-2 hover:text-foreground hover:underline";
     return (
       <footer className={className}>
-        <p className="mx-auto max-w-5xl px-4 py-6 text-center text-xs text-muted-foreground opacity-40 transition-opacity hover:opacity-100">
-          Third-party service by{" "}
-          <a
-            href="https://ejqs.net"
-            target="_blank"
-            rel="noopener"
-            className="underline-offset-2 hover:text-foreground hover:underline"
-          >
-            @ejqs
-          </a>
-          {" · "}Not affiliated with Roam Research
-        </p>
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-2 px-4 py-6 text-xs text-muted-foreground opacity-40 transition-opacity focus-within:opacity-100 hover:opacity-100 sm:flex-row sm:justify-between">
+          <p>
+            Third-party service by {ejqs(link)} · Not affiliated with Roam Research.
+          </p>
+          <FooterLinks className={link} />
+        </div>
       </footer>
     );
   }
 
+  const link = "text-link hover:underline";
   return (
     <footer className={cn("border-t bg-card", className)}>
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 text-sm text-muted-foreground">
+      <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <p>
-          This is a third-party service made by{" "}
-          <a
-            href="https://ejqs.net"
-            target="_blank"
-            rel="noopener"
-            className="text-link hover:underline"
-          >
-            @ejqs
-          </a>
+          This is a third-party service made by {ejqs(link)}. Not affiliated with Roam Research.
         </p>
-        <p className="hidden sm:block">Not affiliated with Roam Research.</p>
+        <FooterLinks className={link} />
       </div>
     </footer>
   );
