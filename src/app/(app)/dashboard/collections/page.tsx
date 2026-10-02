@@ -7,7 +7,7 @@ import { collectionsOf } from "@/lib/collections";
 import { canReceiveInvite } from "@/lib/graph-access";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
-import { CreateCollectionForm } from "./create-form";
+import { AddCollectionDialog } from "./create-form";
 
 export const metadata: Metadata = { title: "Collections · Roam Publish" };
 
@@ -30,7 +30,9 @@ export default async function CollectionsPage() {
         </p>
       </div>
       {eligible ? (
-        <CreateCollectionForm />
+        <div>
+          <AddCollectionDialog variant="default" />
+        </div>
       ) : (
         <p className="text-sm text-muted-foreground">
           Verify your email and <Link href="/onboarding" className="text-link hover:underline">connect a graph</Link> of
