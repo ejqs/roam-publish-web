@@ -139,7 +139,8 @@ function Block({ node, links, viewType, n }: { node: Node; links: PageLinks; vie
       <Marker node={node} viewType={viewType} n={n} />
       {showText && (
         <div className={cn("py-0.5 leading-[1.6]", textClass(node))}>
-          <RoamText text={node.string} links={links} />
+          {/* Like Roam, an empty or whitespace-only block still takes a full line. */}
+          {node.string.trim() ? <RoamText text={node.string} links={links} /> : "\u00a0"}
         </div>
       )}
       {embed}
