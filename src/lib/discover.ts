@@ -1,8 +1,10 @@
-import { and, count, desc, eq, type SQL, sql } from "drizzle-orm";
+import { and, count, desc, eq, or, type SQL, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { db } from "@/db";
-import { graph, publication, publicationView, publicationVote, user } from "@/db/schema";
+import { collection, graph, publication, publicationView, publicationVote, user } from "@/db/schema";
 import { liveGraph, livePublication } from "@/lib/moderation";
+import { graphPlaceOpen } from "@/lib/places";
+import { collectionPath, entryPath, graphPath, publicationPath } from "@/lib/publications";
 import type { DiscoverSort } from "@/app/discover/sort";
 
 /** Cache tag for everything on /discover and the home page's trending list. */
@@ -12,31 +14,63 @@ export type DiscoverRow = {
   rootUid: string;
   title: string;
   graphName: string;
+  /** The page's link: its collection place when it's on Discover there, else its graph place. */
+  href: string;
+  /** Where it's from, as shown: the collection or the graph. */
+  source: { label: string; href: string };
   views: number;
   votes: number;
   createdAt: string;
 };
 
 /**
- * Public pages the owner chose to list. Needs `graph` and `user` joined; the vote endpoint reuses
- * it so only pages shown here can be upvoted.
+ * Conditions on a collection entry `e` (with its collection `c` and owner `o`) for it to be on
+ * Discover: listed there, open to everyone, in an open, indexable, live collection.
  */
-export const listedPublication = and(
+const entryOnDiscoverWhere = sql`e.listing = 'discover'
+  and (e.access = 'open' or (e.access = 'inherit' and c.default_access = 'open'))
+  and c.index_access = 'open' and c.indexable and c.suspended_at is null
+  and coalesce(o.banned, false) = false`;
+
+const entryFrom = sql`from collection_entry e join collection c on c.id = e.collection_id join "user" o on o.id = c.owner_id`;
+
+/** The publication is on Discover through one of its collections. */
+const onDiscoverInCollection = sql`exists (select 1 ${entryFrom} where e.publication_id = ${publication.id} and ${entryOnDiscoverWhere})`;
+
+/** Open, public pages in their graph that the owner chose to list. Needs `graph` and `user` joined. */
+const onDiscoverInGraph = and(
   eq(publication.discoverable, true),
   eq(graph.frontPage, true),
   eq(graph.indexable, true),
-  liveGraph,
+  eq(graph.indexAccess, "open"),
   eq(publication.visibility, "public"),
+  graphPlaceOpen,
+) as SQL;
+
+/**
+ * Pages on Discover, from their graph or a collection. Needs `graph` and `user` joined; the vote
+ * endpoint reuses it so only pages shown here can be upvoted. Protected pages are never included.
+ */
+export const listedPublication = and(
+  liveGraph,
   livePublication,
+  or(onDiscoverInGraph, onDiscoverInCollection),
 ) as SQL;
 
 /** `listedPublication` for a graph (from `loadGraph`) and page that are already loaded. */
 export function isListed(
-  g: { frontPage: boolean; indexable: boolean; takenDown: boolean },
-  pub: { visibility: string; discoverable: boolean; removedAt: Date | null },
+  g: { frontPage: boolean; indexable: boolean; takenDown: boolean; indexAccess: string },
+  pub: { visibility: string; discoverable: boolean; removedAt: Date | null; inGraph: boolean },
 ) {
   return (
-    pub.discoverable && pub.visibility === "public" && !pub.removedAt && g.frontPage && g.indexable && !g.takenDown
+    pub.discoverable &&
+    pub.visibility === "public" &&
+    pub.inGraph &&
+    !pub.removedAt &&
+    g.frontPage &&
+    g.indexable &&
+    g.indexAccess === "open" &&
+    !g.takenDown
   );
 }
 
@@ -57,11 +91,17 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
     .as("all_votes");
   const votes = sql<number>`coalesce(${allVotes.votes}, 0)`.mapWith(Number);
 
+  // Prefer a collection place: pages there were put on Discover by that collection.
+  const pick = (col: string) =>
+    sql<string | null>`(select ${sql.raw(col)} ${entryFrom} where e.publication_id = ${publication.id} and ${entryOnDiscoverWhere} order by e.added_at limit 1)`;
   const base = db
     .select({
       rootUid: publication.rootUid,
       title: publication.title,
       graphName: graph.name,
+      entryUid: pick("e.entry_uid"),
+      collectionName: pick("c.name"),
+      collectionSlug: pick("c.slug"),
       views,
       votes,
       createdAt: publication.createdAt,
@@ -88,7 +128,15 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
 
   return {
     total,
-    rows: rows.map((r): DiscoverRow => ({ ...r, createdAt: r.createdAt.toISOString() })),
+    rows: rows.map(({ entryUid, collectionName, collectionSlug, ...r }): DiscoverRow => ({
+      ...r,
+      href: entryUid ? entryPath(entryUid, r.title) : publicationPath(r.graphName, r.rootUid, r.title),
+      source:
+        entryUid && collectionName && collectionSlug
+          ? { label: collectionName, href: collectionPath(collectionSlug) }
+          : { label: r.graphName, href: graphPath(r.graphName) },
+      createdAt: r.createdAt.toISOString(),
+    })),
   };
 }
 
@@ -97,6 +145,39 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
  * tag when listings change; view and vote counts are allowed to lag.
  */
 export const discoverPublications = unstable_cache(query, ["discover-publications"], {
+  revalidate: 300,
+  tags: [DISCOVER_TAG],
+});
+
+export type DiscoverCollection = { slug: string; name: string; description: string; pages: number };
+
+/** Collections whose owners listed them on Discover: open, indexable and live. */
+async function collectionsQuery(): Promise<DiscoverCollection[]> {
+  const rows = await db
+    .select({
+      slug: collection.slug,
+      name: collection.name,
+      description: collection.description,
+      pages: sql<number>`(select count(*) from collection_entry e join publication p on p.id = e.publication_id
+        where e.collection_id = ${collection.id} and e.listing <> 'unlisted' and p.removed_at is null)`.mapWith(Number),
+    })
+    .from(collection)
+    .innerJoin(user, eq(user.id, collection.ownerId))
+    .where(
+      and(
+        eq(collection.discoverable, true),
+        eq(collection.indexAccess, "open"),
+        eq(collection.indexable, true),
+        sql`${collection.suspendedAt} is null`,
+        sql`coalesce(${user.banned}, false) = false`,
+      ),
+    )
+    .orderBy(desc(collection.createdAt))
+    .limit(24);
+  return rows;
+}
+
+export const discoverCollections = unstable_cache(collectionsQuery, ["discover-collections"], {
   revalidate: 300,
   tags: [DISCOVER_TAG],
 });

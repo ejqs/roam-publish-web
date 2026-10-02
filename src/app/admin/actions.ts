@@ -5,6 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import {
+  collection,
   graph,
   moderationAction,
   profile,
@@ -19,7 +20,8 @@ import { DISCOVER_TAG } from "@/lib/discover";
 import { graphPath } from "@/lib/graphs";
 import type { ModerationNotice } from "@/lib/moderation-email-templates";
 import { notifyOwner } from "@/lib/moderation-emails";
-import { publicationUrl } from "@/lib/publications";
+import { collectionPath, publicationUrl } from "@/lib/publications";
+import { clearGatedCollectionDiscover } from "@/lib/discover-rules";
 import { renameUsername, Username } from "@/lib/usernames";
 
 export type ActionState = { ok: boolean; message: string } | null;
@@ -41,6 +43,7 @@ const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 function revalidatePublic() {
   revalidatePath("/[graph]", "layout");
+  revalidatePath("/c/[id]", "layout");
   revalidatePath("/u/[username]", "page");
   revalidatePath("/");
   updateTag(DISCOVER_TAG);
@@ -76,7 +79,7 @@ export async function moderate(_prev: ActionState, formData: FormData): Promise<
   const adminId = admin.user.id;
   let owner: { email: string } | undefined;
   let notice: ModerationNotice | undefined;
-  let targetType: "publication" | "graph" | "user";
+  let targetType: "publication" | "graph" | "user" | "collection";
   const formTargetType = formData.get("targetType");
 
   if (op === "remove" || op === "restore" || (op === "dismiss" && formTargetType === "publication")) {
@@ -109,6 +112,38 @@ export async function moderate(_prev: ActionState, formData: FormData): Promise<
       notice = { kind: "page_restored", ...page };
     } else {
       await resolveReports(eq(report.publicationId, targetId), "dismissed", adminId);
+    }
+  } else if (formTargetType === "collection" && (op === "suspend" || op === "unsuspend" || op === "dismiss")) {
+    targetType = "collection";
+    const [row] = await db
+      .select({ c: collection, email: user.email })
+      .from(collection)
+      .innerJoin(user, eq(user.id, collection.ownerId))
+      .where(eq(collection.id, targetId))
+      .limit(1);
+    if (!row) return { ok: false, message: "That collection no longer exists." };
+    owner = row;
+    const c = { collectionName: row.c.name, url: appUrl() + collectionPath(row.c.slug) };
+    if (op === "suspend") {
+      await db
+        .update(collection)
+        .set({ suspendedAt: new Date(), suspendedReason: reason })
+        .where(eq(collection.id, targetId));
+      await clearGatedCollectionDiscover(targetId);
+      await resolveReports(eq(report.collectionId, targetId), "actioned", adminId);
+      notice = { kind: "collection_suspended", ...c };
+    } else if (op === "unsuspend") {
+      await db
+        .update(collection)
+        .set({ suspendedAt: null, suspendedReason: null })
+        .where(eq(collection.id, targetId));
+      notice = { kind: "collection_restored", ...c };
+    } else {
+      await resolveReports(
+        and(eq(report.collectionId, targetId), isNull(report.publicationId)),
+        "dismissed",
+        adminId,
+      );
     }
   } else if (op === "dismiss" && formTargetType === "profile") {
     targetType = "user";
