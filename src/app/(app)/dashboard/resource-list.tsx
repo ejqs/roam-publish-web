@@ -1,10 +1,11 @@
 "use client";
 
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
-import { ChevronRightIcon, ExternalLinkIcon } from "lucide-react";
+import { ChevronRightIcon, ExternalLinkIcon, MoreHorizontalIcon } from "lucide-react";
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export type Count = { n: number; href?: string; tone?: "destructive"; title?: string; suffix?: string };
@@ -29,6 +30,8 @@ export type ResourceItem = {
 
 const features = tableFeatures({});
 const helper = createColumnHelper<typeof features, ResourceItem>();
+
+const menuItem = "rounded-md px-2 py-1.5 text-sm hover:bg-muted";
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
@@ -88,20 +91,31 @@ export function ResourceList({
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row: { original: it } }) => (
         <div className="flex items-center justify-end gap-1">
-          <Link href={it.membersHref} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-            Members
-          </Link>
-          {it.settingsHref && (
-            <Link href={it.settingsHref} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-              Settings
-            </Link>
-          )}
           {it.canManage && (
             <Link href={it.manageHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
               Manage pages
               <ChevronRightIcon />
             </Link>
           )}
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label={`More for ${it.name}`}>
+                  <MoreHorizontalIcon />
+                </Button>
+              }
+            />
+            <PopoverContent align="end" className="w-40 gap-0.5 p-1">
+              <Link href={it.membersHref} className={menuItem}>
+                Members
+              </Link>
+              {it.settingsHref && (
+                <Link href={it.settingsHref} className={menuItem}>
+                  Settings
+                </Link>
+              )}
+            </PopoverContent>
+          </Popover>
         </div>
       ),
     }),
