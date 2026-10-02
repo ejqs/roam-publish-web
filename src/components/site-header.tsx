@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Image from "next/image";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { isAdmin } from "@/lib/admin";
@@ -15,8 +16,9 @@ export async function SiteHeader() {
     <header className="border-b bg-card shadow-[0_1px_1px_rgba(17,20,24,0.06)]">
       <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-2 px-4 sm:gap-4">
         <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span aria-hidden className="shrink-0 text-lg leading-none tracking-[-2px] whitespace-nowrap">
-            🌐📝
+          <span aria-hidden className="flex shrink-0 items-center gap-1">
+            <Image src="/emoji/earth.svg" alt="" width={18} height={18} />
+            <Image src="/emoji/memo.svg" alt="" width={18} height={18} />
           </span>
           <span className="sr-only sm:not-sr-only">Roam Publish</span>
         </Link>
