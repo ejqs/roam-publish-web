@@ -23,6 +23,15 @@ export const PLACE_ACCESS = ["inherit", ...ACCESS] as const;
 export type PlaceAccess = (typeof PLACE_ACCESS)[number];
 export const SHOW_AUTHOR = ["inherit", "show", "hide"] as const;
 export type ShowAuthor = (typeof SHOW_AUTHOR)[number];
+/**
+ * View counts for a graph or collection: shown to everyone, shown only to the people who manage the
+ * page ("hide"), or not tracked or shown at all ("off").
+ */
+export const VIEWS_MODE = ["show", "hide", "off"] as const;
+export type ViewsMode = (typeof VIEWS_MODE)[number];
+/** A page's own view count setting; "inherit" uses its graph's or collection's. */
+export const PLACE_VIEWS = ["inherit", ...VIEWS_MODE] as const;
+export type PlaceViews = (typeof PLACE_VIEWS)[number];
 
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
@@ -60,6 +69,10 @@ export const graph = pgTable("graph", {
   passwordVersion: integer("password_version").notNull().default(0),
   /** Bylines on this graph's pages, unless a page overrides it. */
   showAuthors: boolean("show_authors").notNull().default(false),
+  /** View counts on this graph's listed pages, unless a page overrides it (lib/gates.ts viewsMode). */
+  views: text("views", { enum: VIEWS_MODE }).notNull().default("show"),
+  /** Flags of the countries readers come from, next to a shown view count. */
+  showViewCountries: boolean("show_view_countries").notNull().default(true),
   /** New pages from the extension are shown in the graph; off means they only join default collections. */
   newPagesInGraph: boolean("new_pages_in_graph").notNull().default(true),
   /** RSS feed of the front page's open pages at /{graph}/feed.xml. Needs an open front page. */
@@ -167,6 +180,8 @@ export const publication = pgTable(
     passwordHash: text("password_hash"),
     passwordVersion: integer("password_version").notNull().default(0),
     showAuthor: text("show_author", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
+    views: text("views", { enum: PLACE_VIEWS }).notNull().default("inherit"),
+    showViewCountries: text("show_view_countries", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
     /**
      * The page's tags: `#tags` and `Tags::` values from the tree, plus `tagsAdded`, minus `tagsHidden`
      * (lib/tags.ts). Recomputed on every write of `tree` or of those two.
@@ -353,6 +368,8 @@ export const collection = pgTable("collection", {
   passwordHash: text("password_hash"),
   passwordVersion: integer("password_version").notNull().default(0),
   showAuthors: boolean("show_authors").notNull().default(true),
+  views: text("views", { enum: VIEWS_MODE }).notNull().default("show"),
+  showViewCountries: boolean("show_view_countries").notNull().default(true),
   /** Lets search engines index the front page and its open, listed pages. */
   indexable: boolean("indexable").notNull().default(true),
   /** Starting listing of new pages: on Discover instead of only listed here. */
@@ -405,6 +422,8 @@ export const collectionEntry = pgTable(
     passwordHash: text("password_hash"),
     passwordVersion: integer("password_version").notNull().default(0),
     showAuthor: text("show_author", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
+    views: text("views", { enum: PLACE_VIEWS }).notNull().default("inherit"),
+    showViewCountries: text("show_view_countries", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
     addedBy: text("added_by").references(() => user.id, { onDelete: "set null" }),
     position: integer("position").notNull().default(0),
     /** Where the page came from when it was added. Shown on the dashboard only, never publicly. */
@@ -541,3 +560,64 @@ export const changelogEntry = pgTable(
     index("changelog_entry_status_idx").on(t.status, t.createdAt),
   ],
 );
+
+/** Readers from one country, by ISO 3166-1 alpha-2 code; "other" folds in countries too small to show. */
+export type ViewCountry = { code: string; views: number };
+
+/**
+ * Views of a listed page from Umami, synced in the background (lib/view-sync.ts). One row per place:
+ * a publication in its graph, or a collection entry. `views` is what the page shows: the all-time
+ * `baseline` from the daily full sweep plus visits since, added by the hourly hot sweep.
+ */
+export const pageViews = pgTable(
+  "page_views",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    publicationId: text("publication_id").references(() => publication.id, { onDelete: "cascade" }),
+    entryId: text("entry_id").references(() => collectionEntry.id, { onDelete: "cascade" }),
+    /** The page's most-visited path in Umami; country lookups filter on it. */
+    path: text("path").notNull(),
+    baseline: integer("baseline").notNull().default(0),
+    views: integer("views").notNull().default(0),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
+    /** The hot sweep leaves the count alone until then; bigger counts wait longer. */
+    nextSyncAt: timestamp("next_sync_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Top countries, most views first. Null until first looked up. */
+    countries: jsonb("countries").$type<ViewCountry[]>(),
+    countriesSyncedAt: timestamp("countries_synced_at", { withTimezone: true }),
+    countriesNextSyncAt: timestamp("countries_next_sync_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("page_views_publication_idx").on(t.publicationId),
+    uniqueIndex("page_views_entry_idx").on(t.entryId),
+    index("page_views_countries_due_idx").on(t.countriesNextSyncAt),
+    check("page_views_one_place", sql`(${t.publicationId} is null) <> (${t.entryId} is null)`),
+  ],
+);
+
+/**
+ * One row per background job (lib/jobs.ts): the claim that keeps two server processes from running
+ * the same job at once, and the status shown at /admin/jobs.
+ */
+export const backgroundJob = pgTable("background_job", {
+  name: text("name").primaryKey(),
+  intervalMs: integer("interval_ms").notNull(),
+  nextDueAt: timestamp("next_due_at", { withTimezone: true }).notNull().defaultNow(),
+  /** Set while a process runs the job; a lease that ran out means that process died mid-run. */
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  lastStartedAt: timestamp("last_started_at", { withTimezone: true }),
+  lastFinishedAt: timestamp("last_finished_at", { withTimezone: true }),
+  lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+  lastDurationMs: integer("last_duration_ms"),
+  lastError: text("last_error"),
+  lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  runCount: integer("run_count").notNull().default(0),
+  failCount: integer("fail_count").notNull().default(0),
+  /** What the last run that did something did, e.g. `{ calls: 3, pages: 41 }`. */
+  lastResult: jsonb("last_result").$type<JobResult>(),
+  /** State the job keeps between runs. */
+  cursor: jsonb("cursor").$type<Record<string, unknown>>().notNull().default({}),
+});
+
+export type JobResult = Record<string, string | number | boolean | null>;

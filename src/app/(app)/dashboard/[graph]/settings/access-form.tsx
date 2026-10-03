@@ -3,15 +3,16 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
+import { ContainerViewsFields } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
-import type { Access } from "@/db/schema";
+import type { Access, ViewsMode } from "@/db/schema";
 import { updateGraphAccess } from "../../actions";
 
-/** Access, bylines, and where new pages from the extension go. */
+/** Access, bylines, view counts, and where new pages from the extension go. */
 export function GraphAccessForm({
   graphId,
   graphName,
@@ -27,6 +28,8 @@ export function GraphAccessForm({
     defaultAccess: Access;
     hasPassword: boolean;
     showAuthors: boolean;
+    views: ViewsMode;
+    showViewCountries: boolean;
     newPagesInGraph: boolean;
     defaultCollections: string[];
   };
@@ -41,6 +44,7 @@ export function GraphAccessForm({
   });
   const [hasPassword, setHasPassword] = useState(initial.hasPassword);
   const [showAuthors, setShowAuthors] = useState(initial.showAuthors);
+  const [views, setViews] = useState({ views: initial.views, countries: initial.showViewCountries });
   const [newPagesInGraph, setNewPagesInGraph] = useState(initial.newPagesInGraph);
   const [defaults, setDefaults] = useState(new Set(initial.defaultCollections));
   const [pending, start] = useTransition();
@@ -50,6 +54,8 @@ export function GraphAccessForm({
       const res = await updateGraphAccess(graphId, {
         ...access,
         showAuthors,
+        views: views.views,
+        showViewCountries: views.countries,
         newPagesInGraph,
         defaultCollections: [...defaults],
       });
@@ -89,6 +95,8 @@ export function GraphAccessForm({
             </FieldContent>
             <Switch id="showAuthors" checked={showAuthors} onCheckedChange={setShowAuthors} />
           </Field>
+          <FieldSeparator />
+          <ContainerViewsFields kind="graph" views={views.views} countries={views.countries} onChange={setViews} />
           <FieldSeparator />
           <FieldSet>
             <FieldLegend variant="label">New pages go to</FieldLegend>

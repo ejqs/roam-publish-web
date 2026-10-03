@@ -54,6 +54,9 @@ const outline = [
     block(
       "The website uses [Umami](https://umami.is) (Umami Cloud) for privacy-friendly, aggregate statistics: page views, referrers, browsers, devices and countries. It sets no cookies and doesn't track you across sites.",
     ),
+    block(
+      "Published pages can show how many times they were viewed, and from which countries, using these aggregate Umami numbers and a count of signed-in readers. Countries with fewer than 3 views are grouped together. Page owners can hide view counts or turn them off.",
+    ),
     block("The Roam extension has no analytics."),
   ]),
   block("**The Roam extension**", [

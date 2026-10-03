@@ -5,7 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { ACCESS, graph, graphDefaultCollection, moderationAction, profile, publication, usernameAlias } from "@/db/schema";
+import { ACCESS, graph, graphDefaultCollection, moderationAction, profile, publication, usernameAlias, VIEWS_MODE } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { logChange, logChanges } from "@/lib/changelog";
 import { DISCOVER_TAG } from "@/lib/discover";
@@ -199,6 +199,8 @@ const GraphAccess = z.object({
   indexAccess: z.enum(ACCESS),
   defaultAccess: z.enum(ACCESS),
   showAuthors: z.boolean(),
+  views: z.enum(VIEWS_MODE),
+  showViewCountries: z.boolean(),
   newPagesInGraph: z.boolean(),
   /** Collections new pages join; only ones the owner belongs to are kept. */
   defaultCollections: z.array(z.string()).max(50),
@@ -249,6 +251,8 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
         indexAccess: s.indexAccess,
         defaultAccess: s.defaultAccess,
         showAuthors: s.showAuthors,
+        views: s.views,
+        showViewCountries: s.showViewCountries,
         newPagesInGraph: s.newPagesInGraph,
         ...(s.password
           ? { passwordHash: hashPassword(s.password), passwordVersion: g.passwordVersion + 1 }

@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
+import { ContainerViewsFields } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import type { Access } from "@/db/schema";
+import type { Access, ViewsMode } from "@/db/schema";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { deleteCollection, updateCollection } from "../../actions";
 
@@ -20,6 +21,8 @@ type Initial = {
   indexAccess: Access;
   defaultAccess: Access;
   showAuthors: boolean;
+  views: ViewsMode;
+  showViewCountries: boolean;
   indexable: boolean;
   featured: boolean;
   discoverable: boolean;
@@ -97,6 +100,13 @@ export function CollectionSettingsForm({
           />
           <FieldSeparator />
           <Toggle id="c-authors" label="Show authors" description="Bylines on pages in this collection. Pages can override it." checked={s.showAuthors} onChange={set("showAuthors")} />
+          <FieldSeparator />
+          <ContainerViewsFields
+            kind="collection"
+            views={s.views}
+            countries={s.showViewCountries}
+            onChange={(v) => setS((p) => ({ ...p, views: v.views, showViewCountries: v.countries }))}
+          />
           <FieldSeparator />
           <Toggle
             id="c-indexable"

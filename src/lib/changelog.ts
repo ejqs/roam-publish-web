@@ -161,6 +161,7 @@ export async function flushChangeLog(now = new Date()) {
     order by s.graph_id, min(e.created_at)
   `);
   for (const { shortlink_id, graph_id } of ready.rows) await sendPage(shortlink_id, graph_id, now);
+  return ready.rows.length;
 }
 
 async function sendPage(shortlinkId: string, graphId: string, now: Date) {
