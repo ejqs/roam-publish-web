@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BlockList } from "@/components/roam/block-tree";
+import { PageLinks } from "@/components/roam/markup";
 import { block, siteLinks } from "@/components/roam/outline";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -10,6 +11,8 @@ export const metadata: Metadata = {
 };
 
 const UPDATED = "October 3rd, 2026";
+
+const links = new PageLinks([...siteLinks, ["encrypted pages", "/privacy/encryption"]]);
 
 const outline = [
   block(`Last updated ${UPDATED}.`),
@@ -25,7 +28,7 @@ const outline = [
   ]),
   block("**What's public**", [
     block(
-      "Whatever you publish, and who can read it, is up to you: unlisted pages are readable by anyone with the link, public pages are also listed on your graph's front page, and pages on Discover are listed site-wide. Password and members-only pages are only shown to people who unlock them or are members.",
+      "Whatever you publish, and who can read it, is up to you: unlisted pages are readable by anyone with the link, public pages are also listed on your graph's front page, and pages on Discover are listed site-wide. Password and members-only pages are only shown to people who unlock them or are members. Password-protected pages can also be encrypted with their password: what that does and doesn't protect against is explained in [[Encrypted pages]].",
     ),
     block(
       "Published pages include their block references and embeds, which can come from elsewhere in your graph. Check them before publishing.",
@@ -63,7 +66,9 @@ const outline = [
     ),
     block("Cookies, all needed for the site to work, none for advertising or tracking:", [
       block("A login session cookie."),
-      block("One for each password-protected page you unlock, for 30 days."),
+      block(
+        "One for each password-protected page you unlock, for 30 days, and a second one holding the password's key (encrypted) when the password can open encrypted pages.",
+      ),
       block("One remembering an announcement you dismissed, for 30 days."),
       block("One remembering when you last opened What's new, for about a year."),
     ]),
@@ -108,6 +113,9 @@ const outline = [
   block("**Security**", [
     block("Everything is sent over HTTPS."),
     block("Account passwords, page passwords and API keys are stored hashed, and append-only tokens encrypted."),
+    block(
+      "Encrypted pages are stored encrypted with their password. This isn't end-to-end encryption: the server decrypts them to show them. See [[Encrypted pages]].",
+    ),
     block(
       "If a data breach affects your information, you'll be told, and so will the National Privacy Commission, as the law requires.",
     ),
@@ -163,7 +171,7 @@ export default function PrivacyPage() {
       <main className="flex-1 px-3 py-4 sm:px-4 sm:py-12">
         <article className="mx-auto w-full max-w-[700px] rounded-sm bg-card px-5 py-8 text-[16px] shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)] sm:px-12 sm:py-12">
           <h1 className="mb-6 text-[32px] sm:text-[42px] leading-tight font-semibold">Privacy</h1>
-          <BlockList nodes={outline} links={siteLinks} />
+          <BlockList nodes={outline} links={links} />
         </article>
       </main>
       <SiteFooter />
