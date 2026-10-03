@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "bun test",
+    "staging:check": "bun scripts/staging-check.ts",
     "tokens:rotate": "bun scripts/rotate-append-token-key.ts",
     "tokens:revoke-all": "bun scripts/revoke-append-tokens.ts",
     "search:backfill": "bun scripts/backfill-search.ts"

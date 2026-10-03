@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { collection, collectionEntry, graph, passwordUnlock, publication } from "@/db/schema";
 import { type Lock, setUnlocked, verifyPassword } from "@/lib/gates";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { withAction } from "@/lib/telemetry";
 
 const Input = z.object({
   scope: z.enum(["graph", "collection", "publication", "entry"]),
@@ -32,24 +33,26 @@ async function current(scope: Lock["scope"], id: string) {
 
 /** Checks a password and, if right, remembers the unlock on this browser for 30 days. */
 export async function unlock(input: z.input<typeof Input>): Promise<UnlockResult> {
-  const parsed = Input.safeParse(input);
-  if (!parsed.success) return { ok: false, message: "Enter the password." };
-  const { scope, id, password } = parsed.data;
-  const h = await headers();
-  const ip = clientIp(h);
-  if (!rateLimit(`unlock:${ip}:${scope}:${id}`, 10, 15 * 60 * 1000))
-    return { ok: false, message: "Too many tries. Wait a few minutes and try again." };
-  const row = await current(scope, id);
-  if (!row?.passwordHash || !verifyPassword(password, row.passwordHash))
-    return { ok: false, message: "That password isn't right." };
-  await setUnlocked({ scope, id, version: row.passwordVersion });
-  // Counted for the page's managers: how many people got in with this password (lib/views-data.ts).
-  await db
-    .insert(passwordUnlock)
-    .values({ scope, targetId: id, passwordVersion: row.passwordVersion, unlocks: 1 })
-    .onConflictDoUpdate({
-      target: [passwordUnlock.scope, passwordUnlock.targetId, passwordUnlock.passwordVersion],
-      set: { unlocks: sql`${passwordUnlock.unlocks} + 1`, lastUnlockAt: new Date() },
-    });
-  return { ok: true, message: "Unlocked." };
+  return withAction("unlock.unlock", async () => {
+    const parsed = Input.safeParse(input);
+    if (!parsed.success) return { ok: false, message: "Enter the password." };
+    const { scope, id, password } = parsed.data;
+    const h = await headers();
+    const ip = clientIp(h);
+    if (!rateLimit(`unlock:${ip}:${scope}:${id}`, 10, 15 * 60 * 1000))
+      return { ok: false, message: "Too many tries. Wait a few minutes and try again." };
+    const row = await current(scope, id);
+    if (!row?.passwordHash || !verifyPassword(password, row.passwordHash))
+      return { ok: false, message: "That password isn't right." };
+    await setUnlocked({ scope, id, version: row.passwordVersion });
+    // Counted for the page's managers: how many people got in with this password (lib/views-data.ts).
+    await db
+      .insert(passwordUnlock)
+      .values({ scope, targetId: id, passwordVersion: row.passwordVersion, unlocks: 1 })
+      .onConflictDoUpdate({
+        target: [passwordUnlock.scope, passwordUnlock.targetId, passwordUnlock.passwordVersion],
+        set: { unlocks: sql`${passwordUnlock.unlocks} + 1`, lastUnlockAt: new Date() },
+      });
+    return { ok: true, message: "Unlocked." };
+  });
 }
