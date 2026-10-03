@@ -1,3 +1,4 @@
+import { WhatsNewLink } from "@/components/whats-new-link";
 import { pendingInvitesFor } from "@/lib/invites";
 import { SectionTabs } from "./section-tabs";
 
@@ -35,7 +36,10 @@ export async function DashboardShell({
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-semibold">{TITLES[current]}</h1>
+        <div className="flex items-baseline justify-between gap-4">
+          <h1 className="text-2xl font-semibold">{TITLES[current]}</h1>
+          <WhatsNewLink className="text-sm text-muted-foreground hover:text-foreground" />
+        </div>
         <SectionTabs
           label="Dashboard sections"
           current={current}

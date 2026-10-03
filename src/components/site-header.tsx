@@ -9,10 +9,14 @@ import { QuickSearch } from "./quick-search";
 import { auth } from "@/lib/auth";
 import { SignOutButton } from "./sign-out-button";
 import { ThemeToggle } from "./theme-toggle";
+import { whatsNewState } from "./whats-new-link";
 
 export async function SiteHeader() {
   const session = await auth.api.getSession({ headers: await headers() });
-  const siteSearch = await canSearchSite(session?.user.id ?? null);
+  const [siteSearch, whatsNew] = await Promise.all([
+    canSearchSite(session?.user.id ?? null),
+    session ? whatsNewState() : null,
+  ]);
   return (
     <header className="border-b bg-card shadow-[0_1px_1px_rgba(17,20,24,0.06)]">
       <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-2 px-4 sm:gap-4">
@@ -53,7 +57,7 @@ export async function SiteHeader() {
               </Link>
               <SignOutButton className="max-sm:hidden" />
               <span className="sm:hidden">
-                <MobileMenu admin={isAdmin(session.user)} />
+                <MobileMenu admin={isAdmin(session.user)} whatsNewDot={whatsNew?.dot} />
               </span>
             </>
           ) : (

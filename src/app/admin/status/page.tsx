@@ -2,8 +2,9 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { and, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
-import { backgroundJob } from "@/db/schema";
+import { announcement, backgroundJob } from "@/db/schema";
 import { requireAdminPage } from "@/lib/admin";
 import { checkHealth, type CheckState } from "@/lib/health";
 import { jobStatus } from "@/lib/jobs";
@@ -140,11 +141,15 @@ export default async function AdminStatusPage(props: PageProps<"/admin/status">)
   const w = param((await props.searchParams).window);
   const window: Window = Object.hasOwn(WINDOWS, w) ? (w as Window) : "24h";
   const now = new Date();
-  const [health, stats, lastHour, jobRows] = await Promise.all([
+  const [health, stats, lastHour, jobRows, banners] = await Promise.all([
     checkHealth(now),
     metricStats(new Date(now.getTime() - WINDOWS[window]), now),
     window === "1h" ? null : metricStats(new Date(now.getTime() - HOUR), now),
     db.select().from(backgroundJob),
+    db
+      .select({ tone: announcement.tone, message: announcement.message, mutedUntil: announcement.mutedUntil })
+      .from(announcement)
+      .where(and(eq(announcement.source, "auto"), gt(announcement.endsAt, now))),
   ]);
   const hourStats = (lastHour ?? stats).filter((s) => s.kind === "route" || s.kind === "action");
   const hourCalls = hourStats.reduce((a, s) => a + s.count, 0);
@@ -177,6 +182,21 @@ export default async function AdminStatusPage(props: PageProps<"/admin/status">)
             <Tile label="Jobs needing a look" value={n(badJobs)} bad={badJobs > 0} />
           </Link>
         </div>
+        <p className="text-sm">
+          {banners.length ? (
+            <>
+              <span className="font-medium text-warning">Banner on the site:</span>{" "}
+              {banners
+                .map((b) => `${b.tone}, “${b.message}”${b.mutedUntil && b.mutedUntil > now ? " (muted)" : ""}`)
+                .join(" · ")}{" "}
+            </>
+          ) : (
+            <span className="text-muted-foreground">No automatic banner on the site. </span>
+          )}
+          <Link href="/admin/announcement" className="text-link hover:underline">
+            Announcement
+          </Link>
+        </p>
         <p className="text-xs text-muted-foreground">
           Counts are saved once a minute, so the latest minute isn&apos;t here yet. Also on{" "}
           <code>/api/health</code> for uptime checks.

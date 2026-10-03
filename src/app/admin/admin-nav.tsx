@@ -14,6 +14,7 @@ const TABS = [
   { href: "/admin/log", label: "Log" },
   { href: "/admin/jobs", label: "Jobs" },
   { href: "/admin/status", label: "Status" },
+  { href: "/admin/announcement", label: "Announcement" },
 ];
 
 export function AdminNav() {
