@@ -4,7 +4,7 @@ import { updateEntry } from "@/app/(app)/dashboard/place-actions";
 import { db } from "@/db";
 import { changelogEntry, collection, graph, shortlink } from "@/db/schema";
 import { encryptToken } from "@/lib/append-token";
-import { flushChangeLog, recordAnchorCheck } from "@/lib/changelog";
+import { flushChangeLog, recordAnchorCheck, roamInert } from "@/lib/changelog";
 import { addEntry } from "@/lib/collections";
 import { ensureShortlink, setAnchor } from "@/lib/shortlinks";
 import { resetDb } from "../helpers/db";
@@ -31,6 +31,14 @@ async function loggedPage() {
 }
 
 const queued = () => db.select().from(changelogEntry);
+
+describe("roamInert", () => {
+  test("leaves plain names alone and defuses Roam markup", () => {
+    expect(roamInert("Reading list (2026)")).toBe("Reading list (2026)");
+    expect(roamInert("a [[b]] {{c}} ((abcdefghi)) #d `e`")).toBe("a b c ( (abcdefghi) ) #\u200bd e");
+    expect(roamInert("line\nbreak")).toBe("line break");
+  });
+});
 
 describe("change log", () => {
   test("sends queued entries once, under the confirmed block, with the stored token", async () => {
@@ -72,9 +80,8 @@ describe("change log", () => {
     expect(row?.appendTokenStatus).toBe("invalid");
   });
 
-  // BUG (medium): a collection's name is chosen by its owner, who may be outside the graph, and goes into
-  // the graph's Roam as written. Roam markup in it ({{iframe}}, [[pages]], ((refs))) becomes live in Roam.
-  test.failing("text another person controls can't inject Roam markup into the graph", async () => {
+  // A collection's name is chosen by its owner, who may be outside the graph, and goes into the graph's Roam.
+  test("text another person controls can't inject Roam markup into the graph", async () => {
     const { owner, pub } = await loggedPage();
     const outsider = await makeUser();
     await makeGraph(outsider.id);
@@ -92,5 +99,7 @@ describe("change log", () => {
     expect(texts).toContain("Not listed");
     expect(texts).not.toContain("{{");
     expect(texts).not.toContain("[[");
+    // Still a working link, with the name readable.
+    expect(texts).toMatch(/\[Reading iframe: https:\/\/evil\.example Spam page\]\(http:\/\/localhost:3000\/c\//);
   });
 });

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { ACCESS, collection, collectionEntry } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { logForPublications } from "@/lib/changelog";
+import { logForPublications, roamInert } from "@/lib/changelog";
 import { CollectionName, CollectionSlug, reservePath } from "@/lib/collections";
 import { Description } from "@/lib/descriptions";
 import { DISCOVER_TAG } from "@/lib/discover";
@@ -133,7 +133,7 @@ export async function deleteCollection(collectionId: string): Promise<Collection
     .from(collectionEntry)
     .where(eq(collectionEntry.collectionId, c.id));
   await db.transaction((tx) => purgeCollection(tx, c, { keepSlug: false }));
-  await logForPublications(pages.map((p) => p.id), `Collection "${c.name}" was deleted, so the page left it`);
+  await logForPublications(pages.map((p) => p.id), `Collection "${roamInert(c.name)}" was deleted, so the page left it`);
   revalidate();
   return { ok: true, message: `Deleted ${c.name}.` };
 }
