@@ -1,4 +1,4 @@
-import { timed } from "./telemetry";
+import { rejectedStatus, timed } from "./telemetry";
 
 /** ROAM_APPEND_API points at a stand-in for local testing; production uses Roam's. */
 const APPEND_URL = (graph: string) =>
@@ -34,6 +34,7 @@ async function append(graph: string, token: string, location: Location, texts: s
           cache: "no-store",
         }),
       (r) => (r.status >= 500 || r.status === 429 ? `HTTP ${r.status}` : undefined),
+      (r) => (r.status === 429 ? undefined : rejectedStatus(r)),
     );
   } catch {
     return { ok: false, status: 0, message: "Couldn't reach Roam. Please try again." };
