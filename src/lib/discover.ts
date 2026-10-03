@@ -79,12 +79,12 @@ export function isListed(
 async function query(sort: DiscoverSort, limit: number, offset: number) {
   // Views in the last 7 days, aggregated over the created_at index only.
   const recentViews = db
-    .select({ publicationId: publicationView.publicationId, views: count().as("views") })
+    .select({ publicationId: publicationView.publicationId, recentViewCount: count().as("recent_view_count") })
     .from(publicationView)
     .where(sql`${publicationView.createdAt} > now() - interval '7 days'`)
     .groupBy(publicationView.publicationId)
     .as("recent_views");
-  const views = sql<number>`coalesce(${recentViews.views}, 0)`.mapWith(Number);
+  const views = sql<number>`coalesce(${recentViews.recentViewCount}, 0)`.mapWith(Number);
   // All-time upvotes, grouped over the primary key.
   const allVotes = db
     .select({ publicationId: publicationVote.publicationId, votes: count().as("votes") })
