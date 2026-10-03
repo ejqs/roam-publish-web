@@ -66,7 +66,7 @@ function VisibilityBar({ total, segments }: { total: number; segments: Segment[]
           <span key={s.level} className={LEVEL_FILL[s.level]} style={{ width: `${(s.n / sum) * 100}%` }} />
         ))}
       </div>
-      <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap gap-x-5 gap-y-0.5 text-xs text-muted-foreground">
         {shown.map((s) => {
           const text = `${fmt(s.n)} ${LEVEL_LABELS[s.level].toLowerCase()}${s.suffix ?? ""}`;
           const cls = s.level === "removed" ? "text-destructive" : "text-link";
@@ -182,25 +182,27 @@ export function ResourceList({
                             <ChevronRightIcon />
                           </Link>
                         )}
-                        <Popover>
-                          <PopoverTrigger
-                            render={
-                              <Button variant="ghost" size="icon-sm" aria-label={`More for ${it.name}`}>
-                                <MoreHorizontalIcon />
-                              </Button>
-                            }
-                          />
-                          <PopoverContent align="end" className="w-40 gap-0.5 p-1">
-                            <Link href={it.membersHref} className={menuItem}>
-                              Members
-                            </Link>
-                            {it.settingsHref && (
-                              <Link href={it.settingsHref} className={menuItem}>
-                                Settings
+                        {!it.canManage && (
+                          <Popover>
+                            <PopoverTrigger
+                              render={
+                                <Button variant="ghost" size="icon-sm" aria-label={`More for ${it.name}`}>
+                                  <MoreHorizontalIcon />
+                                </Button>
+                              }
+                            />
+                            <PopoverContent align="end" className="w-40 gap-0.5 p-1">
+                              <Link href={it.membersHref} className={menuItem}>
+                                Members
                               </Link>
-                            )}
-                          </PopoverContent>
-                        </Popover>
+                              {it.settingsHref && (
+                                <Link href={it.settingsHref} className={menuItem}>
+                                  Settings
+                                </Link>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
