@@ -18,6 +18,9 @@ export const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "")
 export const auth = betterAuth({
   appName: "Roam Publish",
   database: drizzleAdapter(db, { provider: "pg", schema }),
+  // Keys come only from the dashboard (issueKey: one per person per graph, via auth.api on the
+  // server). Over HTTP these would let anyone mint more, each with its own rate limit.
+  disabledPaths: ["/api-key/create", "/api-key/update"],
   advanced: {
     // Behind Railway's edge proxy; without a resolvable IP, rate limiting
     // collapses into one shared bucket per path.
