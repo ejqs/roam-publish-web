@@ -19,7 +19,7 @@ const outline = [
     block("Sends sign-in emails. Free for now, 20 USD a month if it outgrows the free tier."),
   ]),
   block("**Analytics and page views: [Umami](https://umami.is)**", [
-    block("Shows you how many people view your published pages, and shows me what's being used. Privacy-friendly, with no ads and no tracking across other sites."),
+    block("Shows you how many people view your published pages. Privacy-friendly, with no ads and no tracking across other sites."),
     block("20 USD a month."),
   ]),
   block("**Why the asterisk**", [
