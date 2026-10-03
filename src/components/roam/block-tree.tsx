@@ -36,12 +36,19 @@ function Marker({ node, viewType, n }: { node: Node; viewType: ViewType; n: numb
       </span>
     );
   }
+  // Body text: centred on the first line (2px padding + half of a 1.6 line, less half the dot), so it holds at any font size.
   return (
     <span
       aria-hidden
       className={cn(
         "absolute left-2 size-[5px] rounded-full bg-roam-bullet",
-        node.heading === 1 ? "top-[16px]" : node.heading === 2 ? "top-[13px]" : node.heading === 3 ? "top-[11px]" : "top-[9px]",
+        node.heading === 1
+          ? "top-[16px]"
+          : node.heading === 2
+            ? "top-[13px]"
+            : node.heading === 3
+              ? "top-[11px]"
+              : "top-[calc(0.8em_-_0.5px)]",
       )}
     />
   );
