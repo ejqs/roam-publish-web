@@ -76,7 +76,8 @@ const outline = [
     block("Nothing is sold or shared for advertising."),
   ]),
   block("**Keeping and deleting**", [
-    block("Unpublishing a page deletes it. Deleting a graph deletes its pages, members' pages included, and its keys."),
+    block("Unpublishing a page deletes it."),
+    block("Deleting a graph deletes its pages, including members' pages, and the API keys for it."),
     block(
       "Deleting your account (Settings) deletes your graphs, pages, collections, keys and profile, and what you published into other people's graphs.",
     ),
