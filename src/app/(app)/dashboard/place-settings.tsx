@@ -39,6 +39,16 @@ type PlaceInput = { access?: ReadAccess; showAuthor?: ShowAuthor; views?: PlaceV
 
 const NOT_ON_DISCOVER = "Only pages anyone can read go on Discover.";
 
+/** What to warn about before a page goes onto or comes off Discover, or null when the change doesn't touch it. */
+function discoverWarning(from: Access, to: Access, protecting = false) {
+  if (from !== "discover" && to !== "discover") return null;
+  if (from === to) return null;
+  if (to === "discover") return "Put this page on roam.pub/discover? Anyone can find it there.";
+  return protecting
+    ? "Protecting this page takes it off roam.pub/discover and lists it instead. Continue?"
+    : "Take this page off roam.pub/discover?";
+}
+
 /**
  * One place's settings, saved as they change: where it's listed, who can read it, its byline and
  * view count. Choosing Password with no password to use asks for one first and changes nothing
@@ -77,6 +87,8 @@ export function usePlaceSettings({ target, access, discoverBlocked, place }: Pla
 
   function chooseReach(next: Access) {
     if (next === reach) return;
+    const warning = discoverWarning(reach, next);
+    if (warning && !confirm(warning)) return;
     setNote("");
     start(async () => {
       setOptimistic((s) => ({ ...s, access: next }));
@@ -108,6 +120,8 @@ export function usePlaceSettings({ target, access, discoverBlocked, place }: Pla
 
   function chooseRead(next: ReadAccess) {
     if (next === read) return setAskPassword(false);
+    const warning = next !== "open" ? discoverWarning(reach, "public", true) : null;
+    if (warning && !confirm(warning)) return;
     // Nothing to unlock with yet: ask for this page's password, and change nothing until it's set.
     if (next === "password" && !hasPassword) return setAskPassword(true);
     setAskPassword(false);
