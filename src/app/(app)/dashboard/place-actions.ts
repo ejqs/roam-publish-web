@@ -421,6 +421,31 @@ export async function bulkUpdatePublications(raw: BulkInput): Promise<PlaceResul
 }
 
 /**
+ * Unpublishes several pages everywhere, like `unpublish` does for one. Pages the viewer can't
+ * manage are skipped. Removed pages stay locked so a republish can't undo the takedown.
+ */
+export async function bulkUnpublish(raw: { ids: string[] }): Promise<PlaceResult> {
+  return withAction("dashboard.places.bulkUnpublish", async () => {
+    const uid = await userId();
+    if (!uid) return SESSION_EXPIRED;
+    const parsed = z.object({ ids: z.array(z.string()).min(1).max(100) }).safeParse(raw);
+    if (!parsed.success) return { ok: false, message: "Nothing to unpublish." };
+    const deleted = await db
+      .delete(publication)
+      .where(and(inArray(publication.id, parsed.data.ids), manageablePublications(uid)))
+      .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
+    if (deleted.length === 0) return NOT_ALLOWED;
+    logChanges(deleted.map((p) => ({ ...p, text: "Unpublished on the website" })));
+    revalidateAll();
+    const skipped = parsed.data.ids.length - deleted.length;
+    return {
+      ok: true,
+      message: `Unpublished ${plural(deleted.length)}.${skipped ? ` Skipped ${skipped} you can't manage.` : ""}`,
+    };
+  });
+}
+
+/**
  * Collection entries' version of bulkUpdatePublications: where several pages are listed in the
  * collection, or who can read them there. Entries the viewer can't manage are skipped.
  */
