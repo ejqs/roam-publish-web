@@ -1,33 +1,33 @@
 import Link from "next/link";
 import { cn } from "cn";
+import { SourcePopover } from "./source-popover";
 
 export const SOURCE_URL = "https://github.com/ejqs/roam-publish-web";
 export const EXTENSION_SOURCE_URL = "https://github.com/ejqs/roam-publish";
+export const DOCS_SOURCE_URL = "https://github.com/ejqs/roam-publish-docs";
 export const ISSUES_URL = `${SOURCE_URL}/issues`;
 
+const SOURCE_LINKS = [
+  { label: "Web", href: SOURCE_URL },
+  { label: "Extension", href: EXTENSION_SOURCE_URL },
+  { label: "Docs", href: DOCS_SOURCE_URL },
+];
+
 const LINKS = [
-  { label: "About & contact", href: "/#about" },
-  { label: "Costs", href: "/costs" },
+  { label: "About", href: "/#about" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
-  { label: "Web source", href: SOURCE_URL, external: true },
-  { label: "Extension source", href: EXTENSION_SOURCE_URL, external: true },
 ];
 
 function FooterLinks({ className }: { className: string }) {
   return (
     <nav aria-label="Footer" className="flex flex-wrap gap-x-3 gap-y-1">
-      {LINKS.map((l) =>
-        l.external ? (
-          <a key={l.label} href={l.href} target="_blank" rel="noopener" className={className}>
-            {l.label}
-          </a>
-        ) : (
-          <Link key={l.label} href={l.href} className={className}>
-            {l.label}
-          </Link>
-        ),
-      )}
+      {LINKS.map((l) => (
+        <Link key={l.label} href={l.href} className={className}>
+          {l.label}
+        </Link>
+      ))}
+      <SourcePopover className={className} links={SOURCE_LINKS} />
     </nav>
   );
 }
@@ -39,7 +39,7 @@ const ejqs = (className: string) => (
 );
 
 /**
- * The disclaimer on the left, About & contact and the two source code links (web, extension) on the right. `full` is the home page's
+ * The disclaimer on the left, About, Privacy, Terms and a Source code popup (web, extension, docs) on the right. `full` is the home page's
  * footer. Everywhere else gets the quiet one: no border, small muted text, and the background of
  * whatever it sits under (pass `className="bg-card"` on card pages).
  */
