@@ -1,3 +1,5 @@
+import { timed } from "./telemetry";
+
 /**
  * The operator's Umami Cloud site: the tracking script's website id, and a small client for the
  * read API used by the view count sync (lib/view-sync.ts).
@@ -50,10 +52,15 @@ export class UmamiClient {
       ...filters,
     });
     this.calls++;
-    const res = await fetch(`${this.base}/websites/${encodeURIComponent(UMAMI_WEBSITE_ID)}/metrics?${q}`, {
-      headers: { "x-umami-api-key": process.env.UMAMI_API_KEY ?? "", accept: "application/json" },
-      signal: AbortSignal.timeout(30_000),
-    });
+    const res = await timed(
+      "umami",
+      () =>
+        fetch(`${this.base}/websites/${encodeURIComponent(UMAMI_WEBSITE_ID)}/metrics?${q}`, {
+          headers: { "x-umami-api-key": process.env.UMAMI_API_KEY ?? "", accept: "application/json" },
+          signal: AbortSignal.timeout(30_000),
+        }),
+      (r) => (r.ok ? undefined : `HTTP ${r.status}`),
+    );
     if (res.status === 429) throw new UmamiRateLimited();
     if (!res.ok) throw new Error(`Umami ${type} metrics: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
     const body: unknown = await res.json();

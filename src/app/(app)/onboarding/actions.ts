@@ -12,6 +12,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { canStoreTokens, encryptToken } from "@/lib/append-token";
 import { validTimeZone } from "@/lib/changelog";
 import { appendToDailyNote } from "@/lib/roam-append";
+import { withAction } from "@/lib/telemetry";
 
 // Routes that would shadow /{graph} or /dashboard/{graph}.
 const ROUTES = new Set([
@@ -49,55 +50,57 @@ const TAKEN = "This graph is already on roam.pub. Ask its owner to invite you fr
  * shortlink block. Turned off on a graph that already has one leaves the stored token alone.
  */
 export async function verifyGraph(input: z.input<typeof Input>): Promise<VerifyResult> {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return { ok: false, error: "Your session expired. Please log in again." };
+  return withAction("onboarding.verifyGraph", async () => {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session) return { ok: false, error: "Your session expired. Please log in again." };
 
-  const parsed = Input.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
-  const { graphName, token, date, timeZone, keepToken } = parsed.data;
+    const parsed = Input.safeParse(input);
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+    const { graphName, token, date, timeZone, keepToken } = parsed.data;
 
-  if (!rateLimit(`verify:user:${session.user.id}`, 10, 15 * 60 * 1000))
-    return { ok: false, error: "Too many attempts. Try again in a few minutes." };
+    if (!rateLimit(`verify:user:${session.user.id}`, 10, 15 * 60 * 1000))
+      return { ok: false, error: "Too many attempts. Try again in a few minutes." };
 
-  const owner = await db.query.graph.findFirst({ where: eq(graph.name, graphName) });
-  if (owner && owner.userId !== session.user.id) return { ok: false, error: TAKEN };
-  // Its account was deleted while a moderator had acted on it; see src/lib/deletion.ts.
-  if (!owner && (await isBlocked("graph", graphName)))
-    return { ok: false, error: "This graph can't be connected. Contact us if you think this is a mistake." };
+    const owner = await db.query.graph.findFirst({ where: eq(graph.name, graphName) });
+    if (owner && owner.userId !== session.user.id) return { ok: false, error: TAKEN };
+    // Its account was deleted while a moderator had acted on it; see src/lib/deletion.ts.
+    if (!owner && (await isBlocked("graph", graphName)))
+      return { ok: false, error: "This graph can't be connected. Contact us if you think this is a mistake." };
 
-  const result = await appendToDailyNote(
-    graphName,
-    token,
-    date,
-    "roam.pub connected this graph (safe to delete)",
-  );
-  if (!result.ok) return { ok: false, error: result.message };
+    const result = await appendToDailyNote(
+      graphName,
+      token,
+      date,
+      "roam.pub connected this graph (safe to delete)",
+    );
+    if (!result.ok) return { ok: false, error: result.message };
 
-  const changeLog = keepToken && canStoreTokens();
-  const stored = {
-    ...(changeLog && {
-      appendTokenEnc: encryptToken(token),
-      appendTokenStatus: "ok" as const,
-      appendTokenAddedAt: new Date(),
-      appendTokenOkAt: new Date(),
-      changeLogPaused: false,
-    }),
-    // Change log entries are dated in it, also once a token is added later.
-    ...(timeZone && validTimeZone(timeZone) && { timeZone }),
-  };
+    const changeLog = keepToken && canStoreTokens();
+    const stored = {
+      ...(changeLog && {
+        appendTokenEnc: encryptToken(token),
+        appendTokenStatus: "ok" as const,
+        appendTokenAddedAt: new Date(),
+        appendTokenOkAt: new Date(),
+        changeLogPaused: false,
+      }),
+      // Change log entries are dated in it, also once a token is added later.
+      ...(timeZone && validTimeZone(timeZone) && { timeZone }),
+    };
 
-  const [g] = await db
-    .insert(graph)
-    .values({ userId: session.user.id, name: graphName, ...stored })
-    .onConflictDoUpdate({
-      target: graph.name,
-      set: { verifiedAt: new Date(), ...stored },
-      // Someone else verified it in the meantime: leave their graph alone.
-      setWhere: eq(graph.userId, session.user.id),
-    })
-    .returning({ id: graph.id, name: graph.name });
-  if (!g) return { ok: false, error: TAKEN };
+    const [g] = await db
+      .insert(graph)
+      .values({ userId: session.user.id, name: graphName, ...stored })
+      .onConflictDoUpdate({
+        target: graph.name,
+        set: { verifiedAt: new Date(), ...stored },
+        // Someone else verified it in the meantime: leave their graph alone.
+        setWhere: eq(graph.userId, session.user.id),
+      })
+      .returning({ id: graph.id, name: graph.name });
+    if (!g) return { ok: false, error: TAKEN };
 
-  revalidatePath("/dashboard", "layout");
-  return { ok: true, graphId: g.id, graphName: g.name, changeLog };
+    revalidatePath("/dashboard", "layout");
+    return { ok: true, graphId: g.id, graphName: g.name, changeLog };
+  });
 }
