@@ -148,6 +148,20 @@
       "when": 1790944201533,
       "tag": "0020_changelog_paused",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790993720475,
+      "tag": "0021_view_counts",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790995314878,
+      "tag": "0022_password_unlocks",
+      "breakpoints": true
     }
   ]
 }

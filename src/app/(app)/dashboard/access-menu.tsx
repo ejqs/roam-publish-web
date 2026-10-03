@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { Access as ReadAccess, ShowAuthor } from "@/db/schema";
+import type { PlaceViews, Access as ReadAccess, ShowAuthor } from "@/db/schema";
+import { placeViewsOptions } from "@/components/manage/views-fields";
+import { viewsMode } from "@/lib/views";
 import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { type Access, setAccess } from "./actions";
@@ -26,7 +28,7 @@ export type MenuTarget =
 
 /**
  * One control for one place a page appears: where it's listed (link only, the graph's or
- * collection's page, or also roam.pub/discover), who can read it, and its byline. Each option
+ * collection's page, or also roam.pub/discover), who can read it, its byline and view count. Each option
  * saves on click. Choosing Password with no password to use asks for one first; cancelling keeps
  * the current access. A Discoverable page stays open until it isn't.
  */
@@ -50,6 +52,8 @@ export function AccessMenu({
     // "inherit" only survives on rows from before pages stored their own access.
     read: (place.state.access === "inherit" ? place.container.defaultAccess : place.state.access) as ReadAccess,
     showAuthor: place.state.showAuthor,
+    views: place.state.views,
+    showViewCountries: place.state.showViewCountries,
   });
   const [pending, start] = useTransition();
   const { container } = place;
@@ -101,6 +105,16 @@ export function AccessMenu({
     { value: "hide", label: "Hide" },
   ];
 
+  // An unlisted page keeps its count to its managers unless it's set to show.
+  const listedNow = reach !== "unlisted";
+  const viewsOptions: Option<PlaceViews>[] = placeViewsOptions(container, listedNow);
+  const countriesOptions: Option<ShowAuthor>[] = [
+    { value: "inherit", label: `Use ${container.label}'s setting (${container.showViewCountries ? "shown" : "hidden"})` },
+    { value: "show", label: "Show" },
+    { value: "hide", label: "Hide" },
+  ];
+  const showsCount = viewsMode(container, { views: optimistic.views }, listedNow) === "show";
+
   function chooseReach(next: Access) {
     setOpen(false);
     if (next === reach) return;
@@ -114,9 +128,20 @@ export function AccessMenu({
     });
   }
 
-  function choosePlace(next: { access?: ReadAccess; showAuthor?: ShowAuthor }) {
+  function choosePlace(next: {
+    access?: ReadAccess;
+    showAuthor?: ShowAuthor;
+    views?: PlaceViews;
+    showViewCountries?: ShowAuthor;
+  }) {
     setOpen(false);
-    if (next.access === optimistic.read || next.showAuthor === optimistic.showAuthor) return;
+    if (
+      next.access === optimistic.read ||
+      next.showAuthor === optimistic.showAuthor ||
+      next.views === optimistic.views ||
+      next.showViewCountries === optimistic.showViewCountries
+    )
+      return;
     // Nothing to unlock with yet: ask for this page's password, and change nothing until it's set.
     if (next.access === "password" && !hasPassword) return setAskPassword(true);
     start(async () => {
@@ -124,6 +149,8 @@ export function AccessMenu({
         ...s,
         ...(next.access && { read: next.access }),
         ...(next.showAuthor && { showAuthor: next.showAuthor }),
+        ...(next.views && { views: next.views }),
+        ...(next.showViewCountries && { showViewCountries: next.showViewCountries }),
       }));
       const res =
         target.kind === "graph" ? await updateGraphPlace(target.publicationId, next) : await updateEntry(target.entryId, next);
@@ -176,6 +203,23 @@ export function AccessMenu({
             options={bylineOptions}
             onChoose={(s) => choosePlace({ showAuthor: s })}
           />
+          {/* Members-only pages have no view count. */}
+          {optimistic.read !== "members" && (
+            <Section
+              label="View count"
+              value={optimistic.views}
+              options={viewsOptions}
+              onChoose={(v) => choosePlace({ views: v })}
+            />
+          )}
+          {optimistic.read !== "members" && showsCount && (
+            <Section
+              label="Reader countries"
+              value={optimistic.showViewCountries}
+              options={countriesOptions}
+              onChoose={(v) => choosePlace({ showViewCountries: v })}
+            />
+          )}
         </PopoverContent>
       </Popover>
     </>

@@ -18,7 +18,17 @@ import { db } from "@/db";
 import { collectionEntry, graph, publication, publicationVote, user } from "@/db/schema";
 import { canManageEntry, collectionRole, resolveC } from "@/lib/collections";
 import { collectionFeedPath, hasCollectionFeed } from "@/lib/feeds";
-import { type Container, containerLock, effectiveAccess, gate, pageLock, type Place, showsAuthor } from "@/lib/gates";
+import {
+  type Container,
+  containerLock,
+  effectiveAccess,
+  gate,
+  pageLock,
+  type Place,
+  showsAuthor,
+  showsViewCountries,
+  viewsMode,
+} from "@/lib/gates";
 import { canManage, canSearchSite, graphRole } from "@/lib/graph-access";
 import { manageDataFor } from "@/lib/manage-data";
 import { liveGraph } from "@/lib/moderation";
@@ -26,6 +36,7 @@ import { collectionPath, entryPath } from "@/lib/publications";
 import { collectionTagPath, RELATED_LIMIT } from "@/lib/tag-paths";
 import { plainText, slugify } from "@/lib/slug";
 import { bylineFor, viewerId } from "@/lib/viewer";
+import { loadViewFooter } from "@/lib/views-data";
 import { formatDate, ListStatus, ListToolbar, PageList } from "@/components/page-list";
 import { COLLECTION_LIST, LIST_PAGE_SIZE, parseListState } from "@/lib/list-params";
 import { listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
@@ -240,7 +251,8 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
 
   // Only open pages listed on Discover in an open, indexable collection can be upvoted.
   const onDiscover = entry.listing === "discover" && access === "open" && c.indexAccess === "open" && c.indexable;
-  const [siblings, votes, byline, manage] = await Promise.all([
+  const manageFor = me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : Promise.resolve(undefined);
+  const [siblings, votes, byline, manage, views] = await Promise.all([
     liveEntries(c.id),
     onDiscover
       ? db
@@ -250,7 +262,30 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
           .then(([v]) => v.n)
       : null,
     bylineFor(pub, showsAuthor(container, place)),
-    me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : undefined,
+    manageFor,
+    // Only members can read a members-only page, so a count there says nothing worth knowing.
+    access === "members"
+      ? null
+      : manageFor.then((m) =>
+          loadViewFooter({
+            mode: viewsMode(container, place, entry.listing !== "unlisted"),
+            countries: showsViewCountries(container, place),
+            manager,
+            lock: access === "password" ? pageLock(container, place) : null,
+            publicationId: pub.id,
+            entryId: entry.id,
+            // Only someone who can change this entry: a graph manager may not be one.
+            controls: m?.entries.find((e) => e.entryId === entry.id)?.canManage
+              ? {
+                  target: { kind: "entry", entryId: entry.id },
+                  views: entry.views,
+                  showViewCountries: entry.showViewCountries,
+                  container: { label: c.name, views: c.views, showViewCountries: c.showViewCountries },
+                  listed: entry.listing !== "unlisted",
+                }
+              : null,
+          }),
+        ),
   ]);
   // [[links]] resolve to other pages in this collection.
   const links = new PageLinks(
@@ -276,6 +311,7 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
       report={{ collectionSlug: c.slug, entryUid: entry.entryUid }}
       votes={votes}
       countViews={entry.listing !== "unlisted" && access === "open"}
+      views={views}
       manage={manage}
       afterUnpublish={collectionPath(c.slug)}
     />

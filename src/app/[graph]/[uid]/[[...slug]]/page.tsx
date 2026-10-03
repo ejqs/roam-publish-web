@@ -9,7 +9,16 @@ import { RemovedNotice } from "@/components/removed-notice";
 import { db } from "@/db";
 import { publication, publicationVote } from "@/db/schema";
 import { isListed } from "@/lib/discover";
-import { type Container, effectiveAccess, gate, pageLock, type Place, showsAuthor } from "@/lib/gates";
+import {
+  type Container,
+  effectiveAccess,
+  gate,
+  pageLock,
+  type Place,
+  showsAuthor,
+  showsViewCountries,
+  viewsMode,
+} from "@/lib/gates";
 import { canManage, canSearchSite, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { tagsOverlap } from "@/lib/list-query";
@@ -20,6 +29,7 @@ import { publicationPath } from "@/lib/publications";
 import { plainText, slugify } from "@/lib/slug";
 import { graphTagPath, RELATED_LIMIT } from "@/lib/tag-paths";
 import { bylineFor, viewerId } from "@/lib/viewer";
+import { loadViewFooter } from "@/lib/views-data";
 
 // Only graph + uid identify a publication; the optional trailing slug is decorative.
 const load = cache(async (graphName: string, rootUid: string) => {
@@ -84,7 +94,8 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
   const listed = access === "open" && isListed(g, pub);
   // Tags lead to the graph's front page, unless that would reveal a graph the page hides.
   const tagsBrowsable = showBreadcrumbs && g.frontPage;
-  const [pages, owner, votes, byline, manage, related] = await Promise.all([
+  const manageFor = me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : Promise.resolve(undefined);
+  const [pages, owner, votes, byline, manage, related, views] = await Promise.all([
     db
       .select({ title: publication.title, rootUid: publication.rootUid })
       .from(publication)
@@ -100,7 +111,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           .then(([r]) => r.n)
       : null,
     bylineFor(pub, showsAuthor(container, place)),
-    me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : undefined,
+    manageFor,
     tagsBrowsable && pub.tags.length
       ? db
           .select({ title: publication.title, rootUid: publication.rootUid })
@@ -118,6 +129,27 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           .orderBy(desc(publication.updatedAt))
           .limit(RELATED_LIMIT)
       : [],
+    // Only members can read a members-only page, so a count there says nothing worth knowing.
+    access === "members"
+      ? null
+      : manageFor.then((m) =>
+          loadViewFooter({
+            mode: viewsMode(container, place, pub.visibility === "public"),
+            countries: showsViewCountries(container, place),
+            manager,
+            lock: access === "password" ? pageLock(container, place) : null,
+            publicationId: pub.id,
+            controls: m?.canManagePage
+              ? {
+                  target: { kind: "graph", publicationId: pub.id },
+                  views: pub.views,
+                  showViewCountries: pub.showViewCountries,
+                  container: { label: g.name, views: g.views, showViewCountries: g.showViewCountries },
+                  listed: pub.visibility === "public",
+                }
+              : null,
+          }),
+        ),
   ]);
   const tagHref = tagsBrowsable ? (t: string) => graphTagPath(g.name, t) : undefined;
   const links = new PageLinks(
@@ -144,6 +176,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
       report={{ graphName: g.name, rootUid: pub.rootUid }}
       votes={votes}
       countViews={pub.visibility === "public" && access === "open"}
+      views={views}
       manage={manage}
       afterUnpublish="/dashboard"
     />

@@ -1,10 +1,10 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { collection, collectionEntry, graph, publication } from "@/db/schema";
+import { collection, collectionEntry, graph, passwordUnlock, publication } from "@/db/schema";
 import { type Lock, setUnlocked, verifyPassword } from "@/lib/gates";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
@@ -43,5 +43,13 @@ export async function unlock(input: z.input<typeof Input>): Promise<UnlockResult
   if (!row?.passwordHash || !verifyPassword(password, row.passwordHash))
     return { ok: false, message: "That password isn't right." };
   await setUnlocked({ scope, id, version: row.passwordVersion });
+  // Counted for the page's managers: how many people got in with this password (lib/views-data.ts).
+  await db
+    .insert(passwordUnlock)
+    .values({ scope, targetId: id, passwordVersion: row.passwordVersion, unlocks: 1 })
+    .onConflictDoUpdate({
+      target: [passwordUnlock.scope, passwordUnlock.targetId, passwordUnlock.passwordVersion],
+      set: { unlocks: sql`${passwordUnlock.unlocks} + 1`, lastUnlockAt: new Date() },
+    });
   return { ok: true, message: "Unlocked." };
 }

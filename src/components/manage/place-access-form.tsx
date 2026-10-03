@@ -5,12 +5,14 @@ import { toast } from "sonner";
 import { updateEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { EntryListing, PlaceAccess, ShowAuthor } from "@/db/schema";
+import type { EntryListing, PlaceAccess, PlaceViews, ShowAuthor } from "@/db/schema";
 
 export type PlaceState = {
   access: PlaceAccess;
   hasOwnPassword: boolean;
   showAuthor: ShowAuthor;
+  views: PlaceViews;
+  showViewCountries: ShowAuthor;
   /** Entries only. */
   listing?: EntryListing;
 };

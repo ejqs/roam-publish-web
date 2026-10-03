@@ -12,6 +12,7 @@ import {
   ENTRY_LISTING,
   graph,
   PLACE_ACCESS,
+  PLACE_VIEWS,
   publication,
   SHOW_AUTHOR,
 } from "@/db/schema";
@@ -50,6 +51,8 @@ function revalidateAll() {
 const PlaceInput = z.object({
   access: z.enum(PLACE_ACCESS).optional(),
   showAuthor: z.enum(SHOW_AUTHOR).optional(),
+  views: z.enum(PLACE_VIEWS).optional(),
+  showViewCountries: z.enum(SHOW_AUTHOR).optional(),
   /** A new password for this page only. */
   password: Password.optional(),
   /** Drop this page's own password, so password access falls back to its graph's or collection's. */
@@ -132,6 +135,8 @@ export async function updateGraphPlace(
     .set({
       ...(input.access && { access: input.access }),
       ...(input.showAuthor && { showAuthor: input.showAuthor }),
+      ...(input.views && { views: input.views }),
+      ...(input.showViewCountries && { showViewCountries: input.showViewCountries }),
       ...(input.inGraph !== undefined && { inGraph: input.inGraph }),
       ...passwordUpdate(input, pub),
     })
@@ -186,6 +191,8 @@ export async function updateEntry(
     .set({
       ...(input.access && { access: input.access }),
       ...(input.showAuthor && { showAuthor: input.showAuthor }),
+      ...(input.views && { views: input.views }),
+      ...(input.showViewCountries && { showViewCountries: input.showViewCountries }),
       ...(input.listing && { listing: input.listing }),
       ...passwordUpdate(input, entry),
     })
