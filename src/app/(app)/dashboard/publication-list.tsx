@@ -10,7 +10,7 @@ import { AccessMenu } from "./access-menu";
 import { AllCheckbox, BulkSelect, RowCheckbox } from "./bulk-select";
 
 // One grid for header and rows, so columns line up from sm up. Below sm each row stacks instead.
-export const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_12.5rem_7.5rem_6.5rem] sm:items-center sm:gap-3";
+export const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_12.5rem_7.5rem_6.5rem] sm:items-center sm:gap-3";
 
 export const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { dateStyle: "medium" });
 
@@ -61,8 +61,7 @@ export function PublicationList({
             <AllCheckbox />
             <HeaderCell label="Title" sort={sort?.title} />
           </span>
-          <span>Type</span>
-          <span>In graph</span>
+          <span>Visibility</span>
           <HeaderCell label="Updated" sort={sort?.updated} />
           <span />
         </div>
@@ -82,12 +81,19 @@ export function PublicationList({
                     {selectable.includes(p.id) && <RowCheckbox id={p.id} title={p.title} />}
                   </span>
                   <div className="min-w-0">
-                    <Link
-                      href={p.inGraph || !firstEntry ? publicationPath(g.name, p.rootUid, p.title) : firstEntry.path}
-                      className="line-clamp-2 font-medium break-words text-link hover:underline sm:line-clamp-1 sm:font-normal"
-                    >
-                      {p.title}
-                    </Link>
+                    <div className="flex items-start gap-2">
+                      <Link
+                        href={p.inGraph || !firstEntry ? publicationPath(g.name, p.rootUid, p.title) : firstEntry.path}
+                        className="line-clamp-2 min-w-0 break-words text-foreground hover:underline sm:line-clamp-1"
+                      >
+                        {p.title}
+                      </Link>
+                      {p.kind === "block" && (
+                        <Badge variant="secondary" className="mt-px shrink-0">
+                          Block
+                        </Badge>
+                      )}
+                    </div>
                     {p.tags.length > 0 && (
                       <p className="truncate text-xs text-roam-ref">
                         {p.tags.slice(0, 5).map((t) => `#${t}`).join(" ")}
@@ -101,13 +107,8 @@ export function PublicationList({
                     )}
                   </div>
                 </div>
-                {/* Phones: type and date share a line under the title. */}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground sm:contents">
-                  <span>
-                    <Badge variant="outline">{p.kind}</Badge>
-                  </span>
-                  <span className="order-last sm:order-none sm:hidden">Updated {fmtDate(p.updatedAt)}</span>
-                </div>
+                {/* Phones: the date goes under the title. */}
+                <span className="text-xs text-muted-foreground sm:hidden">Updated {fmtDate(p.updatedAt)}</span>
                 <div className="flex flex-wrap items-center justify-between gap-2 sm:contents">
                   <div className="min-w-0">
                     {p.removedAt ? (

@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MembersPanel } from "@/components/manage/members-panel";
 import { db } from "@/db";
@@ -9,6 +8,8 @@ import { graphRole } from "@/lib/graph-access";
 import { membersOf, pendingInvitesOn } from "@/lib/invites";
 import { keysOf } from "@/lib/keys";
 import { requireSession } from "@/lib/session";
+import { graphPagesPath } from "../../filters";
+import { ResourceHeader, resourceTabs } from "../../section-tabs";
 
 export const metadata: Metadata = { title: "Graph members · Roam Publish" };
 
@@ -46,15 +47,12 @@ export default async function GraphMembersPage(props: PageProps<"/dashboard/[gra
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:py-12">
-      <div className="flex flex-col gap-1">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Dashboard
-        </Link>
-        <h1 className="text-2xl font-semibold">{g.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          {isOwner ? "Invite the people you share this Roam graph with." : "People who publish from this graph."}
-        </p>
-      </div>
+      <ResourceHeader
+        name={g.name}
+        caption={isOwner ? "Invite the people you share this Roam graph with." : "People who publish from this graph."}
+        tabs={resourceTabs(graphPagesPath(g.name), isOwner)}
+        current={`${graphPagesPath(g.name)}/members`}
+      />
       <MembersPanel
         type="graph"
         targetId={g.id}
