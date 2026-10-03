@@ -1,6 +1,7 @@
 import { EyeOff, TriangleAlert } from "lucide-react";
 import * as Flags from "country-flag-icons/react/3x2";
 import type { ComponentType, SVGProps } from "react";
+import { ViewControls } from "@/components/view-controls";
 import { ViewCountPopover } from "@/components/view-count-popover";
 import type { ViewCountry } from "@/db/schema";
 import type { ViewFooter } from "@/lib/views-data";
@@ -27,6 +28,7 @@ function ago(d: Date, now = new Date()) {
 
 /** "1.4k views" in a page's footer, with the sources and countries on hover. */
 export function ViewCount({ v }: { v: ViewFooter }) {
+  if (v.off) return <ViewsOff v={v} />;
   // Visitors see "< 10 views" on a small public count; managers see the number.
   const vague = v.few && !v.hidden && !v.manager;
   const text = vague ? `< ${MIN_SHOWN_VIEWS} views` : `${formatViews(v.total)} ${v.total === 1 ? "view" : "views"}`;
@@ -55,15 +57,38 @@ export function ViewCount({ v }: { v: ViewFooter }) {
           <span>Only people who manage this page see this. View counts are hidden from visitors.</span>
         </p>
       ) : (
-        v.few && (
-          <p className="text-foreground">
-            {vague
-              ? `Fewer than ${MIN_SHOWN_VIEWS} views so far. The count shows from ${MIN_SHOWN_VIEWS}.`
-              : `Visitors see “< ${MIN_SHOWN_VIEWS} views” until it reaches ${MIN_SHOWN_VIEWS}.`}
-          </p>
-        )
+        vague && <p className="text-foreground">Fewer than {MIN_SHOWN_VIEWS} views so far.</p>
       )}
-      {!vague && <Breakdown v={v} countries={countries} divider={v.hidden || v.few} />}
+      {!vague && <Breakdown v={v} countries={countries} divider={v.hidden} />}
+      {v.controls && (
+        <>
+          <div className="h-px bg-border" />
+          <ViewControls c={v.controls} />
+        </>
+      )}
+    </ViewCountPopover>
+  );
+}
+
+/** A page whose views are off, for someone who can turn them back on. */
+function ViewsOff({ v }: { v: ViewFooter }) {
+  return (
+    <ViewCountPopover
+      label="View count off"
+      trigger={
+        <>
+          <EyeOff className="size-3.5" aria-hidden />
+          <span className="underline decoration-dotted underline-offset-[3px]">Views off</span>
+        </>
+      }
+    >
+      <p className="text-foreground">Views aren&apos;t counted or shown on this page. Only people who manage it see this, to turn them back on.</p>
+      {v.controls && (
+        <>
+          <div className="h-px bg-border" />
+          <ViewControls c={v.controls} />
+        </>
+      )}
     </ViewCountPopover>
   );
 }
@@ -74,20 +99,21 @@ function Breakdown({ v, countries, divider }: { v: ViewFooter; countries: ViewCo
     <>
       {divider && <div className="h-px bg-border" />}
       <dl className="flex flex-col gap-1.5">
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Visits recorded by Umami</dt>
-          <dd className="font-medium tabular-nums">{v.umami.toLocaleString("en-US")}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Signed-in Roam readers</dt>
-          <dd className="font-medium tabular-nums">{v.roam.toLocaleString("en-US")}</dd>
-        </div>
+        {v.unlocks !== null && (
+          <Row label="Got in with the password" value={v.unlocks} />
+        )}
+        <Row
+          label="Visits recorded by Umami"
+          note={v.unlocks !== null ? "Includes people who only saw the password prompt" : undefined}
+          value={v.umami}
+        />
+        {(v.unlocks === null || v.roam > 0) && <Row label="Signed-in Roam readers" value={v.roam} />}
       </dl>
       {countries.length > 0 && (
         <>
           <div className="h-px bg-border" />
           <div className="flex flex-col gap-1.5">
-            <p className="font-medium">Where readers are</p>
+            <p className="font-medium">{v.unlocks === null ? "Where readers are" : "Where visits come from"}</p>
             <ul className="grid grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5">
               {countries.map((c) => (
                 <li key={c.code} className="contents">
@@ -102,21 +128,38 @@ function Breakdown({ v, countries, divider }: { v: ViewFooter; countries: ViewCo
       )}
       <div className="h-px bg-border" />
       <p className="text-muted-foreground">
-        Umami counts visits; Roam counts people.{v.syncedAt ? ` Updated ${ago(v.syncedAt)}.` : ""}
+        {v.unlocks === null
+          ? "Umami counts visits; Roam counts people."
+          : "Only people who got in saw the page. Password entries count from its last change."}
+        {v.syncedAt ? ` Visits updated ${ago(v.syncedAt)}.` : ""}
       </p>
     </>
   );
 }
 
-/** For the page's managers: a password-protected page getting more visits than a private page usually does. */
+function Row({ label, note, value }: { label: string; note?: string; value: number }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="text-muted-foreground">
+        {label}
+        {note && <span className="block text-[11px] leading-4 opacity-80">{note}</span>}
+      </dt>
+      <dd className="font-medium tabular-nums">{value.toLocaleString("en-US")}</dd>
+    </div>
+  );
+}
+
+const PASSWORD_OWNER = { publication: "This page's password", entry: "This page's password", graph: "The graph password", collection: "The collection password" };
+
+/** For the page's managers: the password that opens this page has been entered more than a private page usually sees. */
 export function PasswordViewsWarning({ v }: { v: ViewFooter }) {
   return (
     <p className="mt-3 flex gap-2 text-xs text-muted-foreground">
       <TriangleAlert className="mt-px size-3.5 shrink-0 text-warning" aria-hidden />
       <span>
-        <span className="font-medium text-foreground">Only people who manage this page see this.</span> This
-        password-protected page has had {plural(v.umami, "visit", "visits")}, counting people who only saw the password
-        prompt. If that&rsquo;s more than you shared it with, change its password.
+        <span className="font-medium text-foreground">Only people who manage this page see this.</span>{" "}
+        {PASSWORD_OWNER[v.lockScope ?? "publication"]} has been entered {plural(v.unlocks ?? 0, "time", "times")} since it was
+        last changed. If that&rsquo;s more people than you shared it with, change it.
       </span>
     </p>
   );

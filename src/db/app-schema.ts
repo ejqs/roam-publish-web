@@ -621,3 +621,20 @@ export const backgroundJob = pgTable("background_job", {
 });
 
 export type JobResult = Record<string, string | number | boolean | null>;
+
+/**
+ * Successful password entries, per password: the scope and id of what the password belongs to (a
+ * page's own, or its graph's or collection's) and its version, so changing it starts over. An unlock
+ * lasts 30 days on a browser, so this is close to the number of people who got in.
+ */
+export const passwordUnlock = pgTable(
+  "password_unlock",
+  {
+    scope: text("scope", { enum: ["graph", "collection", "publication", "entry"] }).notNull(),
+    targetId: text("target_id").notNull(),
+    passwordVersion: integer("password_version").notNull(),
+    unlocks: integer("unlocks").notNull().default(0),
+    lastUnlockAt: timestamp("last_unlock_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.scope, t.targetId, t.passwordVersion] })],
+);

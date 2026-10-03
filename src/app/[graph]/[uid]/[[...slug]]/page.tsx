@@ -94,6 +94,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
   const listed = access === "open" && isListed(g, pub);
   // Tags lead to the graph's front page, unless that would reveal a graph the page hides.
   const tagsBrowsable = showBreadcrumbs && g.frontPage;
+  const manageFor = me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : Promise.resolve(undefined);
   const [pages, owner, votes, byline, manage, related, views] = await Promise.all([
     db
       .select({ title: publication.title, rootUid: publication.rootUid })
@@ -110,7 +111,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           .then(([r]) => r.n)
       : null,
     bylineFor(pub, showsAuthor(container, place)),
-    me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : undefined,
+    manageFor,
     tagsBrowsable && pub.tags.length
       ? db
           .select({ title: publication.title, rootUid: publication.rootUid })
@@ -128,13 +129,24 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           .orderBy(desc(publication.updatedAt))
           .limit(RELATED_LIMIT)
       : [],
-    loadViewFooter({
-      mode: viewsMode(container, place, pub.visibility === "public"),
-      countries: showsViewCountries(container, place),
-      manager,
-      passwordProtected: access === "password",
-      publicationId: pub.id,
-    }),
+    manageFor.then((m) =>
+      loadViewFooter({
+        mode: viewsMode(container, place, pub.visibility === "public"),
+        countries: showsViewCountries(container, place),
+        manager,
+        lock: access === "password" ? pageLock(container, place) : null,
+        publicationId: pub.id,
+        controls: m?.canManagePage
+          ? {
+              target: { kind: "graph", publicationId: pub.id },
+              views: pub.views,
+              showViewCountries: pub.showViewCountries,
+              container: { label: g.name, views: g.views, showViewCountries: g.showViewCountries },
+              listed: pub.visibility === "public",
+            }
+          : null,
+      }),
+    ),
   ]);
   const tagHref = tagsBrowsable ? (t: string) => graphTagPath(g.name, t) : undefined;
   const links = new PageLinks(

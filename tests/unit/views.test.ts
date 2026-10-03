@@ -156,3 +156,14 @@ describe("jobs", () => {
     expect(cursor).toMatchObject({ callsDay: "2026-10-04", callsToday: 1 });
   });
 });
+
+describe("placeViewsOptions", () => {
+  test("names what inheriting means for listed and unlisted pages", async () => {
+    const { placeViewsOptions } = await import("@/components/manage/views-fields");
+    expect(placeViewsOptions({ label: "notes", views: "show" }, true)[0].label).toBe("Use notes's setting (show)");
+    const unlisted = placeViewsOptions({ label: "notes", views: "show" }, false)[0];
+    expect(unlisted.label).toBe("Use notes's setting (managers only)");
+    expect(unlisted.description).toContain("Unlisted");
+    expect(placeViewsOptions({ label: "notes", views: "off" }, false)[0].label).toBe("Use notes's setting (off)");
+  });
+});

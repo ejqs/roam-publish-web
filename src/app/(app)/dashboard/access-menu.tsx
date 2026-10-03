@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { PlaceViews, Access as ReadAccess, ShowAuthor } from "@/db/schema";
-import { VIEWS_LABELS } from "@/components/manage/views-fields";
+import { placeViewsOptions } from "@/components/manage/views-fields";
 import { viewsMode } from "@/lib/views";
 import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
@@ -107,17 +107,7 @@ export function AccessMenu({
 
   // An unlisted page keeps its count to its managers unless it's set to show.
   const listedNow = reach !== "unlisted";
-  const inheritedViews = viewsMode(container, { views: "inherit" }, listedNow);
-  const viewsOptions: Option<PlaceViews>[] = [
-    {
-      value: "inherit",
-      label: `Use ${container.label}'s setting (${inheritedViews === "hide" ? "managers only" : VIEWS_LABELS[inheritedViews].toLowerCase()})`,
-      description: !listedNow && container.views === "show" ? "Unlisted pages show their count only when set to Show." : undefined,
-    },
-    { value: "show", label: "Show", description: "Everyone sees the count from 10 views." },
-    { value: "hide", label: "Only people who manage it", description: "Visitors see nothing; you see it with a crossed-out eye." },
-    { value: "off", label: "Off", description: "No count anywhere, not even for you." },
-  ];
+  const viewsOptions: Option<PlaceViews>[] = placeViewsOptions(container, listedNow);
   const countriesOptions: Option<ShowAuthor>[] = [
     { value: "inherit", label: `Use ${container.label}'s setting (${container.showViewCountries ? "shown" : "hidden"})` },
     { value: "show", label: "Show" },
