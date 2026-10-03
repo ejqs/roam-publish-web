@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Node } from "@/db/app-schema";
 import { cn } from "@/lib/utils";
 import { blockComponent, isOnlyComponent, type PageLinks, RoamText } from "./markup";
@@ -122,7 +123,24 @@ function Embed({ node, links }: { node: Node; links: PageLinks }) {
   );
 }
 
-function Block({ node, links, viewType, n }: { node: Node; links: PageLinks; viewType: ViewType; n: number }) {
+/** Marks where a block's `asides` node is rendered inline, e.g. an asterisk with a popup. */
+export const ASIDE_MARK = "[*]";
+
+function Block({
+  node,
+  links,
+  viewType,
+  n,
+  aside,
+  asides,
+}: {
+  node: Node;
+  links: PageLinks;
+  viewType: ViewType;
+  n: number;
+  aside?: ReactNode;
+  asides?: Record<string, ReactNode>;
+}) {
   const kind = blockComponent(node.string);
   // Tables and kanban boards are drawn from the block's children; a diagram's children are its source.
   const special =
@@ -140,13 +158,23 @@ function Block({ node, links, viewType, n }: { node: Node; links: PageLinks; vie
       {showText && (
         <div className={cn("py-0.5 leading-[1.6]", textClass(node))}>
           {/* Like Roam, an empty or whitespace-only block still takes a full line. */}
-          {node.string.trim() ? <RoamText text={node.string} links={links} /> : "\u00a0"}
+          {aside && node.string.includes(ASIDE_MARK) ? (
+            <>
+              <RoamText text={node.string.slice(0, node.string.indexOf(ASIDE_MARK))} links={links} />
+              {aside}
+              <RoamText text={node.string.slice(node.string.indexOf(ASIDE_MARK) + ASIDE_MARK.length)} links={links} />
+            </>
+          ) : node.string.trim() ? (
+            <RoamText text={node.string} links={links} />
+          ) : (
+            "\u00a0"
+          )}
         </div>
       )}
       {embed}
       {special}
       {!kind && node.children.length > 0 && (
-        <BlockList nodes={node.children} links={links} viewType={node.viewType} nested />
+        <BlockList nodes={node.children} links={links} viewType={node.viewType} asides={asides} nested />
       )}
     </li>
   );
@@ -157,11 +185,14 @@ export function BlockList({
   links,
   nested,
   viewType,
+  asides,
 }: {
   nodes: Node[];
   links: PageLinks;
   nested?: boolean;
   viewType?: ViewType;
+  /** Inline content for blocks containing {@link ASIDE_MARK}, keyed by block uid. */
+  asides?: Record<string, ReactNode>;
 }) {
   const List = viewType === "numbered" ? "ol" : "ul";
   return (
@@ -169,7 +200,7 @@ export function BlockList({
       className={cn("flex flex-col", nested && "ml-2", nested && viewType !== "document" && "border-l border-border/70")}
     >
       {nodes.map((n, i) => (
-        <Block key={n.uid} node={n} links={links} viewType={viewType} n={i + 1} />
+        <Block key={n.uid} node={n} links={links} viewType={viewType} n={i + 1} aside={asides?.[n.uid]} asides={asides} />
       ))}
     </List>
   );
