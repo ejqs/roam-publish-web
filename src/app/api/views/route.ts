@@ -2,6 +2,7 @@ import { getSessionCookie } from "better-auth/cookies";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { auth } from "@/lib/auth";
+import { withRoute } from "@/lib/telemetry";
 
 const noContent = () => new Response(null, { status: 204 });
 /** Tells the beacon a signed-in request was handled, so it can stop sending for this page. */
@@ -11,7 +12,7 @@ const handled = () => new Response(null, { status: 202 });
  * Records a page view from the client beacon. Cheapest exits first: a bad body or a missing session
  * cookie never touches the database. Neither status says whether a view was counted.
  */
-export async function POST(req: Request) {
+export const POST = withRoute("POST /api/views", async (req: Request) => {
   const id = (await req.text()).trim();
   if (!/^[0-9a-f-]{36}$/i.test(id)) return noContent();
   if (!getSessionCookie(req)) return noContent();
@@ -43,4 +44,4 @@ export async function POST(req: Request) {
     on conflict do nothing
   `);
   return handled();
-}
+});
