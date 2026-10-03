@@ -36,6 +36,21 @@ export function validTimeZone(tz: string) {
   }
 }
 
+/**
+ * Text someone outside the graph chose (a collection's name, a moderator's reason), made inert for
+ * Roam: no [[links]], #tags, ((refs)), {{components}} or `code`, and safe inside a [label](url).
+ * Everything else in an entry is written by roam.pub itself.
+ */
+export function roamInert(text: string) {
+  return text
+    .replace(/[[\]{}`]/g, "")
+    .replace(/\(\(/g, "( (")
+    .replace(/\)\)/g, ") )")
+    .replace(/#/g, "#\u200b")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** `[[October 2nd, 2026]] 14:03`: a daily note link plus time, in the graph's time zone. */
 export function stamp(date: Date, timeZone: string | null) {
   const tz = timeZone ?? "UTC";

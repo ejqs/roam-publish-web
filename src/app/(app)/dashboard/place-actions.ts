@@ -17,7 +17,7 @@ import {
 } from "@/db/schema";
 import { ACCESS_LABELS } from "@/components/manage/labels";
 import { auth } from "@/lib/auth";
-import { type Change, logChange, logChanges, logForPublications } from "@/lib/changelog";
+import { type Change, logChange, logChanges, logForPublications, roamInert } from "@/lib/changelog";
 import { addEntry, canManageEntry, collectionRole } from "@/lib/collections";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { clearGatedCollectionDiscover, clearGatedGraphDiscover } from "@/lib/discover-rules";
@@ -66,7 +66,8 @@ const NEEDS_PASSWORD = (where: string) =>
 
 const accessLabel = (a: (typeof PLACE_ACCESS)[number], fallback: (typeof ACCESS)[number]) =>
   a === "inherit" ? `${ACCESS_LABELS[fallback]} (default)` : ACCESS_LABELS[a];
-const collectionLink = (c: { name: string; slug: string }) => `[${c.name}](${collectionUrl(c.slug)})`;
+// The collection's owner may be outside the page's graph, so its name goes into Roam inert.
+const collectionLink = (c: { name: string; slug: string }) => `[${roamInert(c.name) || c.slug}](${collectionUrl(c.slug)})`;
 
 /** Change log wording for a place's settings change; empty when nothing a reader would notice changed. */
 function describePlace(
