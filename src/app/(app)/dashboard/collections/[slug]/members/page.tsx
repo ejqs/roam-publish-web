@@ -29,22 +29,24 @@ export default async function CollectionMembersPage(props: PageProps<"/dashboard
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:py-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <ResourceHeader
         name={c.name}
         caption={isOwner ? "Invite people to add pages to this collection." : "People who add pages to this collection."}
         tabs={resourceTabs(path, isOwner)}
         current={`${path}/members`}
       />
-      <MembersPanel
-        type="collection"
-        targetId={c.id}
-        isOwner={isOwner}
-        ownerEmail={owner?.email ?? ""}
-        meId={session.user.id}
-        members={members}
-        invites={invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() }))}
-      />
+      <div className="flex w-full max-w-2xl flex-col gap-6">
+        <MembersPanel
+          type="collection"
+          targetId={c.id}
+          isOwner={isOwner}
+          ownerEmail={owner?.email ?? ""}
+          meId={session.user.id}
+          members={members}
+          invites={invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() }))}
+        />
+      </div>
     </div>
   );
 }

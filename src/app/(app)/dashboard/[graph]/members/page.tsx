@@ -46,22 +46,24 @@ export default async function GraphMembersPage(props: PageProps<"/dashboard/[gra
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:py-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <ResourceHeader
         name={g.name}
         caption={isOwner ? "Invite the people you share this Roam graph with." : "People who publish from this graph."}
         tabs={resourceTabs(graphPagesPath(g.name), isOwner, true)}
         current={`${graphPagesPath(g.name)}/members`}
       />
-      <MembersPanel
-        type="graph"
-        targetId={g.id}
-        isOwner={isOwner}
-        ownerEmail={owner?.email ?? ""}
-        meId={session.user.id}
-        members={rows}
-        invites={invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() }))}
-      />
+      <div className="flex w-full max-w-2xl flex-col gap-6">
+        <MembersPanel
+          type="graph"
+          targetId={g.id}
+          isOwner={isOwner}
+          ownerEmail={owner?.email ?? ""}
+          meId={session.user.id}
+          members={rows}
+          invites={invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() }))}
+        />
+      </div>
     </div>
   );
 }

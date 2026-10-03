@@ -12,7 +12,11 @@ export const metadata: Metadata = {
 
 const UPDATED = "October 3rd, 2026";
 
-const links = new PageLinks([...siteLinks, ["privacy policy", "/privacy"]]);
+const links = new PageLinks([
+  ...siteLinks,
+  ["privacy policy", "/privacy"],
+  ["encrypted pages", "/privacy/encryption"],
+]);
 
 const outline = [
   block(`Last updated ${UPDATED}. By using Roam Publish (roam.pub and the Roam Publish extension) you agree to these terms.`),
@@ -39,6 +43,9 @@ const outline = [
       "You let Roam Publish store, display and distribute it, as you set it to be shown (on its page, your graph's front page, collections, Discover, RSS feeds and search), for as long as it's published.",
     ),
     block("You're responsible for what you publish, including block references and embeds pulled in from elsewhere in your graph."),
+    block(
+      "Keep the passwords of protected pages to yourself and the people you mean to read them. An encrypted page can't be recovered by anyone if its passwords are forgotten: republish it from Roam. How encryption works, and its limits, is in [[Encrypted pages]].",
+    ),
   ]),
   block("**Not allowed**", [
     block("Anything illegal, or content you don't have the right to publish."),
@@ -51,6 +58,9 @@ const outline = [
   block("**Moderation**", [
     block(
       "Pages, graphs, collections and accounts that break these terms can be removed, suspended or banned, with or without notice. You'll usually get an email saying why.",
+    ),
+    block(
+      "These terms apply to password-protected and encrypted pages too. Encryption doesn't put a page beyond moderation: it can still be removed based on reports, its title, or anything else known about it.",
     ),
     block("Report anything that breaks them with the Report button on any page. To appeal a decision, email ejqs [at] ejqs [dot] net."),
   ]),

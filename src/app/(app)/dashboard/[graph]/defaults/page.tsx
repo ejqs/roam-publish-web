@@ -27,30 +27,32 @@ export default async function GraphDefaultsPage(props: PageProps<"/dashboard/[gr
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:py-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <ResourceHeader
         name={g.name}
         caption="Defaults for pages in this graph. Each page can override them."
         tabs={resourceTabs(graphPagesPath(g.name), true, true)}
         current={`${graphPagesPath(g.name)}/defaults`}
       />
-      <GraphAccessForm
-        graphId={g.id}
-        graphName={g.name}
-        pageCount={pages?.n ?? 0}
-        initial={{
-          indexAccess: g.indexAccess,
-          defaultAccess: g.defaultAccess,
-          hasPassword: !!g.passwordHash,
-          showAuthors: g.showAuthors,
-          views: g.views,
-          showViewCountries: g.showViewCountries,
-          newPagesInGraph: g.newPagesInGraph,
-          defaultCollections: defaults.map((d) => d.collectionId),
-        }}
-        collections={collections.filter((c) => !c.suspendedAt).map((c) => ({ id: c.id, name: c.name }))}
-        encryptedPages={await sealedPageTitles({ scope: "graph", id: g.id })}
-      />
+      <div className="flex w-full max-w-2xl flex-col gap-6">
+        <GraphAccessForm
+          graphId={g.id}
+          graphName={g.name}
+          pageCount={pages?.n ?? 0}
+          initial={{
+            indexAccess: g.indexAccess,
+            defaultAccess: g.defaultAccess,
+            hasPassword: !!g.passwordHash,
+            showAuthors: g.showAuthors,
+            views: g.views,
+            showViewCountries: g.showViewCountries,
+            newPagesInGraph: g.newPagesInGraph,
+            defaultCollections: defaults.map((d) => d.collectionId),
+          }}
+          collections={collections.filter((c) => !c.suspendedAt).map((c) => ({ id: c.id, name: c.name }))}
+          encryptedPages={await sealedPageTitles({ scope: "graph", id: g.id })}
+        />
+      </div>
     </div>
   );
 }
