@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit, sweepRateLimits } from "@/lib/rate-limit";
 
 describe("clientIp", () => {
   test("prefers X-Real-IP, set by the proxy", () => {
@@ -27,5 +27,23 @@ describe("rateLimit", () => {
     const key = `t:${Math.random()}`;
     expect(rateLimit(key, 1, -1)).toBe(true);
     expect(rateLimit(key, 1, -1)).toBe(true);
+  });
+});
+
+describe("sweepRateLimits", () => {
+  test("drops ended windows and keeps running ones", () => {
+    const live = `t:${Math.random()}`;
+    expect(rateLimit(live, 1, 60_000)).toBe(true);
+    rateLimit(`t:${Math.random()}`, 1, -1);
+    expect(sweepRateLimits()).toBeGreaterThanOrEqual(1);
+    expect(sweepRateLimits()).toBe(0);
+    // Still counted: the sweep didn't reset it.
+    expect(rateLimit(live, 1, 60_000)).toBe(false);
+  });
+
+  test("everything is gone once every window has ended", () => {
+    rateLimit(`t:${Math.random()}`, 1, 60_000);
+    expect(sweepRateLimits(Date.now() + 2 * 60 * 60_000)).toBeGreaterThanOrEqual(1);
+    expect(sweepRateLimits(Date.now() + 2 * 60 * 60_000)).toBe(0);
   });
 });

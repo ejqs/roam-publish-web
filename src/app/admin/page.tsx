@@ -144,7 +144,9 @@ export default async function ReportsPage(props: PageProps<"/admin">) {
                   <li key={r.id} className="flex flex-col gap-0.5 py-2">
                     <span className="text-xs text-muted-foreground">
                       {fmtDate(r.createdAt)} · {REPORT_REASONS[r.reason]}
-                      {r.reporterEmail && <> · {r.reporterEmail}</>}
+                      {r.reporterEmail && (
+                        <> · {r.reporterEmail.includes("@") ? r.reporterEmail : `deleted account ${r.reporterEmail.slice(0, 8)}`}</>
+                      )}
                     </span>
                     {r.details ? (
                       <ReportDetails text={r.details} />

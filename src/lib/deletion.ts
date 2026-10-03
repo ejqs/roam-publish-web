@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   apikey,
@@ -14,9 +14,11 @@ import {
   moderationAction,
   profile,
   publication,
+  report,
   user,
   usernameAlias,
 } from "@/db/schema";
+import { keyedHash } from "./keyed-hash";
 import { keyGraphId } from "./key-metadata";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -32,6 +34,12 @@ export function normalizeEmail(email: string) {
 
 /** Blocked emails are kept only as this hash, never in the clear. */
 export const emailHash = (email: string) => createHash("sha256").update(normalizeEmail(email)).digest("hex");
+
+/**
+ * What a deleted account's reports keep in place of its email: enough to tell that one person filed
+ * several reports, without the address. Never contains an @, which is how the admin page tells them apart.
+ */
+export const reporterEmailHash = (email: string) => keyedHash("reporter-email", normalizeEmail(email));
 
 /** The stored form of a blocklist value: graph names and usernames compare case-insensitively. */
 export function blockedValue(kind: BlockedKind, value: string) {
@@ -192,5 +200,16 @@ export async function deleteAccountData(u: { id: string; email: string }) {
     await tx.delete(apikey).where(eq(apikey.referenceId, u.id));
     // Invites to them cascade; ones they sent would otherwise outlive them.
     await tx.delete(invite).where(eq(invite.invitedBy, u.id));
+    // Reports they filed stay for moderation, with their email hashed. Signed-out reports count when
+    // they gave the same address.
+    await tx
+      .update(report)
+      .set({ reporterEmail: reporterEmailHash(u.email) })
+      .where(
+        and(
+          isNotNull(report.reporterEmail),
+          or(eq(report.reporterUserId, u.id), sql`lower(${report.reporterEmail}) = ${u.email.trim().toLowerCase()}`),
+        ),
+      );
   });
 }

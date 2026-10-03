@@ -29,12 +29,16 @@ bullet with each pull request that changes something they'd notice; leave out te
 
 ### Site
 - Privacy policy and terms pages, each linking to its change history on GitHub.
+- The privacy policy now lists every cookie, embedded media from other sites, where data is stored, why it's used, how
+  long it's kept, when it's disclosed, security and your rights. The terms add a liability limit, Philippine law, and the extension's license.
 - A costs page explaining what running the site costs and when a small fee might come.
 - Footer: source code for the website, the extension and the docs in one popup.
 
 ### Security
 - Published pages can still be embedded in Roam, Notion or a blog; account pages can't be framed.
 - Front-page search no longer reveals text from protected pages.
+- IP addresses used for rate limits are cleared from memory once the limit ends, and the hashes of reporters' IP
+  addresses (and emails, after an account is deleted) can no longer be reversed.
 
 ## 2026-10-02
 

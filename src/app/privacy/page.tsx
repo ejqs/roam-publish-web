@@ -17,6 +17,10 @@ const outline = [
     block(
       "Roam Publish (roam.pub and the Roam Publish extension) is run by one person, [@ejqs](https://ejqs.net). It isn't affiliated with Roam Research.",
     ),
+    block("It's run from the Philippines, so the Philippine Data Privacy Act of 2012 applies, along with the privacy laws where you live."),
+    block(
+      "The operator can access everything stored on the service, and only uses it to run, support and moderate it.",
+    ),
     block("Questions, or to ask about your data: ejqs [at] ejqs [dot] net."),
   ]),
   block("**What's public**", [
@@ -32,7 +36,12 @@ const outline = [
     ),
   ]),
   block("**What's collected**", [
-    block("Your account: email address, name, and a hashed password. Login sessions record the IP address and browser they came from."),
+    block(
+      "Your account: email address, name, and a hashed password. Login sessions record the IP address and browser they came from, kept until you sign out or delete your account.",
+    ),
+    block(
+      "Your graphs: their names, and the time zone the extension sends. The codes that prove you own a graph are stored hashed and expire.",
+    ),
     block("What you publish: the page or block text and structure the extension sends, its title, tags, byline and settings."),
     block(
       "Your API keys are stored hashed. If you opt in to the change log, your Roam append-only token is stored encrypted. It's never shown again and is only ever sent to Roam.",
@@ -41,13 +50,25 @@ const outline = [
       "Views and upvotes: when a signed-in person who has a graph opens or upvotes a page, that's recorded against their account (one per page), to count views and rank Discover. Anonymous visits aren't recorded this way.",
     ),
     block(
-      "Reports: what you write, an email address if you give one (or your account's, when signed in), and a one-way hash of your IP address to stop repeat reports.",
+      "Invites: the invited person's email address and who sent it. An invite can be accepted for 7 days.",
     ),
     block(
-      "Rate limiting keeps IP addresses in the server's memory for a few minutes. They aren't written to the database.",
+      "Reports: what you write, an email address if you give one (or your account's, when signed in), and a keyed one-way hash of your IP address, used to drop repeat reports within a day. The hash can't be turned back into the address without the server's secret key.",
     ),
     block(
-      "Cookies: a login session cookie, and a cookie for each password-protected page you unlock (for 30 days). No advertising or tracking cookies.",
+      "Rate limiting keeps IP addresses in the server's memory while a limit runs (15 minutes at most), and clears them soon after. They aren't written to the database.",
+    ),
+    block(
+      "Logs: the server logs errors and slow requests, without IP addresses or emails. Railway keeps its own request logs, which include IP addresses, for a limited time.",
+    ),
+    block("Cookies, all needed for the site to work, none for advertising or tracking:", [
+      block("A login session cookie."),
+      block("One for each password-protected page you unlock, for 30 days."),
+      block("One remembering an announcement you dismissed, for 30 days."),
+      block("One remembering when you last opened What's new, for about a year."),
+    ]),
+    block(
+      "Your browser also stores a note of each page you've viewed while signed in, so a view is only counted once.",
     ),
   ]),
   block("**Analytics**", [
@@ -59,6 +80,11 @@ const outline = [
     ),
     block("The Roam extension has no analytics."),
   ]),
+  block("**Embedded media**", [
+    block(
+      "Published pages can show images, videos and embeds from other sites, such as YouTube (in its privacy-enhanced mode), Vimeo, Loom, or wherever an author's images are stored. Your browser loads these directly from those sites, which see your IP address and browser, under their own privacy policies.",
+    ),
+  ]),
   block("**The Roam extension**", [
     block("Nothing leaves Roam until you publish, unpublish or check a page, and then only that page or block goes to roam.pub."),
     block(
@@ -69,11 +95,30 @@ const outline = [
     ),
   ]),
   block("**Who else handles it**", [
-    block("[Railway](https://railway.com) hosts the website and its database."),
+    block("[Railway](https://railway.com) hosts the website and its database, on servers in Singapore."),
     block("[Resend](https://resend.com) sends account emails (verification, password reset, invites, moderation notices)."),
     block("Umami, as above."),
     block("[Roam Research](https://roamresearch.com) receives the blocks roam.pub appends to your graph with your token."),
+    block("Resend and Umami may handle data in other countries, including the United States."),
     block("Nothing is sold or shared for advertising."),
+    block(
+      "Beyond these, data is only handed over when the law requires it, such as a valid court order. Where the law allows, you'll be told first.",
+    ),
+  ]),
+  block("**Security**", [
+    block("Everything is sent over HTTPS."),
+    block("Account passwords, page passwords and API keys are stored hashed, and append-only tokens encrypted."),
+    block(
+      "If a data breach affects your information, you'll be told, and so will the National Privacy Commission, as the law requires.",
+    ),
+  ]),
+  block("**Why it's used**", [
+    block("Your account and what you publish: to provide the service you signed up for."),
+    block(
+      "IP addresses, reports, the moderation log and the blocklist: to keep the service safe and working, and to stop abuse.",
+    ),
+    block("Aggregate analytics: to see how the site is used and show page view counts."),
+    block("Account emails: sent only when needed to run your account. There's no marketing email."),
   ]),
   block("**Keeping and deleting**", [
     block("Unpublishing a page deletes it."),
@@ -84,12 +129,26 @@ const outline = [
     block(
       "If a moderator had acted on your account, a few things are kept after deletion so it can't simply be re-created: your graph names, usernames, and a one-way hash of your email.",
     ),
-    block("A short log of moderation actions and account deletions is kept to run the service safely."),
+    block(
+      "Reports you filed are kept for moderation. When you delete your account, the email address on them is replaced with a keyed hash.",
+    ),
+    block(
+      "Reports, and a short log of moderation actions and account deletions, are kept with no fixed end date, to deal with repeated abuse.",
+    ),
     block("There are no backups yet, so deleted data can't be recovered."),
   ]),
   block("**Your choices**", [
     block("You can see, change or delete everything you publish from the dashboard, and delete your account at any time."),
+    block(
+      "Depending on where you live (for example under the Philippine Data Privacy Act, or the GDPR in the EU and UK), you have the right to know how your data is used, get a copy, correct it, object to how it's used, and have it deleted.",
+    ),
     block("To ask for a copy of your data, or about anything here, email ejqs [at] ejqs [dot] net."),
+    block(
+      "You can also complain to a data protection authority: the Philippines' [National Privacy Commission](https://privacy.gov.ph), or the one where you live.",
+    ),
+  ]),
+  block("**Children**", [
+    block("Roam Publish isn't meant for children under 13. An account found to belong to one is deleted."),
   ]),
   block("**Changes**", [
     block("If this policy changes in a way that matters, the date above changes and signed-up users are told by email."),

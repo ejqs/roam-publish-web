@@ -21,7 +21,12 @@ const outline = [
       "Roam Publish is a free service run by one person, [@ejqs](https://ejqs.net). It isn't affiliated with or endorsed by Roam Research.",
     ),
     block("It's provided as is, without warranties. It may change, have outages, or lose data: there are no backups yet. Keep your own copy of anything important (your Roam graph is the original)."),
-    block("It may change or end. Where possible you'll get notice by email first."),
+    block(
+      "It may change or end, and it can stop being offered to anyone at any time. Where possible you'll get notice by email first.",
+    ),
+    block(
+      "The Roam extension's code is open source under the [MIT License](https://github.com/ejqs/roam-publish/blob/main/LICENSE), which applies to the code itself.",
+    ),
   ]),
   block("**Your account**", [
     block("You need to be over 13, and old enough where you live to agree to these terms."),
@@ -56,6 +61,17 @@ const outline = [
     block(
       "To the extent the law allows, Roam Publish and its operator aren't liable for indirect or consequential losses, or for lost data, content or profits, from using the service.",
     ),
+    block("To the extent the law allows, their total liability for any claim about the service is limited to US$50."),
+    block("None of this limits liability for fraud, gross negligence, or anything else the law doesn't allow to be limited."),
+  ]),
+  block("**Claims about your content**", [
+    block(
+      "If someone makes a claim against Roam Publish or its operator because of what you published, or because you broke these terms, you agree to cover the reasonable costs of it.",
+    ),
+  ]),
+  block("**Law**", [
+    block("These terms are governed by the laws of the Philippines."),
+    block("This doesn't take away any rights you have under the consumer laws where you live."),
   ]),
   block("**Changes**", [
     block("These terms may change. If a change matters, the date above changes and signed-up users are told by email."),
