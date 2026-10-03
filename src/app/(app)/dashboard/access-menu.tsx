@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckIcon, ChevronDownIcon, LockKeyholeIcon, type LucideIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, type LucideIcon } from "lucide-react";
+import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -29,7 +30,7 @@ export type Option<T> = { value: T; label: string; description?: string; disable
 export function AccessMenu(props: PlaceSettingsProps) {
   const s = usePlaceSettings(props);
   const [open, setOpen] = useState(false);
-  const ReadIcon = s.encrypted ? LockKeyholeIcon : READ_ICONS[s.read];
+  const ReadIcon = s.encrypted ? PRIVACY_ICONS.encrypted : READ_ICONS[s.read];
   const ReachIcon = ICONS[s.reach];
   const readLabel = s.encrypted ? "Encrypted" : READ_LABELS[s.read];
 

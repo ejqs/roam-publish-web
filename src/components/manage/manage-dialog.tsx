@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import type { ContainerDefaults, ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
+import { AccessIcon } from "@/components/privacy-icon";
 import type { Access as ReadAccess, EntryListing } from "@/db/schema";
 import { EncryptionSection } from "./encryption-section";
 import { PlacePasswordForm, type PlaceState } from "./place-access-form";
@@ -161,7 +162,7 @@ export function ManageDialog({
                   }
                 />
               ) : (
-                <ReadOnlyPlace lock={lockExplanation(gAccess, "graph", g.container.label)} />
+                <ReadOnlyPlace lock={lockExplanation(gAccess, "graph", g.container.label, data.encrypted)} />
               )}
             </PlaceRow>
             {data.entries.map((e) => {
@@ -216,7 +217,7 @@ export function ManageDialog({
                       }
                     />
                   ) : (
-                    <ReadOnlyPlace lock={lockExplanation(access, "collection", e.collectionName)} />
+                    <ReadOnlyPlace lock={lockExplanation(access, "collection", e.collectionName, data.encrypted)} />
                   )}
                 </PlaceRow>
               );
@@ -336,12 +337,16 @@ function PlaceRow({
 
 /** "Password · Listed", each with its Access or Visibility control icon. */
 function AccessWords({ access, listing, encrypted }: { access: ReadAccess; listing: EntryListing; encrypted?: boolean }) {
-  const ReadIcon = READ_ICONS[access];
   const reach = REACH_OF[listing];
   const ReachIcon = ICONS[reach];
+  const OpenIcon = READ_ICONS.open;
   return (
     <>
-      <ReadIcon aria-hidden className="size-3 shrink-0" />
+      {access === "open" ? (
+        <OpenIcon aria-hidden className="size-3 shrink-0" />
+      ) : (
+        <AccessIcon access={access} encrypted={encrypted} className="size-3 shrink-0" />
+      )}
       {encrypted && access === "password" ? "Encrypted" : READ_LABELS[access]}
       <span aria-hidden>·</span>
       <ReachIcon aria-hidden className="size-3 shrink-0" />

@@ -7,6 +7,8 @@ import { UMAMI_WEBSITE_ID } from "@/lib/umami";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  // Makes link-preview image and page URLs absolute, as chat apps and feeds need.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: "Roam Publish",
   description: "Publish Roam Research pages and blocks to the web.",
   appleWebApp: { title: "Roam Publish" },

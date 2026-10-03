@@ -1,4 +1,5 @@
-import { ArrowDown, ArrowUp, LockIcon } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
+import { AccessIcon } from "@/components/privacy-icon";
 import Link from "next/link";
 import { lockExplanation } from "@/components/access-lock";
 import { ManageDialog } from "@/components/manage/manage-dialog";
@@ -143,7 +144,8 @@ export function PublicationList({
                         title={lockExplanation(gAccess, "graph", g.name)}
                         className="mt-1 flex w-fit cursor-help items-center gap-1 text-xs text-muted-foreground"
                       >
-                        <LockIcon className="size-3" /> {gAccess === "password" ? "Password" : `Members of ${g.name}`}
+                        <AccessIcon access={gAccess} className="size-3" />{" "}
+                        {gAccess === "password" ? "Password" : `Members of ${g.name}`}
                       </p>
                     )}
                     {!p.removedAt && p.discoverable && p.visibility === "public" && (

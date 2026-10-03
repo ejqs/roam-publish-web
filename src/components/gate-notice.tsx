@@ -1,4 +1,5 @@
-import { LockIcon, LockKeyholeIcon, RefreshCwIcon } from "lucide-react";
+import { RefreshCwIcon } from "lucide-react";
+import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { buttonVariants } from "@/components/ui/button";
@@ -26,7 +27,12 @@ export function GateNotice({
   /** The dashboard, for someone who manages this page. */
   manageHref?: string;
 }) {
-  const Icon = blocker.need === "republish" ? RefreshCwIcon : blocker.need === "password" && blocker.encrypted ? LockKeyholeIcon : LockIcon;
+  const Icon =
+    blocker.need === "republish"
+      ? RefreshCwIcon
+      : blocker.need === "password"
+        ? PRIVACY_ICONS[blocker.encrypted ? "encrypted" : "password"]
+        : PRIVACY_ICONS.members;
   return (
     <>
       <main className="flex flex-1 items-center bg-card">

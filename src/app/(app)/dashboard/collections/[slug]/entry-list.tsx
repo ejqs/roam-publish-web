@@ -1,4 +1,4 @@
-import { LockIcon } from "lucide-react";
+import { AccessIcon } from "@/components/privacy-icon";
 import Link from "next/link";
 import { lockExplanation } from "@/components/access-lock";
 import { LISTING_LABELS } from "@/components/manage/labels";
@@ -136,7 +136,8 @@ export function EntryList({
                         title={lockExplanation(access, "collection", c.name)}
                         className="mt-1 flex w-fit cursor-help items-center gap-1 text-xs text-muted-foreground"
                       >
-                        <LockIcon className="size-3" /> {access === "password" ? "Password" : `Members of ${c.name}`}
+                        <AccessIcon access={access} className="size-3" />{" "}
+                        {access === "password" ? "Password" : `Members of ${c.name}`}
                       </p>
                     )}
                     {!pub.removedAt && entry.listing === "discover" && discoverBlocked && (

@@ -1,11 +1,12 @@
 import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/db";
-import { type Node, collection, collectionEntry, graph, publication, user } from "@/db/schema";
+import { collection, collectionEntry, graph, publication, user } from "@/db/schema";
 import { discoverPublications } from "@/lib/discover";
 import { type Container, showsAuthor } from "@/lib/gates";
 import type { loadGraph } from "@/lib/graphs";
 import { liveGraph, livePublication } from "@/lib/moderation";
 import { collectionPath, entryPath, graphPath, publicationPath } from "@/lib/publications";
+import { excerpt } from "@/lib/link-preview";
 import { plainText } from "@/lib/slug";
 import { bylineFor } from "@/lib/viewer";
 
@@ -16,7 +17,6 @@ import { bylineFor } from "@/lib/viewer";
  */
 
 const ITEMS = 50;
-const EXCERPT = 300;
 
 type Graph = NonNullable<Awaited<ReturnType<typeof loadGraph>>>;
 type Collection = typeof collection.$inferSelect & { takenDown: boolean };
@@ -30,26 +30,6 @@ export const DISCOVER_FEED_PATH = "/discover/feed.xml";
 
 export const hasGraphFeed = (g: Graph) => g.rss && g.frontPage && g.indexAccess === "open" && !g.takenDown;
 export const hasCollectionFeed = (c: Collection) => c.rss && c.indexAccess === "open" && !c.takenDown;
-
-/** The first few hundred characters of a page's text, without Roam markup. */
-export function excerpt(tree: Node) {
-  const parts: string[] = [];
-  let length = 0;
-  const walk = (n: Node) => {
-    for (const child of n.children) {
-      if (length > EXCERPT) return;
-      const text = plainText(child.string);
-      if (text) {
-        parts.push(text);
-        length += text.length + 1;
-      }
-      walk(child);
-    }
-  };
-  walk(tree);
-  const s = parts.join(" ");
-  return s.length > EXCERPT ? `${s.slice(0, EXCERPT).trimEnd()}…` : s;
-}
 
 /** Open pages on the graph's front page, newest first. */
 export async function graphFeed(g: Graph): Promise<Feed> {

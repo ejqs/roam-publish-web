@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { GateNotice } from "@/components/gate-notice";
+import { privacyNotes } from "@/components/privacy-icons";
 import { PageLinks } from "@/components/roam/markup";
 import { dashboardHref, PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
@@ -23,7 +24,9 @@ import { canManage, canSearchSite, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { tagsOverlap } from "@/lib/list-query";
 import { readEncrypted } from "@/lib/encryption";
+import { cardVersion, previewMetadata } from "@/lib/link-preview";
 import { manageDataFor } from "@/lib/manage-data";
+import { cardFor, pageCardPath } from "@/lib/og/card";
 import { livePublication } from "@/lib/moderation";
 import { publicProfile } from "@/lib/profiles";
 import { publicationPath } from "@/lib/publications";
@@ -52,11 +55,19 @@ export async function generateMetadata(props: PageProps<"/[graph]/[uid]/[[...slu
   if (!data) return { title: "Not found" };
   if (data.g.takenDown || data.pub.removedAt)
     return { title: "Removed", robots: { index: false, follow: false } };
+  const path = publicationPath(data.g.name, data.pub.rootUid, data.pub.title);
+  const card = await cardFor(data.pub, {
+    container: data.g.name,
+    access: data.access,
+    showAuthor: showsAuthor(data.container, data.place),
+  });
+  const preview = previewMetadata(card, { path, image: pageCardPath(data.g.name, data.pub.rootUid, cardVersion(card)) });
   // Protected pages never show their title in metadata and are never indexed.
-  if (data.access !== "open") return { title: "Protected page", robots: { index: false, follow: false } };
+  if (data.access !== "open") return { ...preview, title: "Protected page", robots: { index: false, follow: false } };
   return {
+    ...preview,
     title: `${plainText(data.pub.title)} · ${data.g.name}`,
-    alternates: { canonical: publicationPath(data.g.name, data.pub.rootUid, data.pub.title) },
+    alternates: { canonical: path },
     // Unlisted pages are link-only; public ones follow the graph's indexing setting.
     robots:
       data.pub.visibility === "public" && data.g.indexable && data.g.indexAccess === "open" ? undefined : { index: false },
@@ -182,6 +193,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
       siteSearch={await canSearchSite(me)}
       related={related.map((r) => ({ title: r.title, href: publicationPath(g.name, r.rootUid, r.title) }))}
       byline={byline}
+      privacy={privacyNotes({ access, encrypted: pub.encrypted, unlisted: pub.visibility === "unlisted", container: g.name })}
       report={{ graphName: g.name, rootUid: pub.rootUid }}
       votes={votes}
       countViews={pub.visibility === "public" && access === "open"}
