@@ -41,6 +41,9 @@ const URL_IN_PARENS = String.raw`((?:[^()\s]|\([^()\s]*\))+)`;
 
 function PageRef({ title, ctx, tag, label }: { title: string; ctx: Ctx; tag?: boolean; label?: ReactNode }) {
   const href = ctx.links.get(title.toLowerCase()) ?? (tag ? ctx.links.tagHref?.(title) : undefined);
+  // A nested ref like [[a [[b]] c]]: each inner ref gets its own link, and the text around it
+  // links to the outer page, so no link ends up inside another.
+  if (!label && pageRef("")(title)) return <NestedRef text={tag ? `#${title}` : title} href={href} tag={tag} ctx={ctx} />;
   const text = label ?? (tag ? `#${title}` : title);
   return href ? (
     <Link href={href} className="text-roam-ref hover:underline">
@@ -48,6 +51,29 @@ function PageRef({ title, ctx, tag, label }: { title: string; ctx: Ctx; tag?: bo
     </Link>
   ) : (
     <span className={tag || label ? "text-roam-ref" : undefined}>{text}</span>
+  );
+}
+
+/** A nested ref's title: outer text links to `href`, inner refs link to their own pages. */
+function NestedRef({ text, href, tag, ctx }: { text: string; href?: string; tag?: boolean; ctx: Ctx }) {
+  const outer = (t: string) =>
+    href ? (
+      <Link href={href} className="text-roam-ref hover:underline">
+        {t}
+      </Link>
+    ) : (
+      <span className={tag ? "text-roam-ref" : undefined}>{t}</span>
+    );
+  const inner = pageRef("")(text);
+  if (!inner) return outer(text);
+  const before = text.slice(0, inner.index);
+  const after = text.slice(inner.index + inner.length);
+  return (
+    <>
+      {before && outer(before)}
+      <PageRef title={inner.groups[1]} ctx={ctx} />
+      {after && <NestedRef text={after} href={href} tag={tag} ctx={ctx} />}
+    </>
   );
 }
 
