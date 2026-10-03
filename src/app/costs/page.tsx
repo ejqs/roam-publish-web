@@ -22,7 +22,9 @@ const outline = [
     block("Privacy-friendly traffic stats, so I can tell what's being used. No ads and no tracking across other sites."),
   ]),
   block("**Why the asterisk**", [
-    block("I pay for all of this myself, and the service stays free to you. If it grows past the free tiers, costs will rise."),
+    block("I pay for all of this myself, and for now it's free to you."),
+    block("If Roam Research's revenue sharing and/or donations can cover these costs, it will stay free."),
+    block("If in a few months hosting this site proves financially burdensome, I may introduce a very small fee, just enough to sustain the hosting and development of the site."),
     block("If it's useful to you, [buy me a coffee](https://buymeacoffee.com/ejqs) and it goes toward the bills above."),
   ]),
 ];
