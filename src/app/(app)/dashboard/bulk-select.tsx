@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { createContext, use, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { readOptions } from "@/components/manage/labels";
@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { Access as ReadAccess } from "@/db/schema";
 import { ICONS, LABELS, type Option, Section } from "./access-menu";
 import type { Access } from "./actions";
-import { bulkUpdateEntries, bulkUpdatePublications } from "./place-actions";
+import { bulkUnpublish, bulkUpdateEntries, bulkUpdatePublications } from "./place-actions";
 import { bulkSetTags } from "./tag-actions";
 
 type Ctx = {
@@ -105,7 +105,7 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
   const ctx = use(BulkContext)!;
   const [pending, start] = useTransition();
   // A change chosen from a menu waits here until it's confirmed.
-  const [staged, setStaged] = useState<{ reach?: Access; read?: ReadAccess; tags?: TagChange } | null>(null);
+  const [staged, setStaged] = useState<{ reach?: Access; read?: ReadAccess; tags?: TagChange; unpublish?: true } | null>(null);
   const n = ctx.selected.size;
   const pages = `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
 
@@ -114,11 +114,13 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
     const change = staged;
     start(async () => {
       const ids = [...ctx.selected];
-      const res = change.tags
-        ? await bulkSetTags({ kind, ids, ...change.tags })
-        : kind === "graph"
-          ? await bulkUpdatePublications({ ids, ...change })
-          : await bulkUpdateEntries({ ids, ...change });
+      const res = change.unpublish
+        ? await bulkUnpublish({ ids })
+        : change.tags
+          ? await bulkSetTags({ kind, ids, ...change.tags })
+          : kind === "graph"
+              ? await bulkUpdatePublications({ ids, ...change })
+            : await bulkUpdateEntries({ ids, ...change });
       setStaged(null);
       if (!res.ok) return void toast.error(res.message);
       toast.success(res.message);
@@ -200,14 +202,28 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
           />
         )}
       </BulkMenu>
+      {kind === "graph" && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-destructive"
+          disabled={pending}
+          onClick={() => setStaged({ unpublish: true })}
+        >
+          <Trash2Icon /> Unpublish
+        </Button>
+      )}
       <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={onDone} disabled={pending}>
         <XIcon /> Clear
       </Button>
       <Dialog open={staged !== null} onOpenChange={(o) => !o && !pending && setStaged(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Change {pages}?</DialogTitle>
+            <DialogTitle>{staged?.unpublish ? `Unpublish ${pages}?` : `Change ${pages}?`}</DialogTitle>
             <DialogDescription>
+              {staged?.unpublish && (
+                <>Unpublishes {n === 1 ? "it" : "them"} everywhere, including any collections. Links stop working.</>
+              )}
               {staged?.tags && <TagChangeSummary change={staged.tags} n={n} />}
               {stagedOption && (
                 <>
@@ -221,8 +237,8 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
             <Button type="button" variant="outline" onClick={() => setStaged(null)} disabled={pending}>
               Cancel
             </Button>
-            <Button type="button" onClick={apply} disabled={pending}>
-              {pending ? "Applying…" : `Change ${pages}`}
+            <Button type="button" variant={staged?.unpublish ? "destructive" : "default"} onClick={apply} disabled={pending}>
+              {pending ? "Applying…" : staged?.unpublish ? `Unpublish ${pages}` : `Change ${pages}`}
             </Button>
           </DialogFooter>
         </DialogContent>
