@@ -5,7 +5,8 @@ import { db } from "@/db";
 import { apikey, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { resetDb } from "../helpers/db";
-import { extRequest, makeGraph, makeUser, payload, type TestUser } from "../helpers/factories";
+import { actAs, extRequest, makeGraph, makeUser, payload, type TestUser } from "../helpers/factories";
+import { generateKey } from "@/app/(app)/dashboard/keys/actions";
 import { resetRequest } from "../helpers/request";
 
 /** Calls a better-auth endpoint over HTTP, as a browser would. */
@@ -51,13 +52,24 @@ describe("better-auth endpoints a signed-in user can reach", () => {
     }
   });
 
-  // BUG (medium): /api/auth/api-key/create is open, so anyone can mint extra keys, each with its own rate limit.
-  test.failing("keys can't be minted outside the dashboard (one key per person per graph)", async () => {
+  test("keys can't be minted outside the dashboard (one key per person per graph)", async () => {
     const owner = await makeUser();
     const g = await makeGraph(owner.id);
     await call("/api-key/create", owner, { name: "x", metadata: { graphId: g.id } });
     await call("/api-key/create", owner, { name: "y", metadata: { graphId: g.id } });
     expect((await db.select().from(apikey)).length).toBeLessThanOrEqual(1);
+  });
+
+  test("the dashboard still issues a working key, and only one per graph", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    actAs(owner);
+    const first = await generateKey(g.id);
+    const second = await generateKey(g.id);
+    expect(first.ok && second.ok).toBe(true);
+    const key = (second as { key: string }).key;
+    expect((await publish(extRequest("/api/ext/publications", key, { body: payload() }))).status).toBe(200);
+    expect(await db.select().from(apikey)).toHaveLength(1);
   });
 
   test("can't create a key that skips the rate limit", async () => {
