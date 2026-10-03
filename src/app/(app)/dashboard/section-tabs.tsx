@@ -7,7 +7,7 @@ export type SectionTab = { href: string; label: string; count?: number };
 /** Underlined links between a page's sections. `current` is the href of the one showing. */
 export function SectionTabs({ label, tabs, current }: { label: string; tabs: SectionTab[]; current: string }) {
   return (
-    <nav aria-label={label} className="flex gap-5 overflow-x-auto border-b text-sm">
+    <nav aria-label={label} className="flex gap-5 overflow-x-auto overflow-y-hidden border-b text-sm">
       {tabs.map((t) => {
         const active = t.href === current;
         return (
