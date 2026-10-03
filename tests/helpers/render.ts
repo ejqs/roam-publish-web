@@ -15,12 +15,17 @@ export function findElements(node: ReactNode, type: unknown): { props: Record<st
 }
 
 /** All text in a server component's output that was already resolved (strings in props and children). */
-export function textOf(node: unknown): string {
+export function textOf(node: unknown, seen = new Set<object>()): string {
   if (node == null || typeof node === "boolean") return "";
   if (typeof node === "string" || typeof node === "number") return String(node);
-  if (Array.isArray(node)) return node.map(textOf).join(" ");
-  if (typeof node === "object") return Object.values(node as object).map(textOf).join(" ");
-  return "";
+  if (typeof node !== "object" || seen.has(node)) return "";
+  seen.add(node);
+  if (Array.isArray(node)) return node.map((n) => textOf(n, seen)).join(" ");
+  // Skip React's bookkeeping (_owner, _store…), which can point back up the tree.
+  return Object.entries(node)
+    .filter(([k]) => !k.startsWith("_"))
+    .map(([, v]) => textOf(v, seen))
+    .join(" ");
 }
 
 /** Runs the first nested (async) server component named `name` in the output and returns what it renders. */

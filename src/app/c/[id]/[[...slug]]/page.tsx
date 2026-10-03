@@ -29,6 +29,7 @@ import { bylineFor, viewerId } from "@/lib/viewer";
 import { formatDate, ListStatus, ListToolbar, PageList } from "@/components/page-list";
 import { COLLECTION_LIST, LIST_PAGE_SIZE, parseListState } from "@/lib/list-params";
 import { listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
+import { openInContainer } from "@/lib/places";
 
 type Resolved = NonNullable<Awaited<ReturnType<typeof resolveC>>>;
 type C = Resolved["c"];
@@ -116,7 +117,9 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
     isNull(publication.removedAt),
     liveGraph,
   );
-  const matchingWhere = listWhere(state, listed);
+  // Members read every page; everyone else only searches the text of pages open to them.
+  const bodyVisible = role ? undefined : openInContainer(collectionEntry.access, c.defaultAccess);
+  const matchingWhere = listWhere(state, bodyVisible, listed);
   const counted = (where: SQL | undefined) =>
     db
       .select({ n: count() })
@@ -131,13 +134,13 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
     added: [desc(collectionEntry.addedAt)],
     updated: [desc(publication.updatedAt)],
     title: [asc(sql`lower(${publication.title})`), asc(publication.title)],
-    relevance: [desc(relevance(state.q)), asc(collectionEntry.position)],
+    relevance: [desc(relevance(state.q, bodyVisible)), asc(collectionEntry.position)],
   };
   const [total, matching, rows, tags] = await Promise.all([
     counted(listed),
     counted(matchingWhere),
     db
-      .select({ entry: collectionEntry, pub: publication, snippet: state.q ? snippet(state.q) : sql<string | null>`null` })
+      .select({ entry: collectionEntry, pub: publication, snippet: state.q ? snippet(state.q, bodyVisible) : sql<string | null>`null` })
       .from(collectionEntry)
       .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
       .innerJoin(graph, eq(graph.id, publication.graphId))
@@ -146,7 +149,7 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
       .orderBy(...order[state.sort], asc(collectionEntry.id))
       .limit(LIST_PAGE_SIZE)
       .offset((state.page - 1) * LIST_PAGE_SIZE),
-    tagCounts(from, matchingWhere),
+    tagCounts(from, and(matchingWhere, bodyVisible)),
   ]);
   const items = await Promise.all(
     rows.map(async ({ entry, pub, snippet: hit }) => ({
@@ -155,7 +158,8 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
       author: (await bylineFor(pub, showsAuthor(container, entry)))?.label,
       kind: pub.kind,
       title: pub.title,
-      tags: pub.tags,
+      // A protected page's tags come from its text, so only readers who can open it see them.
+      tags: role || effectiveAccess(container, entry) === "open" ? pub.tags : [],
       snippet: snippetParts(hit),
       dates: [formatDate(entry.addedAt), formatDate(pub.updatedAt)],
     })),
