@@ -89,6 +89,25 @@ Deleting can't be a way out of a moderation action:
   the `blocked_identity` blocklist, and its suspended collections keep their slugs. Sign-up, graph verification
   and username claims check the blocklist. Admins lift entries at `/admin/blocked`.
 
+## Monitoring
+
+Every route handler, server action and call to an outside service (Roam's Append API, Umami, Resend) is timed by
+`src/lib/telemetry.ts`; page render errors come in through `onRequestError` in `src/instrumentation.ts`. Counts,
+errors and a latency histogram are kept per minute in memory, saved to `endpoint_metric` by the `metrics-flush` job
+and kept two weeks.
+
+- **`/admin/status`**: health, then calls, error rate, p50/p95/max and the last error for each entry point over
+  the last hour, day or week. Rows past 2% errors or a slow p95 (2 s, 5 s for outside services) are flagged.
+- **`GET /api/health`**: `200 {"status":"ok"}` while the database answers and the job worker has written a
+  heartbeat in the last three minutes, else `503 {"status":"degraded","checks":{...}}`. Point Railway's
+  healthcheck or an uptime monitor at it.
+- **Logs**: each failure or call over a second is one JSON line on stdout
+  (`{"level":"error","metric":"GET /api/search","ms":…,"error":…}`); search Railway's logs with `@metric:…`.
+
+A new route handler must wrap each method in `withRoute(...)`, and a new server action its body in
+`return withAction(...)`; `tests/unit/entry-points.test.ts` fails otherwise. A thrown error or 5xx is a failure;
+an `{ ok: false }` result or a 4xx isn't. Page timings aren't recorded: Railway's HTTP metrics have them.
+
 ## Extension API
 
 See [docs/api-contract.md](docs/api-contract.md), and [roam-publish-docs](https://github.com/ejqs/roam-publish-docs)
