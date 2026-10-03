@@ -221,7 +221,7 @@ export function AccessFields({ s, compact }: { s: PlaceSettings; compact?: boole
     <div className={cn("flex flex-col", compact ? "gap-3" : "gap-4")}>
       <div className="flex flex-col gap-1.5">
         <span id={`${id}-read`} className={cn("font-medium", compact && "text-xs text-muted-foreground")}>
-          Who can read it
+          Access control
         </span>
         <SegmentedControl
           aria-labelledby={`${id}-read`}
@@ -235,7 +235,7 @@ export function AccessFields({ s, compact }: { s: PlaceSettings; compact?: boole
       </div>
       <div className="flex flex-col gap-1.5">
         <span id={`${id}-reach`} className={cn("font-medium", compact && "text-xs text-muted-foreground")}>
-          Where it&apos;s listed
+          Visibility control
         </span>
         <SegmentedControl
           aria-labelledby={`${id}-reach`}
