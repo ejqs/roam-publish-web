@@ -101,6 +101,16 @@ const outline = [
     block("[Roam Research](https://roamresearch.com) receives the blocks roam.pub appends to your graph with your token."),
     block("Resend and Umami may handle data in other countries, including the United States."),
     block("Nothing is sold or shared for advertising."),
+    block(
+      "Beyond these, data is only handed over when the law requires it, such as a valid court order. Where the law allows, you'll be told first.",
+    ),
+  ]),
+  block("**Security**", [
+    block("Everything is sent over HTTPS."),
+    block("Account passwords, page passwords and API keys are stored hashed, and append-only tokens encrypted."),
+    block(
+      "If a data breach affects your information, you'll be told, and so will the National Privacy Commission, as the law requires.",
+    ),
   ]),
   block("**Why it's used**", [
     block("Your account and what you publish: to provide the service you signed up for."),
@@ -136,6 +146,9 @@ const outline = [
     block(
       "You can also complain to a data protection authority: the Philippines' [National Privacy Commission](https://privacy.gov.ph), or the one where you live.",
     ),
+  ]),
+  block("**Children**", [
+    block("Roam Publish isn't meant for children under 13. An account found to belong to one is deleted."),
   ]),
   block("**Changes**", [
     block("If this policy changes in a way that matters, the date above changes and signed-up users are told by email."),
