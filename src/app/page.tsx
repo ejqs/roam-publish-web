@@ -19,7 +19,7 @@ const outline = [
 
 const links = new PageLinks([...siteLinks, ["costs", "/costs"]]);
 
-// Its own list so the footer's "About & contact" link has somewhere to land.
+// Its own list so the footer's "About" link has somewhere to land.
 const about = [
   block("**Who runs this**", [
     block("Me, [@ejqs](https://ejqs.net). It's [free*]([[Costs]]) and not affiliated with Roam Research."),
