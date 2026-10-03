@@ -145,22 +145,7 @@ export function ProfileCard({
                   <ExternalLinkIcon />
                 </Link>
               )}
-              <Popover>
-                <PopoverTrigger
-                  render={
-                    <Button variant="ghost" size="icon" aria-label="More profile options">
-                      <MoreHorizontalIcon />
-                    </Button>
-                  }
-                />
-                <PopoverContent align="end" className="w-44 gap-0.5 p-1">
-                  <form action={setProfilePublic.bind(null, !isPublic)}>
-                    <button type="submit" className="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
-                      {isPublic ? "Make private" : "Make public"}
-                    </button>
-                  </form>
-                </PopoverContent>
-              </Popover>
+              <VisibilityMenu isPublic={isPublic} />
             </>
           )}
         </div>
@@ -169,6 +154,29 @@ export function ProfileCard({
         <CardFooter className="flex-wrap gap-x-6 py-2.5 gap-y-1 text-[13px] text-muted-foreground">{stats}</CardFooter>
       )}
     </Card>
+  );
+}
+
+/** "Make private" / "Make public" behind a ··· button. Closes on choosing, so it reopens cleanly. */
+function VisibilityMenu({ isPublic }: { isPublic: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button variant="ghost" size="icon" aria-label="More profile options">
+            <MoreHorizontalIcon />
+          </Button>
+        }
+      />
+      <PopoverContent align="end" className="w-44 gap-0.5 p-1">
+        <form action={setProfilePublic.bind(null, !isPublic)} onSubmit={() => setOpen(false)}>
+          <button type="submit" className="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
+            {isPublic ? "Make private" : "Make public"}
+          </button>
+        </form>
+      </PopoverContent>
+    </Popover>
   );
 }
 
