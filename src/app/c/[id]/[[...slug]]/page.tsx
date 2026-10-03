@@ -263,26 +263,29 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
       : null,
     bylineFor(pub, showsAuthor(container, place)),
     manageFor,
-    manageFor.then((m) =>
-      loadViewFooter({
-        mode: viewsMode(container, place, entry.listing !== "unlisted"),
-        countries: showsViewCountries(container, place),
-        manager,
-        lock: access === "password" ? pageLock(container, place) : null,
-        publicationId: pub.id,
-        entryId: entry.id,
-        // Only someone who can change this entry: a graph manager may not be one.
-        controls: m?.entries.find((e) => e.entryId === entry.id)?.canManage
-          ? {
-              target: { kind: "entry", entryId: entry.id },
-              views: entry.views,
-              showViewCountries: entry.showViewCountries,
-              container: { label: c.name, views: c.views, showViewCountries: c.showViewCountries },
-              listed: entry.listing !== "unlisted",
-            }
-          : null,
-      }),
-    ),
+    // Only members can read a members-only page, so a count there says nothing worth knowing.
+    access === "members"
+      ? null
+      : manageFor.then((m) =>
+          loadViewFooter({
+            mode: viewsMode(container, place, entry.listing !== "unlisted"),
+            countries: showsViewCountries(container, place),
+            manager,
+            lock: access === "password" ? pageLock(container, place) : null,
+            publicationId: pub.id,
+            entryId: entry.id,
+            // Only someone who can change this entry: a graph manager may not be one.
+            controls: m?.entries.find((e) => e.entryId === entry.id)?.canManage
+              ? {
+                  target: { kind: "entry", entryId: entry.id },
+                  views: entry.views,
+                  showViewCountries: entry.showViewCountries,
+                  container: { label: c.name, views: c.views, showViewCountries: c.showViewCountries },
+                  listed: entry.listing !== "unlisted",
+                }
+              : null,
+          }),
+        ),
   ]);
   // [[links]] resolve to other pages in this collection.
   const links = new PageLinks(

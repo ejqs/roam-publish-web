@@ -129,24 +129,27 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           .orderBy(desc(publication.updatedAt))
           .limit(RELATED_LIMIT)
       : [],
-    manageFor.then((m) =>
-      loadViewFooter({
-        mode: viewsMode(container, place, pub.visibility === "public"),
-        countries: showsViewCountries(container, place),
-        manager,
-        lock: access === "password" ? pageLock(container, place) : null,
-        publicationId: pub.id,
-        controls: m?.canManagePage
-          ? {
-              target: { kind: "graph", publicationId: pub.id },
-              views: pub.views,
-              showViewCountries: pub.showViewCountries,
-              container: { label: g.name, views: g.views, showViewCountries: g.showViewCountries },
-              listed: pub.visibility === "public",
-            }
-          : null,
-      }),
-    ),
+    // Only members can read a members-only page, so a count there says nothing worth knowing.
+    access === "members"
+      ? null
+      : manageFor.then((m) =>
+          loadViewFooter({
+            mode: viewsMode(container, place, pub.visibility === "public"),
+            countries: showsViewCountries(container, place),
+            manager,
+            lock: access === "password" ? pageLock(container, place) : null,
+            publicationId: pub.id,
+            controls: m?.canManagePage
+              ? {
+                  target: { kind: "graph", publicationId: pub.id },
+                  views: pub.views,
+                  showViewCountries: pub.showViewCountries,
+                  container: { label: g.name, views: g.views, showViewCountries: g.showViewCountries },
+                  listed: pub.visibility === "public",
+                }
+              : null,
+          }),
+        ),
   ]);
   const tagHref = tagsBrowsable ? (t: string) => graphTagPath(g.name, t) : undefined;
   const links = new PageLinks(
