@@ -76,6 +76,17 @@ export function SignupForm() {
             {pending && <Spinner data-icon="inline-start" />}
             Sign up
           </Button>
+          <FieldDescription className="text-center">
+            By signing up you agree to the{" "}
+            <Link href="/terms" className="text-link hover:underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-link hover:underline">
+              Privacy policy
+            </Link>
+            .
+          </FieldDescription>
         </FieldGroup>
       </form>
     </AuthCard>
