@@ -2,11 +2,9 @@ import { and, count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { graph, graphDefaultCollection, publication } from "@/db/schema";
-import { collectionsOf } from "@/lib/collections";
+import { graph, publication } from "@/db/schema";
 import { graphUnderModeration } from "@/lib/deletion";
 import { requireSession } from "@/lib/session";
-import { GraphAccessForm } from "./access-form";
 import { ChangeLogForm } from "./change-log-form";
 import { DeleteGraphCard } from "./delete-graph";
 import { GraphSettingsForm } from "./settings-form";
@@ -23,9 +21,7 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
     where: and(eq(graph.name, name), eq(graph.userId, session.user.id)),
   });
   if (!g) notFound();
-  const [collections, defaults, [pages], locked] = await Promise.all([
-    collectionsOf(session.user.id),
-    db.select().from(graphDefaultCollection).where(eq(graphDefaultCollection.graphId, g.id)),
+  const [[pages], locked] = await Promise.all([
     db.select({ n: count() }).from(publication).where(eq(publication.graphId, g.id)),
     graphUnderModeration(db, g),
   ]);
@@ -35,13 +31,14 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
       <ResourceHeader
         name={g.name}
         caption="Graph settings"
-        tabs={resourceTabs(graphPagesPath(g.name), true)}
+        tabs={resourceTabs(graphPagesPath(g.name), true, true)}
         current={`${graphPagesPath(g.name)}/settings`}
       />
       <GraphSettingsForm
         graphId={g.id}
         graphName={g.name}
         indexOpen={g.indexAccess === "open"}
+        defaultsHref={`${graphPagesPath(g.name)}/defaults`}
         initial={{
           frontPage: g.frontPage,
           indexable: g.indexable,
@@ -51,22 +48,6 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
           rss: g.rss,
           description: g.description,
         }}
-      />
-      <GraphAccessForm
-        graphId={g.id}
-        graphName={g.name}
-        pageCount={pages?.n ?? 0}
-        initial={{
-          indexAccess: g.indexAccess,
-          defaultAccess: g.defaultAccess,
-          hasPassword: !!g.passwordHash,
-          showAuthors: g.showAuthors,
-          views: g.views,
-          showViewCountries: g.showViewCountries,
-          newPagesInGraph: g.newPagesInGraph,
-          defaultCollections: defaults.map((d) => d.collectionId),
-        }}
-        collections={collections.filter((c) => !c.suspendedAt).map((c) => ({ id: c.id, name: c.name }))}
       />
       <ChangeLogForm
         graphId={g.id}

@@ -94,7 +94,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
           .filter(Boolean)
           .join(" · ")}
         view={g.frontPage ? { href: graphPath(g.name), label: "View front page" } : undefined}
-        tabs={resourceTabs(path, role === "owner")}
+        tabs={resourceTabs(path, role === "owner", true)}
         current={path}
       />
 
