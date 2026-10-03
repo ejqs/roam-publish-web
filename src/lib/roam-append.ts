@@ -1,3 +1,5 @@
+import { timed } from "./telemetry";
+
 /** ROAM_APPEND_API points at a stand-in for local testing; production uses Roam's. */
 const APPEND_URL = (graph: string) =>
   `${process.env.ROAM_APPEND_API ?? "https://append-api.roamresearch.com"}/api/graph/${encodeURIComponent(graph)}/append-blocks`;
@@ -21,12 +23,18 @@ export function appendUnderBlock(graph: string, token: string, uid: string, text
 async function append(graph: string, token: string, location: Location, texts: string[]): Promise<AppendResult> {
   let res: Response;
   try {
-    res = await fetch(APPEND_URL(graph), {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ location, "append-data": texts.map((string) => ({ string })) }),
-      cache: "no-store",
-    });
+    // A bad token or graph name (4xx) is the owner's to fix; Roam being down or limiting us is ours.
+    res = await timed(
+      "roam-append",
+      () =>
+        fetch(APPEND_URL(graph), {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ location, "append-data": texts.map((string) => ({ string })) }),
+          cache: "no-store",
+        }),
+      (r) => (r.status >= 500 || r.status === 429 ? `HTTP ${r.status}` : undefined),
+    );
   } catch {
     return { ok: false, status: 0, message: "Couldn't reach Roam. Please try again." };
   }

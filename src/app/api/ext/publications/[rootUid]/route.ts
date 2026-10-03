@@ -6,6 +6,7 @@ import { logChange } from "@/lib/changelog";
 import { json, preflight } from "@/lib/cors";
 import { type ExtContext, notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
 import { primaryUrls } from "@/lib/places";
+import { withRoute } from "@/lib/telemetry";
 
 export const OPTIONS = preflight;
 
@@ -24,10 +25,10 @@ async function ownPage(req: Request, ctx: ExtContext, rootUid: string) {
   return pub;
 }
 
-export async function DELETE(
+export const DELETE = withRoute("DELETE /api/ext/publications/[rootUid]", async (
   req: Request,
   { params }: RouteContext<"/api/ext/publications/[rootUid]">,
-) {
+) => {
   const ctx = await requireExtKey(req);
   if (ctx instanceof Response) return ctx;
   const pub = await ownPage(req, ctx, (await params).rootUid);
@@ -35,15 +36,15 @@ export async function DELETE(
   await db.delete(publication).where(eq(publication.id, pub.id));
   logChange(pub, "Unpublished");
   return json(req, { deleted: true });
-}
+});
 
 const PatchBody = z.object({ visibility: z.enum(["public", "unlisted"]) });
 
 /** Lists or unlists the page in its graph. Access, collections and Discover are set on the website. */
-export async function PATCH(
+export const PATCH = withRoute("PATCH /api/ext/publications/[rootUid]", async (
   req: Request,
   { params }: RouteContext<"/api/ext/publications/[rootUid]">,
-) {
+) => {
   const ctx = await requireExtKey(req);
   if (ctx instanceof Response) return ctx;
   const parsed = PatchBody.safeParse(await req.json().catch(() => null));
@@ -54,4 +55,4 @@ export async function PATCH(
   if (parsed.data.visibility !== pub.visibility) logChange(pub, `Made ${parsed.data.visibility}`);
   const url = (await primaryUrls(ctx.graphName, [pub])).get(pub.id);
   return json(req, { visibility: parsed.data.visibility, url });
-}
+});

@@ -5,6 +5,7 @@ import { graph, publication, publicationVote, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { listedPublication } from "@/lib/discover";
 import { rateLimit } from "@/lib/rate-limit";
+import { withRoute } from "@/lib/telemetry";
 
 /** Why the reader can't vote, or null when they can. */
 export type VoteBlocker = "signin" | "nograph" | "owner" | null;
@@ -58,7 +59,7 @@ const MAX_IDS = 50;
  * The upvote count and whether this reader voted or can vote. Signed-out readers only get the count.
  * `?id=` answers for one page; `?ids=a,b,c` answers for a Discover list as `{ [id]: VoteState }`.
  */
-export async function GET(req: Request) {
+export const GET = withRoute("GET /api/votes", async (req: Request) => {
   const params = new URL(req.url).searchParams;
   const many = params.get("ids");
   if (many !== null) {
@@ -70,10 +71,10 @@ export async function GET(req: Request) {
   if (!ID.test(id)) return notFound();
   const state = await voteState(id, await viewerId(req));
   return state ? json(state) : notFound();
-}
+});
 
 /** Upvotes a page. Same voters as /api/views: signed in, owns a graph, not the page's owner. */
-export async function POST(req: Request) {
+export const POST = withRoute("POST /api/votes", async (req: Request) => {
   return change(req, async (id, viewer) => {
     // One statement, so a page that stops being listed between check and insert never gets a vote.
     await db.execute(sql`
@@ -89,17 +90,17 @@ export async function POST(req: Request) {
       on conflict do nothing
     `);
   });
-}
+});
 
 /** Takes back the reader's upvote. */
-export async function DELETE(req: Request) {
+export const DELETE = withRoute("DELETE /api/votes", async (req: Request) => {
   return change(req, (id, viewer) =>
     db
       .delete(publicationVote)
       .where(and(eq(publicationVote.publicationId, id), eq(publicationVote.userId, viewer)))
       .then(() => {}),
   );
-}
+});
 
 async function change(req: Request, apply: (id: string, viewer: string) => Promise<void>) {
   const id = (await req.text()).trim();

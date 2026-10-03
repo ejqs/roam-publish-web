@@ -13,6 +13,7 @@ const TABS = [
   { href: "/admin/blocked", label: "Blocked" },
   { href: "/admin/log", label: "Log" },
   { href: "/admin/jobs", label: "Jobs" },
+  { href: "/admin/status", label: "Status" },
 ];
 
 export function AdminNav() {
