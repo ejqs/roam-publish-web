@@ -160,10 +160,10 @@ describe("jobs", () => {
 describe("placeViewsOptions", () => {
   test("names what inheriting means for listed and unlisted pages", async () => {
     const { placeViewsOptions } = await import("@/components/manage/views-fields");
-    expect(placeViewsOptions({ label: "notes", views: "show" }, true)[0].label).toBe("Use notes's setting (show)");
+    expect(placeViewsOptions({ label: "notes", views: "show" }, true)[0].label).toBe("Inherit (Everyone)");
     const unlisted = placeViewsOptions({ label: "notes", views: "show" }, false)[0];
-    expect(unlisted.label).toBe("Use notes's setting (managers only)");
+    expect(unlisted.label).toBe("Inherit (Private)");
     expect(unlisted.description).toContain("Unlisted");
-    expect(placeViewsOptions({ label: "notes", views: "off" }, false)[0].label).toBe("Use notes's setting (off)");
+    expect(placeViewsOptions({ label: "notes", views: "off" }, false)[0].label).toBe("Inherit (Off)");
   });
 });

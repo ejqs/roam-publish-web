@@ -5,13 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { AccessMenu } from "@/app/(app)/dashboard/access-menu";
 import { unpublish } from "@/app/(app)/dashboard/actions";
 import { addToCollection, removeEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
+import { PlaceSettingsFields } from "@/app/(app)/dashboard/place-settings";
 import { setPageTags } from "@/app/(app)/dashboard/tag-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
@@ -116,9 +118,9 @@ export function ManageDialog({
               empty={`Not shown in ${data.origin.graphName}`}
               access={gAccess}
               lock={lockExplanation(gAccess, "graph", g.container.label)}
-              menu={
+              settings={
                 data.canManagePage && g.inGraph ? (
-                  <AccessMenu
+                  <PlaceSettingsFields
                     target={{ kind: "graph", publicationId: data.publicationId, frontPage: g.frontPage, indexable: g.indexable }}
                     access={g.visibility === "unlisted" ? "unlisted" : g.discoverable ? "discover" : "public"}
                     discoverBlocked={g.discoverBlocked}
@@ -159,14 +161,14 @@ export function ManageDialog({
                   path={e.path}
                   access={access}
                   lock={lockExplanation(access, "collection", e.collectionName)}
-                  menu={
+                  settings={
                     e.canManage ? (
-                      <AccessMenu
+                      <PlaceSettingsFields
                         target={{ kind: "entry", entryId: e.entryId }}
                         access={e.state.listing === "listed" || !e.state.listing ? "public" : e.state.listing}
                         discoverBlocked={e.container.discoverBlocked}
                         place={e}
-                          />
+                      />
                     ) : undefined
                   }
                   listing={e.state.listing ?? "listed"}
@@ -201,20 +203,11 @@ export function ManageDialog({
             })}
           </ul>
           {data.addable.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">Add to</span>
-              {data.addable.map((c) => (
-                <Button
-                  key={c.id}
-                  variant="outline"
-                  size="xs"
-                  disabled={pending}
-                  onClick={() => run(() => addToCollection(data.publicationId, c.id))}
-                >
-                  <PlusIcon /> {c.name}
-                </Button>
-              ))}
-            </div>
+            <AddToCollection
+              addable={data.addable}
+              disabled={pending}
+              onAdd={(id) => run(() => addToCollection(data.publicationId, id))}
+            />
           )}
         </section>
 
@@ -264,7 +257,7 @@ function PlaceRow({
   access,
   lock,
   listing,
-  menu,
+  settings,
   action,
   password,
 }: {
@@ -274,14 +267,14 @@ function PlaceRow({
   access: keyof typeof ACCESS_LABELS;
   lock?: string;
   listing: keyof typeof LISTING_LABELS;
-  /** The AccessMenu, for people who can change this place. */
-  menu?: React.ReactNode;
+  /** Its settings, for people who can change this place. */
+  settings?: React.ReactNode;
   action?: React.ReactNode;
   password?: React.ReactNode;
 }) {
   const [showPassword, setShowPassword] = useState(false);
   return (
-    <li className="flex flex-col gap-2 p-3">
+    <li className="flex flex-col gap-3 p-3">
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-xs text-muted-foreground">{label}</span>
@@ -295,27 +288,18 @@ function PlaceRow({
         </div>
         {action && <div className="flex shrink-0 items-center">{action}</div>}
       </div>
-      {path && (
-        <div className="flex flex-wrap items-center gap-2">
-          {menu ?? <PlaceBadges access={access} listing={listing} lock={lock} />}
-          {menu && access !== "open" && (
-            <span title={lock} className="flex cursor-help items-center gap-1 text-xs text-muted-foreground">
-              <LockIcon className="size-3" /> {ACCESS_LABELS[access]}
-            </span>
-          )}
-          {password && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto text-muted-foreground"
-              aria-expanded={showPassword}
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              <KeyRoundIcon /> Page password
-              <ChevronDownIcon className={cn(showPassword && "rotate-180")} />
-            </Button>
-          )}
-        </div>
+      {path && (settings ?? <PlaceBadges access={access} listing={listing} lock={lock} />)}
+      {path && password && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="self-start text-muted-foreground"
+          aria-expanded={showPassword}
+          onClick={() => setShowPassword(!showPassword)}
+        >
+          <KeyRoundIcon /> Page password
+          <ChevronDownIcon className={cn(showPassword && "rotate-180")} />
+        </Button>
       )}
       {path && showPassword && password}
     </li>
@@ -340,5 +324,73 @@ function PlaceBadges({
         </Badge>
       )}
     </span>
+  );
+}
+
+/**
+ * Adds the page to one of the viewer's collections. A menu with a search box, so it stays one
+ * button however many collections there are; each collection the page is in gets its own row above.
+ */
+function AddToCollection({
+  addable,
+  disabled,
+  onAdd,
+}: {
+  addable: { id: string; name: string }[];
+  disabled: boolean;
+  onAdd: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const shown = q ? addable.filter((c) => c.name.toLowerCase().includes(q)) : addable;
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setQuery("");
+      }}
+    >
+      <PopoverTrigger
+        render={
+          <Button variant="outline" size="sm" className="self-start" disabled={disabled}>
+            <PlusIcon /> Add to a collection
+            <ChevronDownIcon className="opacity-60" />
+          </Button>
+        }
+      />
+      <PopoverContent align="start" className="w-72 gap-1 p-1.5">
+        {addable.length > 6 && (
+          <Input
+            type="search"
+            aria-label="Find a collection"
+            placeholder="Find a collection"
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-8"
+          />
+        )}
+        <ul className="flex max-h-56 flex-col overflow-y-auto" aria-label="Collections">
+          {shown.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setQuery("");
+                  onAdd(c.id);
+                }}
+                className="flex min-h-8 w-full items-center rounded-sm px-2 text-left outline-none hover:bg-accent focus-visible:bg-accent"
+              >
+                <span className="truncate">{c.name}</span>
+              </button>
+            </li>
+          ))}
+          {shown.length === 0 && <li className="px-2 py-1.5 text-xs text-muted-foreground">No collection matches.</li>}
+        </ul>
+      </PopoverContent>
+    </Popover>
   );
 }

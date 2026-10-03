@@ -9,7 +9,7 @@ import { PageLinks } from "@/components/roam/markup";
 import { plainText } from "@/lib/slug";
 
 const outline = [
-  block("Publish a page or a single block from your [[Roam Research]] graph to the web.", [
+  block("Publish a page or a single block from your [Roam Research](https://roamresearch.com) graph to the web.", [
     block("You'll need an active Roam Research account."),
     block("Only what you publish is public. The rest of your graph stays where it is."),
     block("Page refs, block refs, embeds and ^^highlights^^ render the way they do in Roam."),
@@ -19,7 +19,7 @@ const outline = [
 
 const links = new PageLinks([...siteLinks, ["costs", "/costs"]]);
 
-// Its own list so the footer's "About & contact" link has somewhere to land.
+// Its own list so the footer's "About" link has somewhere to land.
 const about = [
   block("**Who runs this**", [
     block("Me, [@ejqs](https://ejqs.net). It's [free*]([[Costs]]) and not affiliated with Roam Research."),
