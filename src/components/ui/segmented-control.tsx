@@ -52,7 +52,7 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       {...aria}
       onKeyDown={onKeyDown}
-      className={cn("flex gap-0.5 rounded-sm bg-muted p-0.5", disabled && "opacity-60", className)}
+      className={cn("flex flex-wrap gap-0.5 rounded-sm bg-muted p-0.5", disabled && "opacity-60", className)}
     >
       {options.map((o) => {
         const on = o.value === value;
@@ -69,7 +69,7 @@ export function SegmentedControl<T extends string>({
             title={o.disabled}
             onClick={() => !on && !o.disabled && !disabled && onChange(o.value)}
             className={cn(
-              "inline-flex h-7 min-w-0 flex-auto items-center justify-center gap-1.5 rounded-sm px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground transition-all outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-3.5 [&_svg]:shrink-0",
+              "inline-flex h-7 flex-auto items-center justify-center gap-1.5 rounded-sm px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground transition-all outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-3.5 [&_svg]:shrink-0",
               on
                 ? "bg-card text-foreground shadow-[inset_0_0_0_1px_rgba(17,20,24,0.2),0_1px_2px_rgba(17,20,24,0.1)] dark:bg-input/40"
                 : "hover:bg-accent hover:text-foreground",
@@ -77,7 +77,7 @@ export function SegmentedControl<T extends string>({
             )}
           >
             {Icon && <Icon aria-hidden />}
-            <span className="truncate">{o.label}</span>
+            <span>{o.label}</span>
           </button>
         );
       })}
