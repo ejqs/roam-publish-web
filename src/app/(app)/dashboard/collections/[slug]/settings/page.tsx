@@ -25,33 +25,35 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
     .where(eq(collectionEntry.collectionId, c.id));
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:py-12">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <ResourceHeader
         name={c.name}
         caption="Collection settings"
         tabs={resourceTabs(path, true)}
         current={`${path}/settings`}
       />
-      <CollectionSettingsForm
-        collectionId={c.id}
-        slug={c.slug}
-        initial={{
-          name: c.name,
-          description: c.description,
-          indexAccess: c.indexAccess,
-          defaultAccess: c.defaultAccess,
-          showAuthors: c.showAuthors,
-          views: c.views,
-          showViewCountries: c.showViewCountries,
-          indexable: c.indexable,
-          featured: c.featured,
-          discoverable: c.discoverable,
-          rss: c.rss,
-        }}
-        hasPassword={!!c.passwordHash}
-        pageCount={pages?.n ?? 0}
-        encryptedPages={await sealedPageTitles({ scope: "collection", id: c.id })}
-      />
+      <div className="flex w-full max-w-2xl flex-col gap-6">
+        <CollectionSettingsForm
+          collectionId={c.id}
+          slug={c.slug}
+          initial={{
+            name: c.name,
+            description: c.description,
+            indexAccess: c.indexAccess,
+            defaultAccess: c.defaultAccess,
+            showAuthors: c.showAuthors,
+            views: c.views,
+            showViewCountries: c.showViewCountries,
+            indexable: c.indexable,
+            featured: c.featured,
+            discoverable: c.discoverable,
+            rss: c.rss,
+          }}
+          hasPassword={!!c.passwordHash}
+          pageCount={pages?.n ?? 0}
+          encryptedPages={await sealedPageTitles({ scope: "collection", id: c.id })}
+        />
+      </div>
     </div>
   );
 }
