@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowBigUp } from "lucide-react";
+import { ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -25,12 +25,12 @@ export function UpvoteButton({ publicationId, initialCount }: { publicationId: s
 
   const inner = (
     <>
-      <ArrowBigUp className={state?.voted ? "fill-current" : undefined} />
+      <ChevronUp className={state?.voted ? "text-primary" : undefined} strokeWidth={state?.voted ? 2.75 : 2} />
       <span className="tabular-nums">{count.toLocaleString("en-US")}</span>
       <span className="sr-only">{count === 1 ? "upvote" : "upvotes"}</span>
     </>
   );
-  const look = buttonVariants({ variant: "outline", size: "sm" });
+  const look = buttonVariants({ variant: "outline" });
 
   if (state?.blocker === "owner")
     return (
@@ -74,7 +74,6 @@ export function UpvoteButton({ publicationId, initialCount }: { publicationId: s
   return (
     <Button
       variant={state?.voted ? "secondary" : "outline"}
-      size="sm"
       onClick={toggle}
       disabled={!state || pending}
       aria-pressed={state?.voted ?? false}
