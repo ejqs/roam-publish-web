@@ -1,5 +1,6 @@
-import { BanIcon, CompassIcon, GlobeIcon, LinkIcon, type LucideIcon, SearchIcon } from "lucide-react";
+import { BanIcon, CompassIcon, GlobeIcon, type LucideIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
+import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KINDS, type KindFilter, type ListConfig, listHref, type ListState, PAGE_SIZE, sortHref } from "./filters";
@@ -9,7 +10,7 @@ const KIND_LABELS: Record<KindFilter, string> = { page: "Pages", block: "Blocks"
 
 // The access menu's icons. Graphs call listed pages "public", collections "listed".
 const FILTER_ICONS: Record<string, LucideIcon | undefined> = {
-  unlisted: LinkIcon,
+  unlisted: PRIVACY_ICONS.unlisted,
   public: GlobeIcon,
   listed: GlobeIcon,
   discover: CompassIcon,

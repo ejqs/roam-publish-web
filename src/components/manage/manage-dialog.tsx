@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, KeyRoundIcon, LockIcon, LockKeyholeIcon, PlusIcon, Settings2Icon, TriangleAlertIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, KeyRoundIcon, PlusIcon, Settings2Icon, TriangleAlertIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
+import { AccessIcon, PrivacyIcon } from "@/components/privacy-icon";
 import { ACCESS_LABELS, LISTING_LABELS } from "./choice";
 import { EncryptionSection } from "./encryption-section";
 import { PlacePasswordForm, type PlaceState } from "./place-access-form";
@@ -341,10 +342,12 @@ function PlaceBadges({
 }) {
   return (
     <span className="flex flex-wrap gap-1">
-      <Badge variant="outline">{LISTING_LABELS[listing]}</Badge>
+      <Badge variant="outline">
+        {listing === "unlisted" && <PrivacyIcon kind="unlisted" />} {LISTING_LABELS[listing]}
+      </Badge>
       {access !== "open" && (
         <Badge variant="outline" title={lock} className="cursor-help">
-          {encrypted ? <LockKeyholeIcon /> : <LockIcon />} {encrypted ? "Encrypted" : ACCESS_LABELS[access]}
+          <AccessIcon access={access} encrypted={encrypted} /> {encrypted ? "Encrypted" : ACCESS_LABELS[access]}
         </Badge>
       )}
     </span>

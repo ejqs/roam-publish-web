@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { AccessLock, lockExplanation } from "@/components/access-lock";
+import { AccessLock, lockInfo } from "@/components/access-lock";
 import { DashboardLink } from "@/components/dashboard-link";
 import { ManageLink } from "@/components/manage-link";
 import { FeedLink } from "@/components/feed-link";
@@ -96,6 +96,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
         createdAt: publication.createdAt,
         updatedAt: publication.updatedAt,
         access: publication.access,
+        encrypted: publication.encrypted,
         showAuthor: publication.showAuthor,
         authorName: publication.authorName,
         publishedBy: publication.publishedBy,
@@ -164,7 +165,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
                     // A protected page's tags come from its text, so only readers who can open it see them.
                     tags: role || (r.access === "inherit" ? g.defaultAccess : r.access) === "open" ? r.tags : [],
                     snippet: snippetParts(r.snippet),
-                    lock: lockExplanation(r.access === "inherit" ? g.defaultAccess : r.access, "graph", g.name),
+                    lock: lockInfo(r.access === "inherit" ? g.defaultAccess : r.access, "graph", g.name, r.encrypted),
                     author: (await bylineFor(r, showsAuthor({ ...g, kind: "graph" }, r)))?.label,
                     dates: [formatDate(r.updatedAt), formatDate(r.createdAt)],
                   })),

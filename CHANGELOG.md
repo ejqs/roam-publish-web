@@ -21,8 +21,15 @@ bullet with each pull request that changes something they'd notice; leave out te
 - Graph settings are split: access defaults for new pages have their own **Defaults** tab.
 - The access settings are now called **Access control** (who can open a page) and **Visibility control** (where it's
   listed).
+- Each privacy setting has its own icon everywhere: an eye crossed out for not listed, a key for a password, a keyhole
+  lock for encrypted and people for members only.
 
 ### Published pages
+- Links to a published page now unfold into a full preview in chat apps and social feeds: its title, the first lines
+  of its text, its author, a tag and reading time, and a card drawing the page with the pages it links to.
+  Password-protected, members-only and encrypted pages only show their graph or collection.
+- A page that's not listed, password-protected, encrypted or members-only says so next to its title, and explains what
+  that means when you hover or tap it.
 - Published pages show their view count, synced from our analytics. Members-only pages don't.
 - Links to pages that aren't published are marked.
 - Outline bullets line up with the first line of text at any font size.

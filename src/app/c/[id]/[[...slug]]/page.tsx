@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, isNull, ne, type SQL, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { AccessLock, lockExplanation } from "@/components/access-lock";
+import { AccessLock, lockInfo } from "@/components/access-lock";
 import { DashboardLink } from "@/components/dashboard-link";
 import { ManageLink } from "@/components/manage-link";
 import { FeedLink } from "@/components/feed-link";
@@ -9,6 +9,7 @@ import { GateNotice } from "@/components/gate-notice";
 import { dashboardHref, PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
+import { privacyNotes } from "@/components/privacy-icons";
 import { PageLinks } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
 import { QuickSearch } from "@/components/quick-search";
@@ -31,7 +32,9 @@ import {
   viewsMode,
 } from "@/lib/gates";
 import { canManage, canSearchSite, graphRole } from "@/lib/graph-access";
+import { cardVersion, previewMetadata } from "@/lib/link-preview";
 import { manageDataFor } from "@/lib/manage-data";
+import { cardFor, entryCardPath } from "@/lib/og/card";
 import { liveGraph } from "@/lib/moderation";
 import { collectionPath, entryPath } from "@/lib/publications";
 import { collectionTagPath, RELATED_LIMIT } from "@/lib/tag-paths";
@@ -89,11 +92,17 @@ export async function generateMetadata(props: PageProps<"/c/[id]/[[...slug]]">):
       robots: indexable ? undefined : { index: false, follow: false },
     };
   if (r.pub.removedAt || r.graphTakenDown) return { title: "Removed", robots: { index: false, follow: false } };
-  const access = effectiveAccess(asContainer(c), { access: r.entry.access });
-  if (access !== "open") return { title: "Protected page", robots: { index: false, follow: false } };
+  const container = asContainer(c);
+  const place: Place = { ...r.entry, kind: "entry" };
+  const access = effectiveAccess(container, place);
+  const path = entryPath(c.slug, r.entry.entryUid, r.pub.title);
+  const card = await cardFor(r.pub, { container: c.name, access, showAuthor: showsAuthor(container, place) });
+  const preview = previewMetadata(card, { path, image: entryCardPath(r.entry.entryUid, cardVersion(card)) });
+  if (access !== "open") return { ...preview, title: "Protected page", robots: { index: false, follow: false } };
   return {
+    ...preview,
     title: `${plainText(r.pub.title)} · ${c.name}`,
-    alternates: { canonical: entryPath(c.slug, r.entry.entryUid, r.pub.title) },
+    alternates: { canonical: path },
     robots: indexable && r.entry.listing !== "unlisted" ? undefined : { index: false },
   };
 }
@@ -166,7 +175,7 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
   const items = await Promise.all(
     rows.map(async ({ entry, pub, snippet: hit }) => ({
       href: entryPath(c.slug, entry.entryUid, pub.title),
-      lock: lockExplanation(effectiveAccess(container, entry), "collection", c.name),
+      lock: lockInfo(effectiveAccess(container, entry), "collection", c.name, pub.encrypted),
       author: (await bylineFor(pub, showsAuthor(container, entry)))?.label,
       kind: pub.kind,
       title: pub.title,
@@ -317,6 +326,7 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
       related={related}
       siteSearch={await canSearchSite(me)}
       byline={byline}
+      privacy={privacyNotes({ access, encrypted: pub.encrypted, unlisted: entry.listing === "unlisted", container: c.name })}
       report={{ collectionSlug: c.slug, entryUid: entry.entryUid }}
       votes={votes}
       countViews={entry.listing !== "unlisted" && access === "open"}
