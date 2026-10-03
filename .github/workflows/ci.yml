@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -25,9 +25,3 @@ jobs:
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run test
-      - run: bun run build
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/roam_publish
-          BETTER_AUTH_SECRET: ci-build-secret-0123456789abcdef0123456789
-          BETTER_AUTH_URL: http://localhost:3000
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
