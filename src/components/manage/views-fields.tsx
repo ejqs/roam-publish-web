@@ -7,32 +7,41 @@ import { viewsMode } from "@/lib/views";
 import { Choice, type ChoiceOption } from "./choice";
 
 export const VIEWS_LABELS: Record<ViewsMode, string> = {
-  show: "Show",
-  hide: "Only people who manage the page",
+  show: "Everyone",
+  hide: "Private",
   off: "Off",
 };
 
 export const VIEWS_DESCRIPTIONS: Record<ViewsMode, string> = {
   show: "Listed pages show their count. Unlisted pages show theirs only when set to.",
-  hide: "Visitors see nothing. You see the count with a crossed-out eye.",
-  off: "No counts for anyone, and views aren't looked up. Managers can turn them back on from the page.",
+  hide: "Views are counted, but only you see the number, with a crossed-out eye. Visitors see nothing.",
+  off: "No counts for anyone, and views aren't looked up. You can turn them back on from the page.",
+};
+
+/** What Private and Off mean, for the ? next to a view count setting. */
+export const VIEWS_HELP = {
+  hide: "still counts views, but only you and the graph's owner see the number, marked with a crossed-out eye. Visitors see nothing.",
+  off: "stops counting altogether.",
 };
 
 /**
- * A page's own view count choices. "Use …'s setting" names what inheriting means here: an unlisted
- * page keeps its count to its managers even when its graph or collection shows counts.
+ * A page's own view count choices. "Inherit (…)" names what inheriting means here: an unlisted
+ * page keeps its count private even when its graph or collection shows counts.
  */
 export function placeViewsOptions(container: { label: string; views: ViewsMode }, listed: boolean) {
   const inherited = viewsMode(container, { views: "inherit" }, listed);
   const options: { value: PlaceViews; label: string; short: string; description?: string }[] = [
     {
       value: "inherit",
-      label: `Use ${container.label}'s setting (${inherited === "hide" ? "managers only" : VIEWS_LABELS[inherited].toLowerCase()})`,
-      short: `${container.label}'s setting`,
-      description: !listed && container.views === "show" ? "Unlisted pages show their count only when set to Show." : undefined,
+      label: `Inherit (${VIEWS_LABELS[inherited]})`,
+      short: `Inherit (${VIEWS_LABELS[inherited]})`,
+      description:
+        !listed && container.views === "show"
+          ? "Unlisted pages show their count only when set to Everyone."
+          : `Uses ${container.label}'s setting.`,
     },
-    { value: "show", label: "Show", short: "Show", description: "Everyone sees the count." },
-    { value: "hide", label: "Only people who manage it", short: "Managers only", description: "Visitors see nothing; you see it with a crossed-out eye." },
+    { value: "show", label: "Everyone", short: "Everyone", description: "Everyone sees the count." },
+    { value: "hide", label: "Private", short: "Private", description: "Only you see the count. Visitors see nothing." },
     { value: "off", label: "Off", short: "Off", description: "No count for anyone, and views aren't looked up." },
   ];
   return options;
