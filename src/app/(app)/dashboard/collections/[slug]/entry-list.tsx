@@ -12,7 +12,7 @@ import { AllCheckbox, BulkSelect, RowCheckbox } from "../../bulk-select";
 import { fmtDate, HeaderCell, type SortHeader } from "../../publication-list";
 
 // Like the graph list, with room for reordering next to Manage.
-const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_11rem_7.5rem_9rem] sm:items-center sm:gap-3";
+const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_12.5rem_7.5rem_9rem] sm:items-center sm:gap-3";
 import { EntryReorder } from "./entry-reorder";
 
 export type EntryRowData = {
@@ -120,7 +120,8 @@ export function EntryList({
                     ) : (
                       <Badge variant="outline">{LISTING_LABELS[entry.listing]}</Badge>
                     )}
-                    {!pub.removedAt && access !== "open" && (
+                    {/* The access menu names it already. */}
+                    {!pub.removedAt && access !== "open" && !place?.canManage && (
                       <p
                         title={lockExplanation(access, "collection", c.name)}
                         className="mt-1 flex w-fit cursor-help items-center gap-1 text-xs text-muted-foreground"
