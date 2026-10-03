@@ -49,7 +49,8 @@ export function privacyNotes({
     notes.push({
       kind: "unlisted",
       label: LISTING_LABELS.unlisted,
-      text: `Only people with the link can find it. It isn't listed on ${container}, in search engines or on Discover.`,
+      // Unlisted pages can hide their graph from readers, so this doesn't name it.
+      text: "Only people with the link can find it. It isn't on a front page, in search engines or on Discover.",
     });
   return notes;
 }
