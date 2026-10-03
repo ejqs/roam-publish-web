@@ -22,18 +22,19 @@ import { containerLock, gate, showsAuthor } from "@/lib/gates";
 import { canSearchSite, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { GRAPH_LIST, type GraphSort, LIST_PAGE_SIZE, parseListState } from "@/lib/list-params";
-import { listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
+import { type BodyVisible, listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
 import { livePublication } from "@/lib/moderation";
+import { openInContainer } from "@/lib/places";
 import { publicationPath } from "@/lib/publications";
 import { publicProfile } from "@/lib/profiles";
 import { bylineFor, viewerId } from "@/lib/viewer";
 
-const order = (sort: GraphSort | "relevance", q: string): SQL[] =>
+const order = (sort: GraphSort | "relevance", q: string, bodyVisible: BodyVisible): SQL[] =>
   ({
     updated: [desc(publication.updatedAt)],
     created: [desc(publication.createdAt)],
     title: [asc(sql`lower(${publication.title})`), asc(publication.title)],
-    relevance: [desc(relevance(q)), desc(publication.updatedAt)],
+    relevance: [desc(relevance(q, bodyVisible)), desc(publication.updatedAt)],
   })[sort];
 
 async function frontPageGraph(props: PageProps<"/[graph]">) {
@@ -79,7 +80,9 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
     eq(publication.visibility, "public"),
     livePublication,
   );
-  const matchingWhere = listWhere(state, visible);
+  // Members read every page; everyone else only searches the text of pages open to them.
+  const bodyVisible = role ? undefined : openInContainer(publication.access, g.defaultAccess);
+  const matchingWhere = listWhere(state, bodyVisible, visible);
   const [[{ total }], [{ matching }], rows, tags, owner] = await Promise.all([
     db.select({ total: count() }).from(publication).where(visible),
     db.select({ matching: count() }).from(publication).where(matchingWhere),
@@ -89,7 +92,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
         kind: publication.kind,
         title: publication.title,
         tags: publication.tags,
-        snippet: state.q ? snippet(state.q) : sql<string | null>`null`,
+        snippet: state.q ? snippet(state.q, bodyVisible) : sql<string | null>`null`,
         createdAt: publication.createdAt,
         updatedAt: publication.updatedAt,
         access: publication.access,
@@ -99,10 +102,10 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
       })
       .from(publication)
       .where(matchingWhere)
-      .orderBy(...order(state.sort, state.q), asc(publication.id))
+      .orderBy(...order(state.sort, state.q, bodyVisible), asc(publication.id))
       .limit(LIST_PAGE_SIZE)
       .offset((state.page - 1) * LIST_PAGE_SIZE),
-    tagCounts(sql`from ${publication}`, matchingWhere),
+    tagCounts(sql`from ${publication}`, and(matchingWhere, bodyVisible)),
     g.showOwner ? publicProfile(g.userId) : null,
   ]);
 
@@ -158,7 +161,8 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
                     href: publicationPath(g.name, r.rootUid, r.title),
                     kind: r.kind,
                     title: r.title,
-                    tags: r.tags,
+                    // A protected page's tags come from its text, so only readers who can open it see them.
+                    tags: role || (r.access === "inherit" ? g.defaultAccess : r.access) === "open" ? r.tags : [],
                     snippet: snippetParts(r.snippet),
                     lock: lockExplanation(r.access === "inherit" ? g.defaultAccess : r.access, "graph", g.name),
                     author: (await bylineFor(r, showsAuthor({ ...g, kind: "graph" }, r)))?.label,
