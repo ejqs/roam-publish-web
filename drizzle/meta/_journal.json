@@ -162,6 +162,13 @@
       "when": 1790995314878,
       "tag": "0022_password_unlocks",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791009908003,
+      "tag": "0023_endpoint_metrics",
+      "breakpoints": true
     }
   ]
 }

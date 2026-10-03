@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { timed } from "./telemetry";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -19,12 +20,17 @@ export async function sendEmail({
     console.log(`\n[email] to=${to} subject=${subject}\n${text}\n`);
     return;
   }
-  const { error } = await resend.emails.send({
-    from: process.env.EMAIL_FROM ?? "Roam Publish <onboarding@resend.dev>",
-    to,
-    subject,
-    text,
-    replyTo,
-  });
+  const { error } = await timed(
+    "resend",
+    () =>
+      resend.emails.send({
+        from: process.env.EMAIL_FROM ?? "Roam Publish <onboarding@resend.dev>",
+        to,
+        subject,
+        text,
+        replyTo,
+      }),
+    (r) => r.error?.message,
+  );
   if (error) console.error("[email] send failed", error);
 }

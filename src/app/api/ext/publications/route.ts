@@ -11,6 +11,7 @@ import { notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth
 import { defaultCollectionsFor, primaryUrls } from "@/lib/places";
 import { ensureShortlink, setAnchor, shortlinkIds, shortUrl, withoutShortlinks } from "@/lib/shortlinks";
 import { plainText } from "@/lib/slug";
+import { withRoute } from "@/lib/telemetry";
 
 const NodeSchema: z.ZodType<Node> = z.lazy(() =>
   z.object({
@@ -59,7 +60,7 @@ function tooDeep(body: unknown) {
 
 export const OPTIONS = preflight;
 
-export async function GET(req: Request) {
+export const GET = withRoute("GET /api/ext/publications", async (req: Request) => {
   const ctx = await requireExtKey(req);
   if (ctx instanceof Response) return ctx;
   const rows = await db
@@ -87,9 +88,9 @@ export async function GET(req: Request) {
       updatedAt: p.updatedAt,
     })),
   });
-}
+});
 
-export async function POST(req: Request) {
+export const POST = withRoute("POST /api/ext/publications", async (req: Request) => {
   const ctx = await requireExtKey(req);
   if (ctx instanceof Response) return ctx;
 
@@ -205,4 +206,4 @@ export async function POST(req: Request) {
     visibility: created.visibility,
     changeLog: await changeLogStatusOf(ctx.graphId),
   });
-}
+});
