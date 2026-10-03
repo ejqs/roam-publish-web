@@ -24,7 +24,7 @@ import { foldCountries, MIN_SHOWN_VIEWS, viewsMode } from "./views";
  *   showing them publicly on a listed place, then unlisted ones, and only then pages whose count
  *   only their managers see.
  *
- * Every place whose views aren't "off" is tracked (lib/gates.ts viewsMode).
+ * Every place whose views aren't "off" is tracked (lib/views.ts viewsMode), except members-only pages.
  */
 
 const HOUR = 60 * 60_000;
@@ -73,6 +73,9 @@ type Place = {
   pathViews: number;
 };
 
+/** Members-only pages get no count: only members can read them, so there's nothing to watch for. */
+const trackable = (access: string, defaultAccess: string) => (access === "inherit" ? defaultAccess : access) !== "members";
+
 const CHUNK = 1000;
 const chunks = <T>(xs: T[]) => Array.from({ length: Math.ceil(xs.length / CHUNK) }, (_, i) => xs.slice(i * CHUNK, (i + 1) * CHUNK));
 
@@ -97,12 +100,16 @@ export async function resolvePlaces(rows: Metric[]): Promise<Map<string, Place>>
         visibility: publication.visibility,
         views: publication.views,
         containerViews: graph.views,
+        access: publication.access,
+        defaultAccess: graph.defaultAccess,
       })
       .from(publication)
       .innerJoin(graph, eq(graph.id, publication.graphId))
       .where(and(inArray(publication.rootUid, part), eq(publication.inGraph, true), sql`${publication.removedAt} is null`))
       .then((rs) =>
-        rs.filter((r) => viewsMode({ views: r.containerViews }, r, r.visibility === "public") !== "off"),
+        rs.filter(
+          (r) => trackable(r.access, r.defaultAccess) && viewsMode({ views: r.containerViews }, r, r.visibility === "public") !== "off",
+        ),
       );
     for (const f of found) pubIds.set(`${f.graph}\0${f.rootUid}`, f.id);
   }
@@ -115,11 +122,17 @@ export async function resolvePlaces(rows: Metric[]): Promise<Map<string, Place>>
         listing: collectionEntry.listing,
         views: collectionEntry.views,
         containerViews: collection.views,
+        access: collectionEntry.access,
+        defaultAccess: collection.defaultAccess,
       })
       .from(collectionEntry)
       .innerJoin(collection, eq(collection.id, collectionEntry.collectionId))
       .where(inArray(collectionEntry.entryUid, part))
-      .then((rs) => rs.filter((r) => viewsMode({ views: r.containerViews }, r, r.listing !== "unlisted") !== "off"));
+      .then((rs) =>
+        rs.filter(
+          (r) => trackable(r.access, r.defaultAccess) && viewsMode({ views: r.containerViews }, r, r.listing !== "unlisted") !== "off",
+        ),
+      );
     for (const f of found) entryIds.set(f.entryUid, f.id);
   }
 

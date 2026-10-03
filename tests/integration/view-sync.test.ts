@@ -275,6 +275,15 @@ describe("footer", () => {
     expect(await render(null, g, "aaa")).toBe("gated");
   });
 
+  test("members-only pages have no count, for anyone, and aren't tracked", async () => {
+    const { owner, g, listed } = await setup();
+    await db.update(publication).set({ access: "members" }).where(eq(publication.id, listed.id));
+    await db.insert(pageViews).values({ publicationId: listed.id, path: "/notes/aaa", views: 500, baseline: 500 });
+    expect(await render(owner, g, "aaa")).toBeNull();
+    umami = fakeUmami(() => [{ x: "/notes/aaa", y: 500 }]);
+    expect(await fullSweep(new UmamiClient(), {})).toMatchObject({ pages: 0, removed: 1 });
+  });
+
   test("the page's managers get controls; visitors don't", async () => {
     const { owner, g } = await setup();
     const out = await render(owner, g, "aaa");

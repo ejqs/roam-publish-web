@@ -203,13 +203,16 @@ export function AccessMenu({
             options={bylineOptions}
             onChoose={(s) => choosePlace({ showAuthor: s })}
           />
-          <Section
-            label="View count"
-            value={optimistic.views}
-            options={viewsOptions}
-            onChoose={(v) => choosePlace({ views: v })}
-          />
-          {showsCount && (
+          {/* Members-only pages have no view count. */}
+          {optimistic.read !== "members" && (
+            <Section
+              label="View count"
+              value={optimistic.views}
+              options={viewsOptions}
+              onChoose={(v) => choosePlace({ views: v })}
+            />
+          )}
+          {optimistic.read !== "members" && showsCount && (
             <Section
               label="Reader countries"
               value={optimistic.showViewCountries}
