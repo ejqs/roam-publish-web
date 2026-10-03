@@ -4,6 +4,8 @@ import { Breadcrumbs, type Crumb } from "@/components/breadcrumbs";
 import { DashboardLink } from "@/components/dashboard-link";
 import { QuickSearch } from "@/components/quick-search";
 import { ManageDialog } from "@/components/manage/manage-dialog";
+import { PrivacyBadges } from "@/components/privacy-badges";
+import type { PrivacyNote } from "@/components/privacy-icons";
 import { ReportAbuseButton, type ReportTarget } from "@/components/report-abuse-button";
 import { BlockList } from "@/components/roam/block-tree";
 import type { PageLinks } from "@/components/roam/markup";
@@ -35,6 +37,7 @@ export function PublicationView({
   views = null,
   manage,
   afterUnpublish,
+  privacy = [],
 }: {
   pub: typeof publication.$inferSelect;
   crumbs: Crumb[] | null;
@@ -54,6 +57,8 @@ export function PublicationView({
   /** Shown to people who can manage this page. */
   manage?: ManageData;
   afterUnpublish?: string;
+  /** Whether it's protected or not listed, told to the reader next to the title. */
+  privacy?: PrivacyNote[];
 }) {
   const tree = pub.tree;
   const tagHref = links.tagHref;
@@ -81,7 +86,10 @@ export function PublicationView({
           {crumbs && <Breadcrumbs items={crumbs} />}
           {pub.kind === "page" ? (
             <>
-              <h1 className="mb-2 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">{pub.title}</h1>
+              <h1 className="mb-2 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
+                {pub.title}
+                <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
+              </h1>
               <BylineLine byline={byline} className={tags ? "mb-2" : "mb-6"} />
               {tags}
               {!byline && !tags && <div className="mb-4" />}
@@ -89,6 +97,7 @@ export function PublicationView({
             </>
           ) : (
             <>
+              <PrivacyBadges notes={privacy} className="mb-3 flex flex-wrap gap-1" />
               <BylineLine byline={byline} className="mb-4" />
               <BlockList nodes={[tree]} links={links} />
             </>

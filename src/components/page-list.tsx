@@ -1,7 +1,7 @@
 import { ArrowUpDownIcon, SearchIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { cn } from "cn";
-import { LockHint } from "@/components/access-lock";
+import { LockHint, type LockInfo } from "@/components/access-lock";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -171,7 +171,7 @@ export type ListRow = {
   title: string;
   kind: "page" | "block";
   /** Why it needs a password or membership to read, when it does. */
-  lock?: string;
+  lock?: LockInfo;
   author?: string;
   tags: string[];
   /** Text around the search hit, when the hit isn't in the title. */
@@ -231,7 +231,7 @@ export function PageList<S extends string>({
           <div key={r.href} role="row" className={cn(cols, "border-b py-2.5 hover:bg-muted/50")}>
             <div role="cell" className="flex min-w-0 flex-col gap-1">
               <span className="flex min-w-0 items-center gap-1.5">
-                {r.lock && <LockHint text={r.lock} />}
+                {r.lock && <LockHint lock={r.lock} />}
                 <Link href={r.href} className="min-w-0 break-words text-link hover:underline max-sm:line-clamp-2 sm:truncate">
                   {plainText(r.title) || "Untitled"}
                 </Link>

@@ -5,15 +5,12 @@ import {
   CircleHelpIcon,
   CompassIcon,
   GlobeIcon,
-  LinkIcon,
-  LockIcon,
-  LockKeyholeIcon,
-  UsersIcon,
 } from "lucide-react";
 import { useId, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ACCESS_DESCRIPTIONS, LISTING_LABELS } from "@/components/manage/labels";
 import { usePasswordPrompt } from "@/components/manage/password-prompt";
+import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import { placeViewsOptions, VIEWS_HELP, VIEWS_LABELS } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +23,9 @@ import { cn } from "cn";
 import { type Access, setAccess } from "./actions";
 import { updateEntry, updateGraphPlace } from "./place-actions";
 
-export const ICONS = { unlisted: LinkIcon, public: GlobeIcon, discover: CompassIcon };
+export const ICONS = { unlisted: PRIVACY_ICONS.unlisted, public: GlobeIcon, discover: CompassIcon };
 export const LABELS = { unlisted: LISTING_LABELS.unlisted, public: LISTING_LABELS.listed, discover: LISTING_LABELS.discover };
-export const READ_ICONS = { open: GlobeIcon, password: LockIcon, members: UsersIcon };
+export const READ_ICONS = { open: GlobeIcon, password: PRIVACY_ICONS.password, members: PRIVACY_ICONS.members };
 export const READ_LABELS = { open: "Anyone", password: "Password", members: "Members" };
 
 /** The place a setting changes: a page in its graph, or a page's entry in a collection. */
@@ -211,7 +208,7 @@ export function AccessFields({ s, compact }: { s: PlaceSettings; compact?: boole
   const readSegments: Segment<ReadAccess>[] = (["open", "password", "members"] as const).map((v) => ({
     value: v,
     label: v === "password" && s.encrypted ? "Encrypted" : READ_LABELS[v],
-    icon: v === "password" && s.encrypted ? LockKeyholeIcon : READ_ICONS[v],
+    icon: v === "password" && s.encrypted ? PRIVACY_ICONS.encrypted : READ_ICONS[v],
     disabled: s.encrypted && v !== "password" ? ENCRYPTED_ONLY_PASSWORD : undefined,
   }));
   const readDescription = {
