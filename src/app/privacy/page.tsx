@@ -93,6 +93,7 @@ const outline = [
   ]),
   block("**Changes**", [
     block("If this policy changes in a way that matters, the date above changes and signed-up users are told by email."),
+    block("Every past version is in the [full change history](https://github.com/ejqs/roam-publish-web/commits/main/src/app/privacy/page.tsx)."),
   ]),
 ];
 
