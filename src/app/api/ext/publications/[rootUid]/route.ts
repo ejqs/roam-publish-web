@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { publication } from "@/db/schema";
 import { logChange } from "@/lib/changelog";
+import { dropOrphanLockKeys } from "@/lib/encryption";
 import { json, preflight } from "@/lib/cors";
 import { type ExtContext, notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
 import { primaryUrls } from "@/lib/places";
@@ -34,6 +35,7 @@ export const DELETE = withRoute("DELETE /api/ext/publications/[rootUid]", async 
   const pub = await ownPage(req, ctx, (await params).rootUid);
   if (pub instanceof Response) return pub;
   await db.delete(publication).where(eq(publication.id, pub.id));
+  await dropOrphanLockKeys(db);
   logChange(pub, "Unpublished");
   return json(req, { deleted: true });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, KeyRoundIcon, LockIcon, PlusIcon, Settings2Icon, TriangleAlertIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, KeyRoundIcon, LockIcon, LockKeyholeIcon, PlusIcon, Settings2Icon, TriangleAlertIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -19,7 +19,9 @@ import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
 import { ACCESS_LABELS, LISTING_LABELS } from "./choice";
+import { EncryptionSection } from "./encryption-section";
 import { PlacePasswordForm, type PlaceState } from "./place-access-form";
+import { usePasswordPrompt } from "./password-prompt";
 import { TagsEditor } from "./tags-editor";
 
 const effective = (s: PlaceState, def: keyof typeof ACCESS_LABELS) => (s.access === "inherit" ? def : s.access);
@@ -41,10 +43,13 @@ export function ManageDialog({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const refresh = () => router.refresh();
+  const passwordPrompt = usePasswordPrompt();
 
-  function run(fn: () => Promise<{ ok: boolean; message: string }>) {
+  /** Runs a change; for an encrypted page, asks for its current password when the change needs it. */
+  function run(fn: (currentPassword?: string) => Promise<{ ok: boolean; message: string; needCurrentPassword?: boolean }>) {
     start(async () => {
-      const res = await fn();
+      const res = await passwordPrompt.run(fn);
+      if (!res) return;
       if (!res.ok) toast.error(res.message);
       else if (res.message) toast.success(res.message);
       refresh();
@@ -100,7 +105,16 @@ export function ManageDialog({
           </p>
         )}
 
-        {data.canManagePage && (
+        {passwordPrompt.element}
+        {data.canManagePage && data.encrypted && (
+          <section className="flex flex-col gap-1">
+            <h3 className="font-medium">Tags</h3>
+            <p className="text-xs text-muted-foreground">
+              Tags are off while this page is encrypted. Your tag changes are kept for when you turn it off.
+            </p>
+          </section>
+        )}
+        {data.canManagePage && !data.encrypted && (
           <TagsEditor
             tags={data.tags}
             hidden={data.hiddenTags}
@@ -118,6 +132,7 @@ export function ManageDialog({
               empty={`Not shown in ${data.origin.graphName}`}
               access={gAccess}
               lock={lockExplanation(gAccess, "graph", g.container.label)}
+              encrypted={data.encrypted}
               settings={
                 data.canManagePage && g.inGraph ? (
                   <PlaceSettingsFields
@@ -136,7 +151,7 @@ export function ManageDialog({
                     title={g.inGraph ? `Shown in ${data.origin.graphName}` : `Not shown in ${data.origin.graphName}`}
                     checked={g.inGraph}
                     disabled={pending}
-                    onCheckedChange={(inGraph) => run(() => updateGraphPlace(data.publicationId, { inGraph }))}
+                    onCheckedChange={(inGraph) => run((currentPassword) => updateGraphPlace(data.publicationId, { inGraph, currentPassword }))}
                   />
                 )
               }
@@ -147,6 +162,7 @@ export function ManageDialog({
                     id={data.publicationId}
                     hasOwnPassword={g.state.hasOwnPassword}
                     container={g.container}
+                    encrypted={data.encrypted}
                     onSaved={refresh}
                   />
                 ) : undefined
@@ -161,6 +177,7 @@ export function ManageDialog({
                   path={e.path}
                   access={access}
                   lock={lockExplanation(access, "collection", e.collectionName)}
+                  encrypted={data.encrypted}
                   settings={
                     e.canManage ? (
                       <PlaceSettingsFields
@@ -181,7 +198,7 @@ export function ManageDialog({
                         title={`Remove from ${e.collectionName}`}
                         className="text-muted-foreground"
                         disabled={pending}
-                        onClick={() => run(() => removeEntry(e.entryId))}
+                        onClick={() => run((currentPassword) => removeEntry(e.entryId, currentPassword))}
                       >
                         <XIcon />
                       </Button>
@@ -194,6 +211,7 @@ export function ManageDialog({
                         id={e.entryId}
                         hasOwnPassword={e.state.hasOwnPassword}
                         container={e.container}
+                        encrypted={data.encrypted}
                         onSaved={refresh}
                       />
                     ) : undefined
@@ -206,10 +224,12 @@ export function ManageDialog({
             <AddToCollection
               addable={data.addable}
               disabled={pending}
-              onAdd={(id) => run(() => addToCollection(data.publicationId, id))}
+              onAdd={(id) => run((currentPassword) => addToCollection(data.publicationId, id, currentPassword))}
             />
           )}
         </section>
+
+        {data.canManagePage && <EncryptionSection data={data} onChanged={refresh} />}
 
         {data.canManagePage && (
           <div className="flex justify-end border-t pt-3">
@@ -256,6 +276,7 @@ function PlaceRow({
   empty,
   access,
   lock,
+  encrypted,
   listing,
   settings,
   action,
@@ -266,6 +287,7 @@ function PlaceRow({
   empty?: string;
   access: keyof typeof ACCESS_LABELS;
   lock?: string;
+  encrypted?: boolean;
   listing: keyof typeof LISTING_LABELS;
   /** Its settings, for people who can change this place. */
   settings?: React.ReactNode;
@@ -288,7 +310,7 @@ function PlaceRow({
         </div>
         {action && <div className="flex shrink-0 items-center">{action}</div>}
       </div>
-      {path && (settings ?? <PlaceBadges access={access} listing={listing} lock={lock} />)}
+      {path && (settings ?? <PlaceBadges access={access} listing={listing} lock={lock} encrypted={encrypted} />)}
       {path && password && (
         <Button
           variant="ghost"
@@ -310,17 +332,19 @@ function PlaceBadges({
   access,
   listing,
   lock,
+  encrypted,
 }: {
   access: keyof typeof ACCESS_LABELS;
   listing: keyof typeof LISTING_LABELS;
   lock?: string;
+  encrypted?: boolean;
 }) {
   return (
     <span className="flex flex-wrap gap-1">
       <Badge variant="outline">{LISTING_LABELS[listing]}</Badge>
       {access !== "open" && (
         <Badge variant="outline" title={lock} className="cursor-help">
-          <LockIcon /> {ACCESS_LABELS[access]}
+          {encrypted ? <LockKeyholeIcon /> : <LockIcon />} {encrypted ? "Encrypted" : ACCESS_LABELS[access]}
         </Badge>
       )}
     </span>

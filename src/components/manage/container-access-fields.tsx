@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FieldDescription, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import type { Access } from "@/db/schema";
 import { Choice, readOptions } from "./choice";
 
@@ -17,6 +18,10 @@ export type ContainerAccess = {
   /** A new password, or "" to keep the current one. */
   password: string;
   clearPassword: boolean;
+  /** The password now, needed to change it while encrypted pages use it. */
+  currentPassword?: string;
+  /** Change it without the current one: the encrypted pages need republishing. */
+  resetEncrypted?: boolean;
 };
 
 
@@ -32,6 +37,7 @@ export function ContainerAccessFields({
   pageCount,
   value,
   hasPassword,
+  encryptedPages = [],
   onChange,
 }: {
   kind: "graph" | "collection";
@@ -42,8 +48,13 @@ export function ContainerAccessFields({
   value: ContainerAccess;
   /** Saved password, not the one being typed. */
   hasPassword: boolean;
+  /** Titles of encrypted pages that open with this password. */
+  encryptedPages?: string[];
   onChange: (v: ContainerAccess) => void;
 }) {
+  const [resetOpen, setResetOpen] = useState(false);
+  const encrypted = encryptedPages.length;
+  const pagesWord = `${encrypted.toLocaleString("en-US")} encrypted ${encrypted === 1 ? "page" : "pages"}`;
   const set = (patch: Partial<ContainerAccess>) => onChange({ ...value, ...patch });
   const usesPassword = value.indexAccess === "password" || value.defaultAccess === "password";
   const willHavePassword = value.password ? true : value.clearPassword ? false : hasPassword;
@@ -87,8 +98,67 @@ export function ContainerAccessFields({
         <FieldDescription>
           {usesPassword && !willHavePassword
             ? "Set a password to use password access."
-            : "Changing it signs out everyone who unlocked with the old one. Pages with their own password keep it."}
+            : `${encrypted ? `It opens ${pagesWord}, so it needs at least ${ENCRYPT_PASSWORD_MIN} characters. ` : ""}Changing it signs out everyone who unlocked with the old one. Pages with their own password keep it.`}
         </FieldDescription>
+        {encrypted > 0 && value.password && !value.resetEncrypted && (
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor={`${kind}-current-password`}>Current {kind} password</FieldLabel>
+            <Input
+              id={`${kind}-current-password`}
+              type="password"
+              autoComplete="current-password"
+              value={value.currentPassword ?? ""}
+              onChange={(e) => set({ currentPassword: e.target.value })}
+            />
+            <FieldDescription>Needed to keep the {pagesWord} readable with the new password.</FieldDescription>
+            <Button type="button" variant="link" size="sm" className="self-start px-0" onClick={() => setResetOpen(true)}>
+              Forgot it? Reset without the current password
+            </Button>
+          </div>
+        )}
+        {encrypted > 0 && value.password && value.resetEncrypted && (
+          <p className="rounded-sm border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs">
+            Saving resets the password. The {pagesWord} can&apos;t be read with it until you republish them from Roam.{" "}
+            <button type="button" className="text-link hover:underline" onClick={() => set({ resetEncrypted: false })}>
+              Undo
+            </button>
+          </p>
+        )}
+        <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reset the {label} password?</DialogTitle>
+              <DialogDescription>
+                Without the current password, {encrypted === 1 ? "this encrypted page" : `these ${encrypted} encrypted pages`}{" "}
+                can&apos;t be opened with the new one. {encrypted === 1 ? "It stays" : "They stay"} unreadable until you
+                republish {encrypted === 1 ? "it" : "them"} from Roam. Readers see that the page is being updated.
+              </DialogDescription>
+            </DialogHeader>
+            <ul className="max-h-48 divide-y overflow-y-auto rounded-sm border text-sm">
+              {encryptedPages.map((t, i) => (
+                <li key={i} className="px-3 py-2 break-words">
+                  {t}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">A page that&apos;s also in a place with another password stays readable there.</p>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setResetOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  set({ resetEncrypted: true, currentPassword: "" });
+                  setResetOpen(false);
+                }}
+              >
+                Reset password
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         {hasPassword && !value.clearPassword && !usesPassword && (
           <Button type="button" variant="link" size="sm" className="self-start px-0" onClick={() => set({ password: "", clearPassword: true })}>
             Remove the {kind} password
@@ -151,7 +221,7 @@ function ApplyToPagesDialog({
           <DialogTitle>Change all {pages}</DialogTitle>
           <DialogDescription>
             Sets who can read every page in this {kind}, including pages you set one by one. Pages with their own
-            password keep it.
+            password keep it, and encrypted pages keep Password.
           </DialogDescription>
         </DialogHeader>
         <Choice

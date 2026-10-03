@@ -3,6 +3,8 @@ import { z } from "zod";
 import { db } from "@/db";
 import { graph, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
+import { emptyTree, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
+import { keyedHash } from "@/lib/keyed-hash";
 import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
 import { changeLogStatusOf, logChange, validTimeZone } from "@/lib/changelog";
@@ -81,8 +83,9 @@ export const GET = withRoute("GET /api/ext/publications", async (req: Request) =
       url: urls.get(p.id),
       shortUrl: links.has(p.rootUid) ? shortUrl(links.get(p.rootUid)!.id) : null,
       anchorUid: links.get(p.rootUid)?.anchorUid ?? null,
-      contentHash: p.contentHash,
+      contentHash: plainHash(p),
       visibility: p.visibility,
+      encrypted: p.encrypted,
       removed: !!p.removedAt,
       mine: ctx.role === "owner" || p.publishedBy === ctx.userId,
       updatedAt: p.updatedAt,
@@ -141,31 +144,46 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     const url = (await primaryUrls(ctx.graphName, [{ ...existing, title }])).get(existing.id);
     // Older extensions don't send an author; leave the stored one alone then.
     const authorChanged = p.author !== undefined && authorName !== existing.authorName;
-    if (existing.contentHash === hash && !authorChanged)
+    const before = plainHash(existing);
+    // A republish that needs its keys again (a password was reset) isn't "unchanged".
+    const same = before === hash && !existing.needsRepublish;
+    if (same && !authorChanged)
       return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility, changeLog: await changeLogStatusOf(ctx.graphId) });
-    await db
-      .update(publication)
-      .set(
-        existing.contentHash === hash
-          ? { authorName }
-          : {
-              title,
-              tree,
-              // Website tag edits survive republishing.
-              ...indexFields(tree, existing),
-              contentHash: hash,
-              kind: p.kind,
-              updatedAt: new Date(),
-              ...(p.author !== undefined && { authorName }),
-            },
-      )
-      .where(eq(publication.id, existing.id));
+    await db.transaction(async (tx) => {
+      // An encrypted page stays encrypted: the new content is sealed to its passwords' public keys.
+      const content = existing.encrypted
+        ? {
+            ...(await sealNewContent(tx, existing.id, tree)),
+            tree: emptyTree(existing.rootUid),
+            searchText: "",
+            tags: [],
+            contentHash: sealHash(existing.id, hash),
+          }
+        : { tree, ...indexFields(tree, existing), contentHash: hash };
+      await tx
+        .update(publication)
+        .set(
+          same
+            ? { authorName }
+            : {
+                title,
+                // Website tag edits survive republishing.
+                ...content,
+                kind: p.kind,
+                updatedAt: new Date(),
+                ...(p.author !== undefined && { authorName }),
+              },
+        )
+        .where(eq(publication.id, existing.id));
+    });
     // Keyed by the state it changed from, so a retried or concurrent request for the same change is
-    // logged once, while every later edit (even back to earlier content) gets its own entry.
-    const from = `${existing.contentHash}@${existing.updatedAt.getTime()}`;
-    if (existing.contentHash === hash)
-      logChange(page, `Byline changed to "${authorName ?? "(none)"}"`, `byline:${from}:${existing.authorName ?? ""}>${authorName ?? ""}`);
-    else logChange(page, "Republished", `content:${from}>${hash}`);
+    // logged once, while every later edit (even back to earlier content) gets its own entry. An
+    // encrypted page's hashes stay out of the log's keys.
+    const key = (k: string) => (existing.encrypted ? keyedHash("changelog-key", k) : k);
+    const from = `${before}@${existing.updatedAt.getTime()}`;
+    if (same)
+      logChange(page, `Byline changed to "${authorName ?? "(none)"}"`, key(`byline:${from}:${existing.authorName ?? ""}>${authorName ?? ""}`));
+    else logChange(page, "Republished", key(`content:${from}>${hash}`));
     return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, changeLog: await changeLogStatusOf(ctx.graphId) });
   }
 

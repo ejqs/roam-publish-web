@@ -6,7 +6,7 @@ import { DashboardLink } from "@/components/dashboard-link";
 import { ManageLink } from "@/components/manage-link";
 import { FeedLink } from "@/components/feed-link";
 import { GateNotice } from "@/components/gate-notice";
-import { PublicationView } from "@/components/publication-view";
+import { dashboardHref, PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
 import { PageLinks } from "@/components/roam/markup";
@@ -17,6 +17,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { db } from "@/db";
 import { collectionEntry, graph, publication, publicationVote, user } from "@/db/schema";
 import { canManageEntry, collectionRole, resolveC } from "@/lib/collections";
+import { readEncrypted } from "@/lib/encryption";
 import { collectionFeedPath, hasCollectionFeed } from "@/lib/feeds";
 import {
   type Container,
@@ -238,16 +239,24 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
   const me = await viewerId();
   const [cRole, gRole] = me ? await Promise.all([collectionRole(me, c.id), graphRole(me, pub.graphId)]) : [null, null];
   const manager = !!me && (canManageEntry(cRole, me, entry) || canManage(gRole, me, pub));
-  const blocker = await gate(access, pageLock(container, place), { member: !!cRole, manager, signedIn: !!me });
-  if (blocker)
+  const lock = pageLock(container, place);
+  // An encrypted page can't be read without its password, whoever the reader is.
+  const opened = pub.encrypted ? await readEncrypted(pub, access, lock) : null;
+  const blocker = opened ? ("blocker" in opened ? opened.blocker : null) : await gate(access, lock, { member: !!cRole, manager, signedIn: !!me });
+  if (blocker) {
+    const m = manager && me ? (await manageDataFor(me, [pub.id])).get(pub.id) : undefined;
     return (
       <GateNotice
         blocker={blocker}
         what="page"
         next={path}
         title={entry.listing !== "unlisted" && c.indexAccess === "open" ? plainText(pub.title) : undefined}
+        members={c.name}
+        manageHref={m && dashboardHref(m)}
       />
     );
+  }
+  const tree = opened && "tree" in opened ? opened.tree : pub.tree;
 
   // Only open pages listed on Discover in an open, indexable collection can be upvoted.
   const onDiscover = entry.listing === "discover" && access === "open" && c.indexAccess === "open" && c.indexable;
@@ -302,7 +311,7 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
 
   return (
     <PublicationView
-      pub={pub}
+      pub={{ ...pub, tree }}
       crumbs={[{ label: c.name, href: collectionPath(c.slug) }, { label: plainText(pub.title) }]}
       links={links}
       related={related}

@@ -1,9 +1,19 @@
 "use client";
 
-import { ChevronRightIcon, CircleHelpIcon, CompassIcon, GlobeIcon, LinkIcon, LockIcon, UsersIcon } from "lucide-react";
+import {
+  ChevronRightIcon,
+  CircleHelpIcon,
+  CompassIcon,
+  GlobeIcon,
+  LinkIcon,
+  LockIcon,
+  LockKeyholeIcon,
+  UsersIcon,
+} from "lucide-react";
 import { useId, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ACCESS_DESCRIPTIONS, LISTING_LABELS } from "@/components/manage/labels";
+import { usePasswordPrompt } from "@/components/manage/password-prompt";
 import { placeViewsOptions, VIEWS_HELP, VIEWS_LABELS } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +48,7 @@ export type PlaceSettingsProps = {
 type PlaceInput = { access?: ReadAccess; showAuthor?: ShowAuthor; views?: PlaceViews; showViewCountries?: ShowAuthor };
 
 const NOT_ON_DISCOVER = "Only pages anyone can read go on Discover.";
+export const ENCRYPTED_ONLY_PASSWORD = "Encrypted pages can only use Password. Turn off encryption first.";
 
 /** What to warn about before a page goes onto or comes off Discover, or null when the change doesn't touch it. */
 function discoverWarning(from: Access, to: Access, protecting = false) {
@@ -65,6 +76,8 @@ export function usePlaceSettings({ target, access, discoverBlocked, place }: Pla
     showViewCountries: place.state.showViewCountries,
   });
   const [pending, start] = useTransition();
+  const passwordPrompt = usePasswordPrompt();
+  const encrypted = !!place.state.encrypted;
   const [askPassword, setAskPassword] = useState(false);
   const [note, setNote] = useState("");
   const [saved, setSaved] = useState(false);
@@ -109,7 +122,13 @@ export function usePlaceSettings({ target, access, discoverBlocked, place }: Pla
         ...(next.views && { views: next.views }),
         ...(next.showViewCountries && { showViewCountries: next.showViewCountries }),
       }));
-      done(target.kind === "graph" ? await updateGraphPlace(target.publicationId, next) : await updateEntry(target.entryId, next));
+      const res = await passwordPrompt.run((currentPassword) =>
+        target.kind === "graph"
+          ? updateGraphPlace(target.publicationId, { ...next, currentPassword })
+          : updateEntry(target.entryId, { ...next, currentPassword }),
+      );
+      // Null: they cancelled the password prompt, so nothing changed.
+      if (res) done(res);
     });
   }
 
@@ -131,8 +150,11 @@ export function usePlaceSettings({ target, access, discoverBlocked, place }: Pla
 
   async function savePassword(password: string) {
     const input = { access: "password" as const, password };
-    const res =
-      target.kind === "graph" ? await updateGraphPlace(target.publicationId, input) : await updateEntry(target.entryId, input);
+    const res = (await passwordPrompt.run((currentPassword) =>
+      target.kind === "graph"
+        ? updateGraphPlace(target.publicationId, { ...input, currentPassword })
+        : updateEntry(target.entryId, { ...input, currentPassword }),
+    )) ?? { ok: false, message: "" };
     if (res.ok) {
       setAskPassword(false);
       movedOffDiscover("password");
@@ -157,6 +179,8 @@ export function usePlaceSettings({ target, access, discoverBlocked, place }: Pla
     countries,
     byline,
     optimistic,
+    encrypted,
+    passwordPrompt: passwordPrompt.element,
     askPassword,
     setAskPassword,
     chooseReach,
@@ -186,15 +210,18 @@ export function AccessFields({ s, compact }: { s: PlaceSettings; compact?: boole
 
   const readSegments: Segment<ReadAccess>[] = (["open", "password", "members"] as const).map((v) => ({
     value: v,
-    label: READ_LABELS[v],
-    icon: READ_ICONS[v],
+    label: v === "password" && s.encrypted ? "Encrypted" : READ_LABELS[v],
+    icon: v === "password" && s.encrypted ? LockKeyholeIcon : READ_ICONS[v],
+    disabled: s.encrypted && v !== "password" ? ENCRYPTED_ONLY_PASSWORD : undefined,
   }));
   const readDescription = {
     open:
       container.defaultAccess !== "open"
         ? "Anyone with the link can read, even though the rest is protected."
         : "Anyone with the link. No sign-in or password needed.",
-    password: ACCESS_DESCRIPTIONS.password,
+    password: s.encrypted
+      ? "Readers enter the password. Encrypted pages can only use a password: turn off encryption to change this."
+      : ACCESS_DESCRIPTIONS.password,
     members: `Only people invited to publish to ${container.label}, once signed in.`,
   }[s.read];
 
@@ -232,6 +259,7 @@ export function AccessFields({ s, compact }: { s: PlaceSettings; compact?: boole
         />
         <p className={caption}>{s.askPassword ? "Readers enter a password. Set one to switch." : readDescription}</p>
         {s.askPassword && <SetPasswordForm onSave={s.savePassword} onCancel={() => s.setAskPassword(false)} />}
+        {s.passwordPrompt}
       </div>
       <div className="flex flex-col gap-1.5">
         <span id={`${id}-reach`} className={cn("font-medium", compact && "text-xs text-muted-foreground")}>

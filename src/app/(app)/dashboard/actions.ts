@@ -14,6 +14,7 @@ import { Description } from "@/lib/descriptions";
 import { clearGatedGraphDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { graphUnderModeration, purgeGraph } from "@/lib/deletion";
+import { dropLock, dropOrphanLockKeys, KeysError, setLockPassword } from "@/lib/encryption";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { hasVerifiedGraph } from "@/lib/profiles";
@@ -35,6 +36,7 @@ export async function unpublish(publicationId: string) {
       // locked so a republish can't undo the takedown.
       .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)))
       .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
+    await dropOrphanLockKeys(db);
     logChanges(deleted.map((p) => ({ ...p, text: "Unpublished on the website" })));
     revalidatePath("/dashboard", "layout");
     revalidatePath("/c/[id]", "layout");
@@ -50,7 +52,7 @@ export async function unpublish(publicationId: string) {
  */
 export type Access = "unlisted" | "public" | "discover";
 
-export type FormState = { ok: boolean; message: string } | null;
+export type FormState = { ok: boolean; message: string; needCurrentPassword?: boolean } | null;
 
 const ACCESS_LOG: Record<Access, string> = {
   unlisted: "Made unlisted",
@@ -220,6 +222,10 @@ const GraphAccess = z.object({
   /** A new graph password, or "" to keep the current one. */
   password: z.union([z.literal(""), Password]),
   clearPassword: z.boolean(),
+  /** The password now, when a new one is set and encrypted pages use it. */
+  currentPassword: z.string().max(200).optional(),
+  /** Set the new password without the current one: pages encrypted with it need republishing. */
+  resetEncrypted: z.boolean().optional(),
 });
 export type GraphAccess = z.input<typeof GraphAccess>;
 
@@ -242,7 +248,10 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
     const hasPassword = s.password ? true : s.clearPassword ? false : !!g.passwordHash;
     if ((s.indexAccess === "password" || s.defaultAccess === "password") && !hasPassword)
       return { ok: false, message: "Set a graph password to use password access." };
-    if (!s.clearPassword && s.password && !rateLimit(`password:user:${session.user.id}`, 30, 15 * 60 * 1000))
+    if (
+      ((!s.clearPassword && s.password) || s.currentPassword) &&
+      !rateLimit(`password:user:${session.user.id}`, 30, 15 * 60 * 1000)
+    )
       return { ok: false, message: "Too many changes. Try again in a few minutes." };
 
     const keep: string[] = [];
@@ -252,7 +261,12 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
     if (!hasPassword && (await pagesNeedingContainerPassword("graph", g.id)))
       return { ok: false, message: "Some pages still use the graph password. Change them first." };
 
+    try {
     await db.transaction(async (tx) => {
+      const lock = { scope: "graph", id: g.id, version: g.passwordVersion } as const;
+      if (s.password)
+        await setLockPassword(tx, lock, s.password, { currentPassword: s.currentPassword, reset: s.resetEncrypted });
+      else if (s.clearPassword) await dropLock(tx, lock);
       // The default is for pages published from now on: pages that followed the old one keep it.
       if (s.defaultAccess !== g.defaultAccess)
         await tx
@@ -279,6 +293,10 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
       if (keep.length)
         await tx.insert(graphDefaultCollection).values(keep.map((collectionId) => ({ graphId: g.id, collectionId })));
     });
+    } catch (e) {
+      if (e instanceof KeysError) return { ok: false, message: e.message, needCurrentPassword: e.need === "currentPassword" };
+      throw e;
+    }
     await clearGatedGraphDiscover(g.id);
 
     revalidatePath("/dashboard", "layout");

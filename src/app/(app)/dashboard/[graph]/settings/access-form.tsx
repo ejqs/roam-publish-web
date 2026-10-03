@@ -19,10 +19,13 @@ export function GraphAccessForm({
   pageCount,
   initial,
   collections,
+  encryptedPages,
 }: {
   graphId: string;
   graphName: string;
   pageCount: number;
+  /** Titles of encrypted pages that open with the graph password. */
+  encryptedPages: string[];
   initial: {
     indexAccess: Access;
     defaultAccess: Access;
@@ -62,7 +65,7 @@ export function GraphAccessForm({
       if (!res?.ok) return void toast.error(res?.message ?? "Couldn't save.");
       if (access.password) setHasPassword(true);
       if (access.clearPassword) setHasPassword(false);
-      setAccess((a) => ({ ...a, password: "", clearPassword: false }));
+      setAccess((a) => ({ ...a, password: "", clearPassword: false, currentPassword: "", resetEncrypted: false }));
       toast.success(res.message);
     });
   }
@@ -82,6 +85,7 @@ export function GraphAccessForm({
             pageCount={pageCount}
             value={access}
             hasPassword={hasPassword}
+            encryptedPages={encryptedPages}
             onChange={setAccess}
           />
           <FieldSeparator />

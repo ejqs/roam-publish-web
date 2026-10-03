@@ -11,6 +11,7 @@ import { ChangeLogForm } from "./change-log-form";
 import { DeleteGraphCard } from "./delete-graph";
 import { GraphSettingsForm } from "./settings-form";
 import { graphPagesPath } from "../../filters";
+import { sealedPageTitles } from "@/lib/encryption";
 import { ResourceHeader, resourceTabs } from "../../section-tabs";
 
 export const metadata: Metadata = { title: "Graph settings · Roam Publish" };
@@ -67,6 +68,7 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
           defaultCollections: defaults.map((d) => d.collectionId),
         }}
         collections={collections.filter((c) => !c.suspendedAt).map((c) => ({ id: c.id, name: c.name }))}
+        encryptedPages={await sealedPageTitles({ scope: "graph", id: g.id })}
       />
       <ChangeLogForm
         graphId={g.id}

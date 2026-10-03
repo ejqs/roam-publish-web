@@ -64,9 +64,12 @@ export type Viewer = {
 
 /** Why the reader can't see something yet, or null when they can. */
 export type Blocker =
-  | { need: "password"; lock: Lock | null }
+  /** `encrypted`: everyone needs the password, members too; `again`: they unlocked before it was encrypted. */
+  | { need: "password"; lock: Lock | null; encrypted?: boolean; again?: boolean }
   | { need: "signin" }
   | { need: "member" }
+  /** Encrypted, and a password it was encrypted with was reset: unreadable here until republished. */
+  | { need: "republish" }
   | null;
 
 export async function gate(access: Access, lock: Lock | null, viewer: Viewer): Promise<Blocker> {

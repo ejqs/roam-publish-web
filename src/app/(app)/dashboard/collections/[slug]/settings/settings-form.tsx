@@ -35,12 +35,15 @@ export function CollectionSettingsForm({
   initial,
   hasPassword: initialHasPassword,
   pageCount,
+  encryptedPages,
 }: {
   collectionId: string;
   slug: string;
   initial: Initial;
   hasPassword: boolean;
   pageCount: number;
+  /** Titles of encrypted pages that open with the collection password. */
+  encryptedPages: string[];
 }) {
   const router = useRouter();
   const [s, setS] = useState(initial);
@@ -61,7 +64,7 @@ export function CollectionSettingsForm({
       if (!res.ok) return void toast.error(res.message);
       if (access.password) setHasPassword(true);
       if (access.clearPassword) setHasPassword(false);
-      setAccess((a) => ({ ...a, password: "", clearPassword: false }));
+      setAccess((a) => ({ ...a, password: "", clearPassword: false, currentPassword: "", resetEncrypted: false }));
       toast.success(res.message);
       router.refresh();
     });
@@ -96,6 +99,7 @@ export function CollectionSettingsForm({
             pageCount={pageCount}
             value={access}
             hasPassword={hasPassword}
+            encryptedPages={encryptedPages}
             onChange={setAccess}
           />
           <FieldSeparator />

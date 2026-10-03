@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { GateNotice } from "@/components/gate-notice";
 import { PageLinks } from "@/components/roam/markup";
-import { PublicationView } from "@/components/publication-view";
+import { dashboardHref, PublicationView } from "@/components/publication-view";
 import { RemovedNotice } from "@/components/removed-notice";
 import { db } from "@/db";
 import { publication, publicationVote } from "@/db/schema";
@@ -22,6 +22,7 @@ import {
 import { canManage, canSearchSite, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { tagsOverlap } from "@/lib/list-query";
+import { readEncrypted } from "@/lib/encryption";
 import { manageDataFor } from "@/lib/manage-data";
 import { livePublication } from "@/lib/moderation";
 import { publicProfile } from "@/lib/profiles";
@@ -78,16 +79,24 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
   const me = await viewerId();
   const role = me ? await graphRole(me, g.id) : null;
   const manager = !!me && canManage(role, me, pub);
-  const blocker = await gate(access, pageLock(container, place), { member: !!role, manager, signedIn: !!me });
-  if (blocker)
+  const lock = pageLock(container, place);
+  // An encrypted page can't be read without its password, whoever the reader is.
+  const opened = pub.encrypted ? await readEncrypted(pub, access, lock) : null;
+  const blocker = opened ? ("blocker" in opened ? opened.blocker : null) : await gate(access, lock, { member: !!role, manager, signedIn: !!me });
+  if (blocker) {
+    const m = manager && me ? (await manageDataFor(me, [pub.id])).get(pub.id) : undefined;
     return (
       <GateNotice
         blocker={blocker}
         what="page"
         next={path}
         title={pub.visibility === "public" && g.indexAccess === "open" ? plainText(pub.title) : undefined}
+        members={g.name}
+        manageHref={m && dashboardHref(m)}
       />
     );
+  }
+  const tree = opened && "tree" in opened ? opened.tree : pub.tree;
 
   const showBreadcrumbs = pub.visibility === "public" || !g.hideUnlistedBreadcrumbs;
   // Only open pages listed on Discover can be upvoted.
@@ -159,7 +168,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
 
   return (
     <PublicationView
-      pub={pub}
+      pub={{ ...pub, tree }}
       crumbs={
         showBreadcrumbs
           ? [

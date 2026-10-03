@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, ChevronDownIcon, type LucideIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, LockKeyholeIcon, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -29,8 +29,9 @@ export type Option<T> = { value: T; label: string; description?: string; disable
 export function AccessMenu(props: PlaceSettingsProps) {
   const s = usePlaceSettings(props);
   const [open, setOpen] = useState(false);
-  const Icon = s.read === "open" ? ICONS[s.reach] : READ_ICONS[s.read];
-  const label = s.read === "open" ? LABELS[s.reach] : `${READ_LABELS[s.read]} · ${s.reach === "unlisted" ? "Not listed" : "Listed"}`;
+  const Icon = s.read === "open" ? ICONS[s.reach] : s.encrypted ? LockKeyholeIcon : READ_ICONS[s.read];
+  const readLabel = s.encrypted ? "Encrypted" : READ_LABELS[s.read];
+  const label = s.read === "open" ? LABELS[s.reach] : `${readLabel} · ${s.reach === "unlisted" ? "Not listed" : "Listed"}`;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

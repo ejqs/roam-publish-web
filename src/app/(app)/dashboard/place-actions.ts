@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -22,6 +22,16 @@ import { type Change, logChange, logChanges, logForPublications, roamInert } fro
 import { addEntry, canManageEntry, collectionRole } from "@/lib/collections";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { clearGatedCollectionDiscover, clearGatedGraphDiscover } from "@/lib/discover-rules";
+import {
+  contentKeyFor,
+  dropLock,
+  dropOrphanLockKeys,
+  KeysError,
+  setLockPassword,
+  spotsOf,
+  syncPublicationKeys,
+  type VersionedLock,
+} from "@/lib/encryption";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { collectionUrl, entryUrl } from "@/lib/publications";
@@ -33,7 +43,12 @@ import { withAction } from "@/lib/telemetry";
  * (/c/{entryUid}). Shared by the dashboard and the Manage dialog on published pages.
  */
 
-export type PlaceResult = { ok: boolean; message: string };
+export type PlaceResult = {
+  ok: boolean;
+  message: string;
+  /** The page is encrypted and the change needs one of its passwords: ask, and send it as `currentPassword`. */
+  needCurrentPassword?: boolean;
+};
 
 async function userId() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -58,6 +73,8 @@ const PlaceInput = z.object({
   password: Password.optional(),
   /** Drop this page's own password, so password access falls back to its graph's or collection's. */
   clearPassword: z.boolean().optional(),
+  /** For an encrypted page: a password that opens it now, when the change needs its content key. */
+  currentPassword: z.string().max(200).optional(),
 });
 export type PlaceInput = z.input<typeof PlaceInput>;
 
@@ -88,6 +105,37 @@ function describePlace(
   return parts;
 }
 
+/** Runs a change to an encrypted page's places, turning a refusal from its keys into a result. */
+async function withKeys(fn: () => Promise<PlaceResult>): Promise<PlaceResult> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof KeysError) return { ok: false, message: e.message, needCurrentPassword: e.need === "currentPassword" };
+    throw e;
+  }
+}
+
+/** The content key of an encrypted page, opened before a change that could stop the viewer's cookie fitting. */
+async function preKey(pub: { id: string; encrypted: boolean }, currentPassword?: string) {
+  return pub.encrypted ? contentKeyFor(db, pub, { passwords: currentPassword ? [currentPassword] : [] }) : null;
+}
+
+const triesLeft = (uid: string, input: { password?: string; currentPassword?: string }) =>
+  !(input.password || input.currentPassword) || rateLimit(`password:user:${uid}`, 30, 15 * 60 * 1000);
+
+/**
+ * A place's own password changed: keeps its key pair in step (the same one, re-encrypted, while
+ * encrypted pages are sealed to it), or drops it with the password. Runs inside the change's
+ * transaction, before the page's keys are synced.
+ */
+async function ownPasswordKeys(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  lock: VersionedLock,
+  input: { password?: string; clearPassword?: boolean; currentPassword?: string },
+) {
+  if (input.password) await setLockPassword(tx, lock, input.password, { currentPassword: input.currentPassword });
+}
+
 /** Applies a password change; returns the column updates. */
 function passwordUpdate(input: z.output<typeof PlaceInput>, current: { passwordVersion: number }) {
   if (input.password) return { passwordHash: hashPassword(input.password), passwordVersion: current.passwordVersion + 1 };
@@ -106,8 +154,7 @@ export async function updateGraphPlace(
     const parsed = PlaceInput.extend({ inGraph: z.boolean().optional() }).safeParse(raw);
     if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
     const input = parsed.data;
-    if (input.password && !rateLimit(`password:user:${uid}`, 30, 15 * 60 * 1000))
-      return { ok: false, message: "Too many changes. Try again in a few minutes." };
+    if (!triesLeft(uid, input)) return { ok: false, message: "Too many changes. Try again in a few minutes." };
 
     const [row] = await db
       .select({ pub: publication, g: graph })
@@ -132,17 +179,28 @@ export async function updateGraphPlace(
         return { ok: false, message: "Add it to a collection first, or unpublish it instead." };
     }
 
-    await db
-      .update(publication)
-      .set({
-        ...(input.access && { access: input.access }),
-        ...(input.showAuthor && { showAuthor: input.showAuthor }),
-        ...(input.views && { views: input.views }),
-        ...(input.showViewCountries && { showViewCountries: input.showViewCountries }),
-        ...(input.inGraph !== undefined && { inGraph: input.inGraph }),
-        ...passwordUpdate(input, pub),
-      })
-      .where(eq(publication.id, pub.id));
+    const ck = await preKey(pub, input.currentPassword);
+    const ownLock: VersionedLock = { scope: "publication", id: pub.id, version: pub.passwordVersion };
+    const saved = await withKeys(async () => {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(publication)
+          .set({
+            ...(input.access && { access: input.access }),
+            ...(input.showAuthor && { showAuthor: input.showAuthor }),
+            ...(input.views && { views: input.views }),
+            ...(input.showViewCountries && { showViewCountries: input.showViewCountries }),
+            ...(input.inGraph !== undefined && { inGraph: input.inGraph }),
+            ...passwordUpdate(input, pub),
+          })
+          .where(eq(publication.id, pub.id));
+        await ownPasswordKeys(tx, ownLock, input);
+        await syncPublicationKeys(tx, pub.id, { contentKey: ck });
+        if (input.clearPassword) await dropLock(tx, ownLock);
+      });
+      return { ok: true, message: "" };
+    });
+    if (!saved.ok) return saved;
     await clearGatedGraphDiscover(g.id);
     const log = describePlace("in the graph", input, pub, g.defaultAccess);
     if (input.inGraph !== undefined && input.inGraph !== pub.inGraph)
@@ -164,8 +222,7 @@ export async function updateEntry(
     const parsed = PlaceInput.extend({ listing: z.enum(ENTRY_LISTING).optional() }).safeParse(raw);
     if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
     const input = parsed.data;
-    if (input.password && !rateLimit(`password:user:${uid}`, 30, 15 * 60 * 1000))
-      return { ok: false, message: "Too many changes. Try again in a few minutes." };
+    if (!triesLeft(uid, input)) return { ok: false, message: "Too many changes. Try again in a few minutes." };
 
     const [row] = await db
       .select({ entry: collectionEntry, c: collection })
@@ -190,17 +247,32 @@ export async function updateEntry(
         return { ok: false, message: "Make the collection open and indexable to list its pages on Discover." };
     }
 
-    await db
-      .update(collectionEntry)
-      .set({
-        ...(input.access && { access: input.access }),
-        ...(input.showAuthor && { showAuthor: input.showAuthor }),
-        ...(input.views && { views: input.views }),
-        ...(input.showViewCountries && { showViewCountries: input.showViewCountries }),
-        ...(input.listing && { listing: input.listing }),
-        ...passwordUpdate(input, entry),
-      })
-      .where(eq(collectionEntry.id, entry.id));
+    const pub = await db.query.publication.findFirst({
+      where: eq(publication.id, entry.publicationId),
+      columns: { id: true, encrypted: true },
+    });
+    const ck = pub ? await preKey(pub, input.currentPassword) : null;
+    const ownLock: VersionedLock = { scope: "entry", id: entry.id, version: entry.passwordVersion };
+    const saved = await withKeys(async () => {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(collectionEntry)
+          .set({
+            ...(input.access && { access: input.access }),
+            ...(input.showAuthor && { showAuthor: input.showAuthor }),
+            ...(input.views && { views: input.views }),
+            ...(input.showViewCountries && { showViewCountries: input.showViewCountries }),
+            ...(input.listing && { listing: input.listing }),
+            ...passwordUpdate(input, entry),
+          })
+          .where(eq(collectionEntry.id, entry.id));
+        await ownPasswordKeys(tx, ownLock, input);
+        await syncPublicationKeys(tx, entry.publicationId, { contentKey: ck });
+        if (input.clearPassword) await dropLock(tx, ownLock);
+      });
+      return { ok: true, message: "" };
+    });
+    if (!saved.ok) return saved;
     await clearGatedCollectionDiscover(c.id);
     const log = describePlace(`in ${collectionLink(c)}`, input, entry, c.defaultAccess);
     if (input.listing && input.listing !== entry.listing)
@@ -211,13 +283,23 @@ export async function updateEntry(
   });
 }
 
-/** Adds a page you manage to a collection you own or belong to. */
-export async function addToCollection(publicationId: string, collectionId: string): Promise<PlaceResult> {
+/**
+ * Adds a page you manage to a collection you own or belong to. An encrypted page goes in with
+ * Password access, so the collection needs a password, and sealing its key there needs one of the
+ * page's passwords (`currentPassword`, unless the viewer unlocked it in this browser).
+ */
+export async function addToCollection(
+  publicationId: string,
+  collectionId: string,
+  currentPassword?: string,
+): Promise<PlaceResult> {
   return withAction("dashboard.places.addToCollection", async () => {
     const uid = await userId();
     if (!uid) return SESSION_EXPIRED;
+    if (currentPassword !== undefined && (currentPassword.length > 200 || !triesLeft(uid, { currentPassword })))
+      return { ok: false, message: "Too many tries. Try again in a few minutes." };
     const [pub] = await db
-      .select({ id: publication.id })
+      .select({ id: publication.id, encrypted: publication.encrypted })
       .from(publication)
       .where(and(eq(publication.id, publicationId), manageablePublications(uid)))
       .limit(1);
@@ -225,8 +307,30 @@ export async function addToCollection(publicationId: string, collectionId: strin
     if (!(await collectionRole(uid, collectionId))) return { ok: false, message: "Join that collection first." };
     const c = await db.query.collection.findFirst({ where: eq(collection.id, collectionId) });
     if (!c || c.suspendedAt) return { ok: false, message: "That collection isn't available." };
+    if (pub.encrypted && !c.passwordHash)
+      return { ok: false, message: `This page is encrypted. Give ${c.name} a password first, or turn off encryption.` };
+    const ck = await preKey(pub, currentPassword);
+    if (pub.encrypted && !ck)
+      return {
+        ok: false,
+        needCurrentPassword: true,
+        message: currentPassword ? "That password doesn't open this page." : "This page is encrypted. Enter its current password to add it.",
+      };
     const entry = await addEntry(collectionId, publicationId, uid);
     if (!entry) return { ok: false, message: "It's already in that collection." };
+    if (pub.encrypted) {
+      const sealed = await withKeys(async () => {
+        await db.transaction(async (tx) => {
+          await tx.update(collectionEntry).set({ access: "password", listing: "listed" }).where(eq(collectionEntry.id, entry.id));
+          await syncPublicationKeys(tx, pub.id, { contentKey: ck });
+        });
+        return { ok: true, message: "" };
+      });
+      if (!sealed.ok) {
+        await db.delete(collectionEntry).where(eq(collectionEntry.id, entry.id));
+        return sealed;
+      }
+    }
     await logForPublications([publicationId], (p) => `Added to collection ${collectionLink(c)}: ${entryUrl(c.slug, entry.entryUid, p.title)}`);
     revalidateAll();
     return { ok: true, message: `Added to ${c.name}.` };
@@ -237,10 +341,12 @@ export async function addToCollection(publicationId: string, collectionId: strin
  * Takes a page out of a collection: by whoever manages the entry, or whoever manages the page.
  * A page can't be left with no place at all; unpublish it instead.
  */
-export async function removeEntry(entryId: string): Promise<PlaceResult> {
+export async function removeEntry(entryId: string, currentPassword?: string): Promise<PlaceResult> {
   return withAction("dashboard.places.removeEntry", async () => {
     const uid = await userId();
     if (!uid) return SESSION_EXPIRED;
+    if (currentPassword !== undefined && (currentPassword.length > 200 || !triesLeft(uid, { currentPassword })))
+      return { ok: false, message: "Too many tries. Try again in a few minutes." };
     const entry = await db.query.collectionEntry.findFirst({ where: eq(collectionEntry.id, entryId) });
     if (!entry) return NOT_ALLOWED;
     const [managed] = await db
@@ -252,18 +358,37 @@ export async function removeEntry(entryId: string): Promise<PlaceResult> {
     const pub = await db.query.publication.findFirst({ where: eq(publication.id, entry.publicationId) });
     const c = await db.query.collection.findFirst({ where: eq(collection.id, entry.collectionId) });
     let backInGraph = false;
-    if (pub && !pub.inGraph) {
-      const others = await db.query.collectionEntry.findMany({
-        where: eq(collectionEntry.publicationId, entry.publicationId),
-        columns: { id: true },
+    const ck = pub ? await preKey(pub, currentPassword) : null;
+    const removed = await withKeys(async () => {
+      await db.transaction(async (tx) => {
+        if (pub && !pub.inGraph) {
+          const others = await tx.query.collectionEntry.findMany({
+            where: eq(collectionEntry.publicationId, entry.publicationId),
+            columns: { id: true },
+          });
+          // Its last place: put it back in its graph (unlisted) rather than strand it.
+          if (others.length <= 1) {
+            await tx.update(publication).set({ inGraph: true, visibility: "unlisted" }).where(eq(publication.id, pub.id));
+            backInGraph = true;
+          }
+        }
+        await tx.delete(collectionEntry).where(eq(collectionEntry.id, entry.id));
+        if (pub?.encrypted) {
+          // An encrypted page back in its graph uses Password there, when there's a password to use.
+          const [graphSpot] = await spotsOf(tx, pub.id);
+          if (backInGraph && !graphSpot.lock)
+            throw new KeysError(
+              `${c?.name ?? "This collection"} is the last place this page is shown, and ${graphSpot.label} has no password, so the encrypted page can't move back there. Unpublish it, or turn off encryption.`,
+            );
+          if (backInGraph && graphSpot.access !== "password")
+            await tx.update(publication).set({ access: "password" }).where(eq(publication.id, pub.id));
+          await syncPublicationKeys(tx, pub.id, { contentKey: ck });
+        }
       });
-      // Its last place: put it back in its graph (unlisted) rather than strand it.
-      if (others.length <= 1) {
-        await db.update(publication).set({ inGraph: true, visibility: "unlisted" }).where(eq(publication.id, pub.id));
-        backInGraph = true;
-      }
-    }
-    await db.delete(collectionEntry).where(eq(collectionEntry.id, entry.id));
+      return { ok: true, message: "" };
+    });
+    if (!removed.ok) return removed;
+    await dropOrphanLockKeys(db);
     if (pub)
       logChange(
         pub,
@@ -321,21 +446,43 @@ export async function applyAccessToAllPages(
             .select({ id: collectionEntry.publicationId, access: collectionEntry.access })
             .from(collectionEntry)
             .where(eq(collectionEntry.collectionId, c.id));
+    // Encrypted pages only use Password: they keep it.
+    const encryptedIds = new Set(
+      access === "password"
+        ? []
+        : (
+            await db
+              .select({ id: publication.id })
+              .from(publication)
+              .where(
+                and(
+                  eq(publication.encrypted, true),
+                  kind === "graph"
+                    ? eq(publication.graphId, c.id)
+                    : sql`${publication.id} in (select publication_id from collection_entry where collection_id = ${c.id})`,
+                ),
+              )
+          ).map((p) => p.id),
+    );
     const affected = before
-      .filter((p) => (p.access === "inherit" ? c.defaultAccess : p.access) !== access)
+      .filter((p) => !encryptedIds.has(p.id) && (p.access === "inherit" ? c.defaultAccess : p.access) !== access)
       .map((p) => p.id);
+    const notEncrypted =
+      kind === "graph"
+        ? sql`not ${publication.encrypted}`
+        : sql`${collectionEntry.publicationId} not in (select id from publication where encrypted)`;
 
     const updated =
       kind === "graph"
         ? await db
             .update(publication)
             .set({ access: value })
-            .where(eq(publication.graphId, c.id))
+            .where(and(eq(publication.graphId, c.id), encryptedIds.size ? notEncrypted : undefined))
             .returning({ id: publication.id })
         : await db
             .update(collectionEntry)
             .set({ access: value })
-            .where(eq(collectionEntry.collectionId, c.id))
+            .where(and(eq(collectionEntry.collectionId, c.id), encryptedIds.size ? notEncrypted : undefined))
             .returning({ id: collectionEntry.id });
     if (kind === "graph") await clearGatedGraphDiscover(c.id);
     else await clearGatedCollectionDiscover(c.id);
@@ -343,7 +490,8 @@ export async function applyAccessToAllPages(
     await logForPublications(affected, `Access ${where}: ${ACCESS_LABELS[access]} (applied to all pages)`);
     revalidateAll();
     const n = updated.length;
-    return { ok: true, message: `Updated ${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}.` };
+    const kept = encryptedIds.size ? ` ${ENCRYPTED_KEPT(encryptedIds.size)}` : "";
+    return { ok: true, message: `Updated ${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}.${kept}` };
   });
 }
 
@@ -357,6 +505,8 @@ const BulkInput = z.object({
 export type BulkInput = z.input<typeof BulkInput>;
 
 const plural = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
+const ENCRYPTED_KEPT = (n: number) =>
+  `${n.toLocaleString("en-US")} encrypted ${n === 1 ? "page" : "pages"} kept Password: turn off ${n === 1 ? "its" : "their"} encryption to change who can read ${n === 1 ? "it" : "them"}.`;
 
 /**
  * Changes where several pages are listed or who can read them, in their graphs. Pages the viewer
@@ -380,13 +530,15 @@ export async function bulkUpdatePublications(raw: BulkInput): Promise<PlaceResul
 
     let noPassword = 0;
     let notDiscover = 0;
+    let keptEncrypted = 0;
     let changed = 0;
     const log: Change[] = [];
     for (const { pub, g } of rows) {
       const set: Partial<typeof publication.$inferInsert> = {};
       let access = pub.access === "inherit" ? g.defaultAccess : pub.access;
       if (read) {
-        if (read === "password" && !pub.passwordHash && !g.passwordHash) noPassword++;
+        if (read !== "password" && pub.encrypted) keptEncrypted++;
+        else if (read === "password" && !pub.passwordHash && !g.passwordHash) noPassword++;
         else set.access = access = read;
       }
       if (reach === "unlisted") set.visibility = "unlisted";
@@ -414,6 +566,7 @@ export async function bulkUpdatePublications(raw: BulkInput): Promise<PlaceResul
     const notes = [
       noPassword && `${plural(noPassword)} kept their access: set a graph password, or one per page, to use Password.`,
       notDiscover && `${plural(notDiscover)} can't go on Discover while protected, so they're listed instead.`,
+      keptEncrypted && ENCRYPTED_KEPT(keptEncrypted),
     ].filter(Boolean);
     if (changed === 0) return { ok: false, message: notes.join(" ") || "Nothing changed." };
     return { ok: true, message: [`Updated ${plural(changed)}.`, ...notes].join(" ") };
@@ -435,6 +588,7 @@ export async function bulkUnpublish(raw: { ids: string[] }): Promise<PlaceResult
       .where(and(inArray(publication.id, parsed.data.ids), manageablePublications(uid)))
       .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
     if (deleted.length === 0) return NOT_ALLOWED;
+    await dropOrphanLockKeys(db);
     logChanges(deleted.map((p) => ({ ...p, text: "Unpublished on the website" })));
     revalidateAll();
     const skipped = parsed.data.ids.length - deleted.length;
@@ -458,9 +612,10 @@ export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
     const { ids, reach, read } = parsed.data;
 
     const rows = await db
-      .select({ entry: collectionEntry, c: collection })
+      .select({ entry: collectionEntry, c: collection, encrypted: publication.encrypted })
       .from(collectionEntry)
       .innerJoin(collection, eq(collection.id, collectionEntry.collectionId))
+      .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
       .where(inArray(collectionEntry.id, ids));
     const roles = new Map<string, Awaited<ReturnType<typeof collectionRole>>>();
     for (const id of new Set(rows.map((r) => r.c.id))) roles.set(id, await collectionRole(uid, id));
@@ -469,13 +624,15 @@ export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
 
     let noPassword = 0;
     let notDiscover = 0;
+    let keptEncrypted = 0;
     let changed = 0;
     const log = new Map<string, string[]>();
-    for (const { entry, c } of mine) {
+    for (const { entry, c, encrypted } of mine) {
       const set: Partial<typeof collectionEntry.$inferInsert> = {};
       let access = entry.access === "inherit" ? c.defaultAccess : entry.access;
       if (read) {
-        if (read === "password" && !entry.passwordHash && !c.passwordHash) noPassword++;
+        if (read !== "password" && encrypted) keptEncrypted++;
+        else if (read === "password" && !entry.passwordHash && !c.passwordHash) noPassword++;
         else set.access = access = read;
       }
       if (reach === "unlisted") set.listing = "unlisted";
@@ -501,6 +658,7 @@ export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
     const notes = [
       noPassword && `${plural(noPassword)} kept their access: set a collection password, or one per page, to use Password.`,
       notDiscover && `${plural(notDiscover)} can't go on Discover here, so they're listed instead.`,
+      keptEncrypted && ENCRYPTED_KEPT(keptEncrypted),
     ].filter(Boolean);
     if (changed === 0) return { ok: false, message: notes.join(" ") || "Nothing changed." };
     return { ok: true, message: [`Updated ${plural(changed)}.`, ...notes].join(" ") };
