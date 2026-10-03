@@ -1,0 +1,36 @@
+name: Changelog
+
+# A pull request into main that changes the app must add to CHANGELOG.md, which /updates shows. Label
+# it `no-changelog` when nothing in it is something the site's users would notice.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-changelog') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: CHANGELOG.md updated
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE...$HEAD")
+          if ! grep -qE '^(src|public|drizzle)/' <<<"$changed"; then
+            echo "No app changes, nothing to log."
+            exit 0
+          fi
+          if grep -qx 'CHANGELOG.md' <<<"$changed"; then
+            echo "CHANGELOG.md updated."
+            exit 0
+          fi
+          echo "::error file=CHANGELOG.md::This PR changes the app but not CHANGELOG.md. Add a bullet under today's date for each change users would notice (it shows on /updates), or label the PR no-changelog if there's none."
+          exit 1

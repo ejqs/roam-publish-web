@@ -18,6 +18,9 @@ bullet with each pull request that changes something they'd notice; leave out te
 - Moving a page onto or off Discover asks first.
 - New header for dashboard, graph and collection pages, with the API keys, Invites and Settings tabs in one row.
 - Page access is set with inline choices instead of a menu.
+- Graph settings are split: access defaults for new pages have their own **Defaults** tab.
+- The access settings are now called **Access control** (who can open a page) and **Visibility control** (where it's
+  listed).
 
 ### Published pages
 - Published pages show their view count, synced from our analytics. Members-only pages don't.
@@ -35,6 +38,8 @@ bullet with each pull request that changes something they'd notice; leave out te
 - Footer: source code for the website, the extension and the docs in one popup.
 
 ### Security
+- A page that uses Password everywhere it's published can be encrypted with its passwords (**Manage → Encryption**):
+  roam.pub stores no readable copy of it, and only readers with a password can open it.
 - Published pages can still be embedded in Roam, Notion or a blog; account pages can't be framed.
 - Front-page search no longer reveals text from protected pages.
 - IP addresses used for rate limits are cleared from memory once the limit ends, and the hashes of reporters' IP
