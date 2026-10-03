@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { graphsOf } from "@/lib/graph-access";
 import { keysOf } from "@/lib/keys";
 import { requireSession } from "@/lib/session";
+import { DashboardShell } from "../dashboard-shell";
 import { revokeKey } from "./actions";
 
 export const metadata: Metadata = { title: "API keys · Roam Publish" };
@@ -22,17 +23,17 @@ export default async function KeysPage() {
   const [graphs, keys] = await Promise.all([graphsOf(session.user.id), keysOf(session.user.id)]);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:py-12">
-      <div className="flex flex-col gap-1">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Dashboard
-        </Link>
-        <h1 className="text-2xl font-semibold">API keys</h1>
-        <p className="text-sm text-muted-foreground">
+    <DashboardShell
+      current="/dashboard/keys"
+      userId={session.user.id}
+      description={
+        <>
           The Roam Publish extension publishes with your key for that graph. Paste it in Roam under Settings → Roam
           Publish → API key. Lost it? Regenerate it here.
-        </p>
-      </div>
+        </>
+      }
+      narrow
+    >
       {graphs.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-start gap-3 text-sm">
@@ -75,6 +76,6 @@ export default async function KeysPage() {
           </Card>
         );
       })}
-    </div>
+    </DashboardShell>
   );
 }

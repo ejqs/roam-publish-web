@@ -5,6 +5,7 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
+/** Sends an email (or prints it without RESEND_API_KEY). Returns whether it went. */
 export async function sendEmail({
   to,
   subject,
@@ -18,7 +19,7 @@ export async function sendEmail({
 }) {
   if (!resend) {
     console.log(`\n[email] to=${to} subject=${subject}\n${text}\n`);
-    return;
+    return true;
   }
   const { error } = await timed(
     "resend",
@@ -33,4 +34,5 @@ export async function sendEmail({
     (r) => r.error?.message,
   );
   if (error) console.error("[email] send failed", error);
+  return !error;
 }

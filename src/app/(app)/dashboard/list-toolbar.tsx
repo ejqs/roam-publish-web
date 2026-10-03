@@ -1,14 +1,24 @@
-import { SearchIcon } from "lucide-react";
+import { BanIcon, CompassIcon, GlobeIcon, LinkIcon, type LucideIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KINDS, type KindFilter, type ListConfig, listHref, type ListState, PAGE_SIZE, sortHref } from "./filters";
+import { LinkMenu } from "./link-menu";
 
 const KIND_LABELS: Record<KindFilter, string> = { page: "Pages", block: "Blocks" };
 
+// The access menu's icons. Graphs call listed pages "public", collections "listed".
+const FILTER_ICONS: Record<string, LucideIcon | undefined> = {
+  unlisted: LinkIcon,
+  public: GlobeIcon,
+  listed: GlobeIcon,
+  discover: CompassIcon,
+  removed: BanIcon,
+};
+
 /**
- * Search, filters and sort for a dashboard page list. Everything lives in the URL, so it works
- * without JavaScript. `hidden` filters only show while they match something or are selected.
+ * Search, filters and sort for a dashboard page list. Everything lives in the URL; type and sort
+ * sit in small link menus. `hidden` filters only show while they match something or are selected.
  */
 export function ListToolbar<F extends string, S extends string>({
   cfg,
@@ -23,79 +33,86 @@ export function ListToolbar<F extends string, S extends string>({
   counts: Record<F | "all", number>;
   hidden?: F[];
 }) {
-  const chip = (active: boolean) =>
-    buttonVariants({ variant: active ? "secondary" : "ghost", size: "sm", className: "gap-1.5" });
   const filterOptions: (F | null)[] = [
     null,
     ...cfg.filters.filter((a) => !hidden.includes(a) || counts[a] > 0 || state.access === a),
   ];
+  const arrow = (s: S) => (s === "title" ? (state.desc ? "Z–A" : "A–Z") : state.desc ? "↓" : "↑");
 
   return (
     <div className="flex flex-col gap-3">
-      <form action={path} className="flex gap-2" role="search">
-        {/* Searching keeps the other filters and the sort. */}
-        {[...new URL(listHref(cfg, path, state, { q: "" }), "http://x").searchParams].map(([k, v]) => (
-          <input key={k} type="hidden" name={k} value={v} />
-        ))}
-        <Input
-          type="search"
-          name="q"
-          defaultValue={state.q}
-          placeholder="Search titles"
-          aria-label="Search titles"
-          className="h-8"
+      <div className="flex flex-wrap items-center gap-2">
+        <form action={path} className="relative min-w-0 flex-[1_1_16rem]" role="search">
+          {/* Searching keeps the other filters and the sort. */}
+          {[...new URL(listHref(cfg, path, state, { q: "" }), "http://x").searchParams].map(([k, v]) => (
+            <input key={k} type="hidden" name={k} value={v} />
+          ))}
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            name="q"
+            defaultValue={state.q}
+            placeholder="Filter by title"
+            aria-label="Filter by title"
+            className="pl-8"
+          />
+          <button type="submit" className="sr-only">
+            Search
+          </button>
+        </form>
+        <LinkMenu
+          label="Type"
+          value={state.kind ? KIND_LABELS[state.kind] : "Any"}
+          items={([null, ...KINDS] as const).map((k) => ({
+            href: listHref(cfg, path, state, { kind: k }),
+            label: k ? KIND_LABELS[k] : "Any type",
+            active: state.kind === k,
+          }))}
         />
-        <Button type="submit" variant="outline" size="sm">
-          <SearchIcon />
-          Search
-        </Button>
-      </form>
-
-      <div className="flex flex-wrap items-center gap-1 text-sm" role="group" aria-label="Filter by listing">
-        {filterOptions.map((a) => (
-          <Link
-            key={a ?? "all"}
-            href={listHref(cfg, path, state, { access: a })}
-            aria-current={state.access === a ? "true" : undefined}
-            className={chip(state.access === a)}
-          >
-            {a ? cfg.filterLabels[a] : "All"}
-            <span className="text-muted-foreground tabular-nums">{counts[a ?? "all"].toLocaleString("en-US")}</span>
-          </Link>
-        ))}
+        <LinkMenu
+          label="Sort"
+          value={
+            <>
+              {cfg.sortLabels[state.sort]}
+              <span aria-label={state.desc ? "descending" : "ascending"}>{arrow(state.sort)}</span>
+            </>
+          }
+          items={cfg.sorts.map((s) => ({
+            href: sortHref(cfg, path, state, s),
+            label: (
+              <span>
+                {cfg.sortLabels[s]}
+                {state.sort === s && <span className="ml-1 text-muted-foreground">{arrow(s)}</span>}
+              </span>
+            ),
+            active: state.sort === s,
+          }))}
+        />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
-        <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Filter by type">
-          {([null, ...KINDS] as const).map((k) => (
+      <div className="flex flex-wrap items-center gap-1 text-sm" role="group" aria-label="Filter by listing">
+        {filterOptions.map((a) => {
+          const Icon = a ? FILTER_ICONS[a] : undefined;
+          const active = state.access === a;
+          return (
             <Link
-              key={k ?? "any"}
-              href={listHref(cfg, path, state, { kind: k })}
-              aria-current={state.kind === k ? "true" : undefined}
-              className={chip(state.kind === k)}
+              key={a ?? "all"}
+              href={listHref(cfg, path, state, { access: a })}
+              aria-current={active ? "true" : undefined}
+              className={buttonVariants({
+                variant: "ghost",
+                size: "sm",
+                className: `gap-1.5 ${active ? "bg-muted font-medium text-foreground" : counts[a ?? "all"] === 0 ? "text-muted-foreground" : ""}`,
+              })}
             >
-              {k ? KIND_LABELS[k] : "Any type"}
+              {Icon && <Icon />}
+              {a ? cfg.filterLabels[a] : "All"}
+              <span className="font-normal text-muted-foreground tabular-nums">
+                {counts[a ?? "all"].toLocaleString("en-US")}
+              </span>
             </Link>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-1 text-muted-foreground">
-          <span className="mr-1">Sort</span>
-          {cfg.sorts.map((s) => (
-            <Link
-              key={s}
-              href={sortHref(cfg, path, state, s)}
-              aria-current={state.sort === s ? "true" : undefined}
-              className={chip(state.sort === s)}
-            >
-              {cfg.sortLabels[s]}
-              {state.sort === s && (
-                <span aria-label={state.desc ? "descending" : "ascending"}>
-                  {s === "title" ? (state.desc ? "Z–A" : "A–Z") : state.desc ? "↓" : "↑"}
-                </span>
-              )}
-            </Link>
-          ))}
-        </div>
+          );
+        })}
       </div>
       {state.q && (
         <p className="text-xs text-muted-foreground">

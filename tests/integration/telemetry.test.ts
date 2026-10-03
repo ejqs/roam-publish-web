@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { backgroundJob, endpointMetric } from "@/db/schema";
 import { checkHealth } from "@/lib/health";
 import { drainBuckets, record } from "@/lib/telemetry";
-import { flushMetrics, METRIC_RETENTION_MS, metricStats } from "@/lib/telemetry-stats";
+import { flushMetrics, isUnhealthy, METRIC_RETENTION_MS, metricStats } from "@/lib/telemetry-stats";
 import { resetDb } from "../helpers/db";
 
 const T = new Date("2026-01-01T10:00:30Z");
@@ -39,6 +39,21 @@ describe("metrics flush", () => {
     expect(stats.map((s) => s.name)).toEqual(["action a.b", "GET /ok"]);
     expect(stats[0]).toMatchObject({ kind: "action", count: 2, errors: 1, errorRate: 0.5, maxMs: 60, lastError: "nope" });
     expect(stats[0].p50).toBe(50);
+  });
+
+  test("rejected counts add up per status and flag a route most callers are refused by", async () => {
+    for (let i = 0; i < 5; i++) record("POST /p", "route", 10, undefined, T);
+    for (let i = 0; i < 20; i++) record("POST /p", "route", 10, undefined, T, 409);
+    record("POST /p", "route", 10, undefined, T, 401);
+    await flushMetrics(NEXT_MINUTE);
+    for (let i = 0; i < 4; i++) record("POST /p", "route", 10, undefined, T, 409);
+    await flushMetrics(NEXT_MINUTE);
+    const [row] = await db.select().from(endpointMetric);
+    expect(row.rejected).toEqual({ "409": 24, "401": 1 });
+    const [s] = await metricStats(new Date(T.getTime() - 60_000), NEXT_MINUTE);
+    expect(s).toMatchObject({ count: 30, errors: 0, rejected: [{ status: 409, n: 24 }, { status: 401, n: 1 }] });
+    expect(s.rejectedRate).toBeCloseTo(25 / 30);
+    expect(isUnhealthy(s)).toBe(true);
   });
 
   test("drops rows past retention", async () => {

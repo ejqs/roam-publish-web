@@ -54,8 +54,10 @@ describe("record", () => {
     record("GET /x", "route", 5, undefined, T);
     const drained = drainBuckets(LATER, true);
     record("GET /x", "route", 7, "late", T);
+    record("GET /x", "route", 7, undefined, T, 409);
+    drained[0].rejected = { 409: 2, 401: 1 };
     restoreBuckets(drained);
-    expect(only("GET /x")[0]).toMatchObject({ count: 2, errors: 1, sumMs: 12, lastError: "late" });
+    expect(only("GET /x")[0]).toMatchObject({ count: 3, errors: 1, sumMs: 19, lastError: "late", rejected: { 409: 3, 401: 1 } });
   });
 });
 
@@ -69,7 +71,7 @@ describe("wrappers", () => {
     await h(404);
     await h(503);
     await expect(h(0)).rejects.toThrow("crash");
-    expect(only("GET /r")[0]).toMatchObject({ count: 4, errors: 2, lastError: "crash" });
+    expect(only("GET /r")[0]).toMatchObject({ count: 4, errors: 2, lastError: "crash", rejected: { 404: 1 } });
   });
 
   test("withAction counts throws, not error results, and passes the result through", async () => {
