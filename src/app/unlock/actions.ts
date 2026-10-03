@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { collection, collectionEntry, graph, publication } from "@/db/schema";
 import { type Lock, setUnlocked, verifyPassword } from "@/lib/gates";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 const Input = z.object({
   scope: z.enum(["graph", "collection", "publication", "entry"]),
@@ -36,7 +36,7 @@ export async function unlock(input: z.input<typeof Input>): Promise<UnlockResult
   if (!parsed.success) return { ok: false, message: "Enter the password." };
   const { scope, id, password } = parsed.data;
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
+  const ip = clientIp(h);
   if (!rateLimit(`unlock:${ip}:${scope}:${id}`, 10, 15 * 60 * 1000))
     return { ok: false, message: "Too many tries. Wait a few minutes and try again." };
   const row = await current(scope, id);

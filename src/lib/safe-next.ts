@@ -1,7 +1,12 @@
-/** Only allow same-site relative redirects. */
+/**
+ * Only allow same-site relative redirects. Browsers drop tabs and newlines from URLs and read "\"
+ * as "/", so "/\t/evil.com" would become "//evil.com": anything with whitespace, a control
+ * character or a backslash is refused outright, and what's left must stay on the same origin.
+ */
 export function safeNext(next: string | null | undefined, fallback = "/dashboard") {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\"))
-    return fallback;
+  if (!next || !next.startsWith("/") || /[\s\\\u0000-\u001f\u007f]/.test(next)) return fallback;
+  const base = "https://same.invalid";
+  if (new URL(next, base).origin !== base) return fallback;
   return next;
 }
 

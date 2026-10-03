@@ -16,6 +16,7 @@ import { graphPath, loadGraph } from "@/lib/graphs";
 import { GRAPH_LIST, listHref, parseListState } from "@/lib/list-params";
 import { tagCounts } from "@/lib/list-query";
 import { livePublication } from "@/lib/moderation";
+import { openInContainer } from "@/lib/places";
 import { publicProfile } from "@/lib/profiles";
 import { viewerId } from "@/lib/viewer";
 import { cn } from "cn";
@@ -60,6 +61,8 @@ export default async function GraphTags(props: PageProps<"/[graph]/tags">) {
     eq(publication.inGraph, true),
     eq(publication.visibility, "public"),
     livePublication,
+    // Protected pages' tags come from their text: only members see them.
+    role ? undefined : openInContainer(publication.access, g.defaultAccess),
   );
   const [tags, owner] = await Promise.all([
     tagCounts(sql`from ${publication}`, visible, MAX_TAGS),

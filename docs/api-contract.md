@@ -90,8 +90,9 @@ when none is set).
 New publications are `unlisted` and go where the graph's "New pages go to" setting says (the graph, and/or
 collections the publisher belongs to). Republishing never changes visibility or access. A republish with the same
 hash but a different `author` updates only the byline (`status: "updated"`); omitting `author` leaves it as is.
-`400` invalid body or hash mismatch · `401` bad key · `403` removed by a moderator, or the page was published by
-another member · `413` payload too large (> 1 MB).
+`400` invalid body, hash mismatch, or a tree nested more than 200 levels (children and embeds) · `401` bad key ·
+`403` removed by a moderator, or the page was published by another member · `413` payload too large (> 1 MB, in
+bytes).
 
 ### `PATCH /api/ext/publications/:rootUid`
 Body `{ visibility: "public" | "unlisted" }` → `200 { visibility, url }`. Lists or unlists the page in its graph.

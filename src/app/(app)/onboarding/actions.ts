@@ -16,8 +16,8 @@ import { appendToDailyNote } from "@/lib/roam-append";
 // Routes that would shadow /{graph} or /dashboard/{graph}.
 const ROUTES = new Set([
   "admin", "api", "c", "collection", "collections", "dashboard", "discover", "forgot-password",
-  "invites", "keys", "login", "onboarding", "p", "report", "reset-password", "setup", "signup", "u",
-  "verify-email",
+  "invites", "keys", "login", "onboarding", "p", "report", "reset-password", "search", "settings", "setup",
+  "signup", "u", "unlock", "verify-email",
 ]);
 
 const Input = z.object({

@@ -82,6 +82,7 @@ export async function setAccess(publicationId: string, access: Access): Promise<
     .set(set)
     .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)))
     .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
+  if (!changed) return { ok: false, message: "You can't change this page." };
   // Only real changes are logged; unlisting leaves the Discover flag alone.
   const same =
     before?.visibility === set.visibility && (set.visibility === "unlisted" || before.discoverable === set.discoverable);

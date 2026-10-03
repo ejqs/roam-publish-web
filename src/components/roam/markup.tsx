@@ -149,6 +149,8 @@ function Component({ inner }: { inner: string }) {
   }
   if (name === "audio" && url) return <audio src={url} controls preload="metadata" className="my-1 block w-full" />;
   if (name === "pdf" && url) {
+    // <object> can't be sandboxed, so only other sites' files are embedded; ours are linked.
+    if (new URL(url).host === APP_HOST) return <LinkCard url={url} label="PDF" />;
     return (
       <object data={url} type="application/pdf" className="my-1 block h-[500px] w-full rounded-sm border border-border">
         <LinkCard url={url} label="PDF" />
