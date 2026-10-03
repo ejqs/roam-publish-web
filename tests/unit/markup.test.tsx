@@ -80,4 +80,12 @@ describe("nested page refs", () => {
     expect(out).toContain('href="/g/b">B</a>');
     expect(out).toContain(">#</span>");
   });
+
+  test("refs to unpublished pages are marked, not linked", () => {
+    for (const text of ["[[Missing]]", "[label]([[Missing]])", "#[[Missing]]", "[[Missing [[Inner]]]]"]) {
+      const out = render(text, [["inner", "/g/inner"]]);
+      expect(out).toContain('title="This page isn&#x27;t published"');
+      expect(out).not.toContain("Missing</a>");
+    }
+  });
 });
