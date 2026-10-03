@@ -66,7 +66,7 @@ function VisibilityBar({ total, segments }: { total: number; segments: Segment[]
           <span key={s.level} className={LEVEL_FILL[s.level]} style={{ width: `${(s.n / sum) * 100}%` }} />
         ))}
       </div>
-      <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+      <div className="flex flex-wrap gap-x-5 gap-y-0.5 text-xs text-muted-foreground">
         {shown.map((s) => {
           const text = `${fmt(s.n)} ${LEVEL_LABELS[s.level].toLowerCase()}${s.suffix ?? ""}`;
           const cls = s.level === "removed" ? "text-destructive" : "text-link";
