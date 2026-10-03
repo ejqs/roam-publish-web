@@ -10,7 +10,7 @@ import { AccessMenu } from "./access-menu";
 import { AllCheckbox, BulkSelect, RowCheckbox } from "./bulk-select";
 
 // One grid for header and rows, so columns line up from sm up. Below sm each row stacks instead.
-export const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_11rem_7.5rem_6.5rem] sm:items-center sm:gap-3";
+export const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_12.5rem_7.5rem_6.5rem] sm:items-center sm:gap-3";
 
 export const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { dateStyle: "medium" });
 
@@ -127,7 +127,8 @@ export function PublicationList({
                         place={m.graphPlace}
                       />
                     )}
-                    {!p.removedAt && p.inGraph && gAccess !== "open" && (
+                    {/* The access menu names it already. */}
+                    {!p.removedAt && p.inGraph && gAccess !== "open" && !m?.canManagePage && (
                       <p
                         title={lockExplanation(gAccess, "graph", g.name)}
                         className="mt-1 flex w-fit cursor-help items-center gap-1 text-xs text-muted-foreground"
