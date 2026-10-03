@@ -124,6 +124,8 @@ for the reasoning behind it.
 
 This is a third-party service made by [@ejqs](https://ejqs.net). Not affiliated with Roam Research.
 
+The code is licensed under the [MIT License](LICENSE).
+
 The site icon (🌍) and header logo (🌍📝) are from [Twemoji](https://github.com/jdecked/twemoji), © Twitter, Inc
 and other contributors, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). They are used
 unmodified: the icon is rendered to PNG and ICO in `src/app/`, and the logo images are in `public/emoji/`.
