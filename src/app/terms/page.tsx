@@ -59,6 +59,7 @@ const outline = [
   ]),
   block("**Changes**", [
     block("These terms may change. If a change matters, the date above changes and signed-up users are told by email."),
+    block("Every past version is in the [full change history](https://github.com/ejqs/roam-publish-web/commits/main/src/app/terms/page.tsx)."),
     block("Questions: ejqs [at] ejqs [dot] net."),
   ]),
 ];
