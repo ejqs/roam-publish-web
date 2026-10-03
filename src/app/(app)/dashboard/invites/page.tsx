@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { canReceiveInvite } from "@/lib/graph-access";
 import { pendingInvitesFor } from "@/lib/invites";
 import { requireSession } from "@/lib/session";
+import { DashboardShell } from "../dashboard-shell";
 import { InviteActions } from "./invite-actions";
 
 export const metadata: Metadata = { title: "Invites · Roam Publish" };
@@ -16,13 +17,12 @@ export default async function InvitesPage() {
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:py-12">
-      <div className="flex flex-col gap-1">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Dashboard
-        </Link>
-        <h1 className="text-2xl font-semibold">Invites</h1>
-      </div>
+    <DashboardShell
+      current="/dashboard/invites"
+      userId={session.user.id}
+      inviteCount={invites.length}
+      narrow
+    >
       {!eligible && invites.length > 0 && (
         <p className="text-sm text-muted-foreground">
           To accept, connect a graph of your own first (<Link href="/onboarding" className="text-link hover:underline">connect a graph</Link>).
@@ -52,6 +52,6 @@ export default async function InvitesPage() {
           </CardContent>
         </Card>
       ))}
-    </div>
+    </DashboardShell>
   );
 }

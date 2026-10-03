@@ -21,12 +21,12 @@ import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { AttentionBanners, attentionItems } from "./attention-banners";
 import { ChangeLogIssues } from "./change-log-issues";
+import { DashboardShell } from "./dashboard-shell";
 import { missingChangeLogBlocks } from "@/lib/changelog";
 import { AddCollectionDialog } from "./collections/create-form";
 import { type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
 import { LevelLegend, type ResourceItem, ResourceList } from "./resource-list";
-import { SectionTabs } from "./section-tabs";
 
 const EMPTY: AccessCounts = { unlisted: 0, public: 0, discover: 0, removed: 0 };
 
@@ -71,18 +71,6 @@ export default async function DashboardPage() {
       <AttentionBanners items={attentionItems({ graphs: owned, counts, me, invites: invites.length })} />
       <ChangeLogIssues issues={changeLogIssues} />
     </>
-  );
-  const nav = (
-    <SectionTabs
-      label="Dashboard sections"
-      current="/dashboard"
-      tabs={[
-        { href: "/dashboard", label: "Overview" },
-        { href: "/dashboard/keys", label: "API keys" },
-        { href: "/dashboard/invites", label: "Invites", count: invites.length },
-        { href: "/settings", label: "Settings" },
-      ]}
-    />
   );
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const sum = (k: "total" | "removed" | "discover") =>
@@ -212,7 +200,7 @@ export default async function DashboardPage() {
 
   if (graphs.length === 0) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
+      <DashboardShell current="/dashboard" userId={session.user.id} inviteCount={invites.length}>
         {banners}
         <Empty className="border">
           <EmptyHeader>
@@ -227,19 +215,14 @@ export default async function DashboardPage() {
             </Link>
           </EmptyContent>
         </Empty>
-        {nav}
         {profileCard}
         {collectionCards}
-      </div>
+      </DashboardShell>
     );
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        {nav}
-      </div>
+    <DashboardShell current="/dashboard" userId={session.user.id} inviteCount={invites.length}>
       {banners}
       {profileCard}
       <ResourceList
@@ -255,6 +238,6 @@ export default async function DashboardPage() {
         items={graphItems}
       />
       {collectionCards}
-    </div>
+    </DashboardShell>
   );
 }
