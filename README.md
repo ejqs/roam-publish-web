@@ -101,6 +101,13 @@ and kept two weeks.
 - **`GET /api/health`**: `200 {"status":"ok"}` while the database answers and the job worker has written a
   heartbeat in the last three minutes, else `503 {"status":"degraded","checks":{...}}`. Point Railway's
   healthcheck or an uptime monitor at it.
+- **Rejected**: 4xx answers are counted per status (e.g. `409 ×38`) next to errors, not as errors. A route where
+  over a quarter of 20+ calls are refused is flagged too: that's usually our bug, like the content hash drifting.
+- **Failure emails**: the `status-alerts` job checks the last 15 minutes every 5 minutes and emails a digest when
+  something starts failing, a reminder every 6 hours while it lasts, and an all-clear when it's fixed. It counts
+  3+ errors over 2% of calls, a slow p95 over 10+ calls, a mostly-refused route, or a failing, overdue or stalled job.
+  It goes to every user with better-auth's `admin` role; `ALERTS=off` stops it. It needs the
+  database and Resend, so pair it with an uptime monitor on `/api/health` for outages.
 - **Logs**: each failure or call over a second is one JSON line on stdout
   (`{"level":"error","metric":"GET /api/search","ms":…,"error":…}`); search Railway's logs with `@metric:…`.
 

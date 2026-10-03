@@ -2,7 +2,6 @@ import { count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/db";
 import { collectionEntry, publication, user } from "@/db/schema";
@@ -21,6 +20,7 @@ import {
   sortHref,
 } from "../../filters";
 import { ListEmpty, ListPagination, ListToolbar } from "../../list-toolbar";
+import { ResourceHeader, resourceTabs } from "../../section-tabs";
 import { EntryList } from "./entry-list";
 
 export const metadata: Metadata = { title: "Collection · Roam Publish" };
@@ -99,49 +99,37 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
-      <div className="flex flex-col gap-1">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Dashboard
-        </Link>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-2xl font-semibold break-words">{c.name}</h1>
-          <div className="flex gap-2">
-            <Link href={collectionPath(c.slug)} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-              View collection
+      <ResourceHeader
+        name={c.name}
+        caption={
+          <>
+            {totals.total.toLocaleString("en-US")} {totals.total === 1 ? "page" : "pages"} ·{" "}
+            <Link href={collectionPath(c.slug)} className="text-link hover:underline">
+              roam.pub{collectionPath(c.slug)}
             </Link>
-            <Link href={`${path}/members`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              Members
-            </Link>
-            {isOwner && (
-              <Link href={`${path}/settings`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                Settings
-              </Link>
+            {c.suspendedAt && (
+              <p className="text-destructive">
+                Suspended by a moderator{c.suspendedReason ? `: ${c.suspendedReason}` : "."}
+              </p>
             )}
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {totals.total.toLocaleString("en-US")} {totals.total === 1 ? "page" : "pages"} ·{" "}
-          <Link href={collectionPath(c.slug)} className="text-link hover:underline">
-            roam.pub{collectionPath(c.slug)}
-          </Link>
-        </p>
-        {c.suspendedAt && (
-          <p className="text-sm text-destructive">
-            Suspended by a moderator{c.suspendedReason ? `: ${c.suspendedReason}` : "."}
-          </p>
-        )}
-      </div>
+          </>
+        }
+        view={{ href: collectionPath(c.slug), label: "View collection" }}
+        tabs={resourceTabs(path, isOwner)}
+        current={path}
+      />
+
+      <ListToolbar
+        cfg={COLLECTION_LIST}
+        path={path}
+        state={state}
+        counts={{ all: totals.total, ...totals }}
+        hidden={["removed"]}
+      />
 
       {/* overflow-visible so the bulk-change bar can stick while scrolling. */}
       <Card className="overflow-visible">
         <CardContent className="flex flex-col gap-4">
-          <ListToolbar
-            cfg={COLLECTION_LIST}
-            path={path}
-            state={state}
-            counts={{ all: totals.total, ...totals }}
-            hidden={["removed"]}
-          />
           {rows.length === 0 ? (
             <ListEmpty filtered={filtered} path={path}>
               No pages yet. Add pages from a graph&apos;s list or a published page&apos;s Manage button.

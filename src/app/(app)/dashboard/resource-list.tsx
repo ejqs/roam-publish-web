@@ -1,26 +1,44 @@
 "use client";
 
-import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
-import { ChevronRightIcon, ExternalLinkIcon, MoreHorizontalIcon } from "lucide-react";
+import { ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
+import { CopyButton } from "@/components/copy-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "cn";
 
-export type Count = { n: number; href?: string; tone?: "destructive"; title?: string; suffix?: string };
+/** Where pages are listed. Each level is a step darker in light mode and lighter in dark. */
+export type Level = "unlisted" | "listed" | "discover" | "removed";
+
+const LEVEL_FILL: Record<Level, string> = {
+  unlisted: "bg-[#c5cbd3] dark:bg-[#5f6b7c]",
+  listed: "bg-[#8abbff] dark:bg-[#215db0]",
+  discover: "bg-[#215db0] dark:bg-[#8abbff]",
+  removed: "bg-destructive",
+};
+const LEVEL_LABELS: Record<Level, string> = {
+  unlisted: "Not listed",
+  listed: "Listed",
+  discover: "Discoverable",
+  removed: "Removed",
+};
+
+export type Segment = { level: Level; n: number; href?: string; title?: string; suffix?: string };
 
 export type ResourceItem = {
   id: string;
   anchor: string;
   name: string;
   manageHref: string;
+  /** Owner or Member. */
+  role: string;
   badges?: ReactNode;
-  /** Keyed by the list's column keys; a missing key renders as a dash. */
-  counts: Record<string, Count>;
-  /** Public page (front page / collection) when it exists. */
-  viewHref?: string;
-  viewLabel: string;
+  total: number;
+  segments: Segment[];
+  /** Public page (front page / collection) when it exists, with an absolute URL to copy. */
+  view?: { href: string; url: string; label: string };
   membersHref: string;
   settingsHref?: string;
   canManage: boolean;
@@ -28,154 +46,177 @@ export type ResourceItem = {
   note?: ReactNode;
 };
 
-const features = tableFeatures({});
-const helper = createColumnHelper<typeof features, ResourceItem>();
-
 const menuItem = "rounded-md px-2 py-1.5 text-sm hover:bg-muted";
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-function CountCell({ c }: { c?: Count }) {
-  if (!c || c.n === 0) return <span className="text-muted-foreground/50">–</span>;
-  const text = `${fmt(c.n)}${c.suffix ?? ""}`;
-  const cls = `tabular-nums ${c.tone === "destructive" ? "text-destructive" : ""}`;
-  if (!c.href) return <span className={`${cls} text-muted-foreground`}>{text}</span>;
+/** A thin bar split by listing level, with the non-zero counts under it. */
+function VisibilityBar({ total, segments }: { total: number; segments: Segment[] }) {
+  const shown = segments.filter((s) => s.n > 0);
+  if (!total || !shown.length) return <span className="text-muted-foreground/50">–</span>;
+  const sum = shown.reduce((a, s) => a + s.n, 0);
   return (
-    <Link href={c.href} title={c.title} className={`${cls} text-link hover:underline`}>
-      {text}
-    </Link>
+    <div className="flex flex-col gap-1.5">
+      <div
+        role="img"
+        aria-label={shown.map((s) => `${fmt(s.n)} ${LEVEL_LABELS[s.level].toLowerCase()}`).join(", ")}
+        className="flex h-1.5 overflow-hidden rounded-[1px] bg-muted"
+      >
+        {shown.map((s) => (
+          <span key={s.level} className={LEVEL_FILL[s.level]} style={{ width: `${(s.n / sum) * 100}%` }} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+        {shown.map((s) => {
+          const text = `${fmt(s.n)} ${LEVEL_LABELS[s.level].toLowerCase()}${s.suffix ?? ""}`;
+          const cls = s.level === "removed" ? "text-destructive" : "text-link";
+          return s.href ? (
+            <Link key={s.level} href={s.href} title={s.title} className={cn(cls, "hover:underline")}>
+              {text}
+            </Link>
+          ) : (
+            <span key={s.level} title={s.title}>
+              {text}
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
-/** One bordered table per kind of thing: name, one column per count, actions on the right. */
+/** The colour key for the bars, shown under a section title. */
+export function LevelLegend({ levels = ["unlisted", "listed", "discover"] }: { levels?: Level[] }) {
+  return (
+    <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-muted-foreground">
+      {levels.map((l) => (
+        <span key={l} className="flex items-center gap-1.5">
+          <span className={cn("size-2 rounded-[1px]", LEVEL_FILL[l])} />
+          {LEVEL_LABELS[l]}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** One bordered table per kind of thing: name, visibility, page count, actions on the right. */
 export function ResourceList({
   title,
   nameLabel,
-  columns: countColumns,
+  description,
+  action,
   items,
 }: {
   title: string;
   nameLabel: string;
-  /** The first column stays on phones; the rest appear from `sm` up. */
-  columns: { key: string; label: string }[];
+  /** Under the title, e.g. the legend. */
+  description?: ReactNode;
+  /** A button beside the title, e.g. "Connect graph". */
+  action?: ReactNode;
   items: ResourceItem[];
 }) {
-  const columns = helper.columns([
-    helper.display({
-      id: "name",
-      header: nameLabel,
-      cell: ({ row: { original: it } }) => (
-        <div className="flex items-center gap-2">
-          <Link href={it.manageHref} className="truncate font-medium hover:underline">
-            {it.name}
-          </Link>
-          {it.badges}
-          {it.viewHref && (
-            <Link
-              href={it.viewHref}
-              aria-label={it.viewLabel}
-              title={it.viewLabel}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <ExternalLinkIcon className="size-3.5" />
-            </Link>
-          )}
-        </div>
-      ),
-    }),
-    ...countColumns.map(({ key, label }) =>
-      helper.display({ id: key, header: label, cell: ({ row }) => <CountCell c={row.original.counts[key]} /> }),
-    ),
-    helper.display({
-      id: "actions",
-      header: () => <span className="sr-only">Actions</span>,
-      cell: ({ row: { original: it } }) => (
-        <div className="flex items-center justify-end gap-1">
-          {it.canManage && (
-            <Link href={it.manageHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
-              Manage pages
-              <ChevronRightIcon />
-            </Link>
-          )}
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button variant="ghost" size="icon-sm" aria-label={`More for ${it.name}`}>
-                  <MoreHorizontalIcon />
-                </Button>
-              }
-            />
-            <PopoverContent align="end" className="w-40 gap-0.5 p-1">
-              <Link href={it.membersHref} className={menuItem}>
-                Members
-              </Link>
-              {it.settingsHref && (
-                <Link href={it.settingsHref} className={menuItem}>
-                  Settings
-                </Link>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
-      ),
-    }),
-  ]);
-  const table = useTable({ features, columns, data: items, getRowId: (it) => it.id });
-  if (!items.length) return null;
-
-  const colClass = (id: string) =>
-    id === "name" || id === "actions" || id === countColumns[0]?.key
-      ? undefined
-      : "hidden text-right sm:table-cell";
-  const numeric = (id: string) => id !== "name" && id !== "actions";
-
   return (
-    <section className="flex flex-col gap-2" aria-label={title}>
-      <h2 className="px-1 text-sm font-medium text-muted-foreground">{title}</h2>
-      <div className="rounded-xl border bg-card">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((group) => (
-              <TableRow key={group.id}>
-                {group.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    className={`${colClass(header.column.id) ?? (numeric(header.column.id) ? "text-right" : "")} ${header.column.id === "name" ? "w-full" : ""}`}
-                  >
-                    <table.FlexRender header={header} />
-                  </TableHead>
-                ))}
+    <section className="flex flex-col gap-2.5" aria-label={title}>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-semibold">{title}</h2>
+          {description}
+        </div>
+        {action}
+      </div>
+      {items.length > 0 && (
+        <div className="rounded-sm bg-card shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)]">
+          <Table>
+            <TableHeader>
+              <TableRow className="text-xs">
+                <TableHead className="w-full">{nameLabel}</TableHead>
+                <TableHead className="hidden min-w-56 sm:table-cell">Visibility</TableHead>
+                <TableHead className="text-right">Pages</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.map((row) => {
-              const it = row.original;
-              return (
-                <Fragment key={row.id}>
-                  <TableRow id={it.anchor} className={`scroll-mt-4 ${it.note ? "border-b-0" : ""}`}>
-                    {row.getAllCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={`${colClass(cell.column.id) ?? (numeric(cell.column.id) ? "text-right" : "")} ${cell.column.id === "name" ? "max-w-0" : "whitespace-nowrap"}`}
-                      >
-                        <table.FlexRender cell={cell} />
-                      </TableCell>
-                    ))}
+            </TableHeader>
+            <TableBody>
+              {items.map((it) => (
+                <Fragment key={it.id}>
+                  <TableRow id={it.anchor} className={cn("scroll-mt-4", it.note && "border-b-0")}>
+                    <TableCell className="max-w-0 py-3">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <Link href={it.manageHref} className="truncate font-semibold hover:underline">
+                            {it.name}
+                          </Link>
+                          {it.badges}
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          {it.role}
+                          {it.view && (
+                            <>
+                              {" · "}
+                              <Link href={it.view.href} className="text-link hover:underline">
+                                {it.view.label}
+                              </Link>
+                              <CopyButton
+                                text={it.view.url}
+                                label={`Copy link to ${it.name}`}
+                                variant="ghost"
+                                size="icon-xs"
+                              />
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden py-3 sm:table-cell">
+                      <VisibilityBar total={it.total} segments={it.segments} />
+                    </TableCell>
+                    <TableCell className="py-3 text-right font-semibold tabular-nums">
+                      {it.total ? fmt(it.total) : <span className="font-normal text-muted-foreground/50">–</span>}
+                    </TableCell>
+                    <TableCell className="py-3 whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1">
+                        {it.canManage && (
+                          <Link href={it.manageHref} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                            Manage
+                            <ChevronRightIcon />
+                          </Link>
+                        )}
+                        <Popover>
+                          <PopoverTrigger
+                            render={
+                              <Button variant="ghost" size="icon-sm" aria-label={`More for ${it.name}`}>
+                                <MoreHorizontalIcon />
+                              </Button>
+                            }
+                          />
+                          <PopoverContent align="end" className="w-40 gap-0.5 p-1">
+                            <Link href={it.membersHref} className={menuItem}>
+                              Members
+                            </Link>
+                            {it.settingsHref && (
+                              <Link href={it.settingsHref} className={menuItem}>
+                                Settings
+                              </Link>
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </TableCell>
                   </TableRow>
                   {it.note && (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={columns.length} className="pt-0 whitespace-normal">
+                      <TableCell colSpan={4} className="pt-0 whitespace-normal">
                         <div className="flex flex-col gap-2">{it.note}</div>
                       </TableCell>
                     </TableRow>
                   )}
                 </Fragment>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </section>
   );
 }
