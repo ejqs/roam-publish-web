@@ -4,6 +4,7 @@ import { canSearchSite } from "@/lib/graph-access";
 import { rateLimit } from "@/lib/rate-limit";
 import { searchPages } from "@/lib/site-search";
 import { plainText } from "@/lib/slug";
+import { withRoute } from "@/lib/telemetry";
 
 export type QuickResult = { title: string; href: string; source: string; tags: string[] };
 
@@ -11,7 +12,7 @@ const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
 
 /** Top matches for quick search, from the same publicly listed pages as /search. Verified people only. */
-export async function GET(req: Request) {
+export const GET = withRoute("GET /api/search", async (req: Request) => {
   const q = (new URL(req.url).searchParams.get("q") ?? "").trim().slice(0, 200);
   const session = getSessionCookie(req) ? await auth.api.getSession({ headers: req.headers }) : null;
   const uid = session?.user.id ?? null;
@@ -27,4 +28,4 @@ export async function GET(req: Request) {
     tags: r.tags.slice(0, 4),
   }));
   return json({ results });
-}
+});

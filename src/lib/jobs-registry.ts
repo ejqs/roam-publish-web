@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { backgroundJob } from "@/db/schema";
 import { flushChangeLog } from "./changelog";
 import type { JobDef } from "./jobs";
+import { flushMetrics } from "./telemetry-stats";
 import { umamiDisabledReason } from "./umami";
 import { countrySweep, fullSweep, hotSweep, withClient } from "./view-sync";
 
@@ -31,6 +32,16 @@ export const JOBS: JobDef[] = [
       const pages = await flushChangeLog();
       return pages ? { pages } : null;
     },
+  },
+  {
+    name: "metrics-flush",
+    label: "Request metrics",
+    description: "Saves each minute's request counts and timings for /admin/status and drops those over two weeks old.",
+    schedule: "Every minute",
+    intervalMs: MINUTE,
+    exclusive: false,
+    disabledReason: () => null,
+    run: () => flushMetrics(),
   },
   {
     name: FULL_SWEEP,

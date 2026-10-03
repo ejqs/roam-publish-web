@@ -638,3 +638,25 @@ export const passwordUnlock = pgTable(
   },
   (t) => [primaryKey({ columns: [t.scope, t.targetId, t.passwordVersion] })],
 );
+
+/**
+ * Calls to each entry point (route handler, server action), outside service and page error, per
+ * minute: written by the metrics-flush job from lib/telemetry.ts, shown on /admin/status, kept two
+ * weeks. `hist` counts calls per latency bin (LATENCY_BINS), for percentiles.
+ */
+export const endpointMetric = pgTable(
+  "endpoint_metric",
+  {
+    name: text("name").notNull(),
+    minute: timestamp("minute", { withTimezone: true }).notNull(),
+    kind: text("kind", { enum: ["route", "action", "dep", "page"] }).notNull(),
+    count: integer("count").notNull().default(0),
+    errors: integer("errors").notNull().default(0),
+    sumMs: integer("sum_ms").notNull().default(0),
+    maxMs: integer("max_ms").notNull().default(0),
+    hist: integer("hist").array().notNull(),
+    lastError: text("last_error"),
+    lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.name, t.minute] }), index("endpoint_metric_minute_idx").on(t.minute)],
+);

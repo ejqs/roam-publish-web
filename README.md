@@ -33,6 +33,12 @@ cache revalidation) are stubbed in `tests/helpers/preload.ts`; Roam's Append API
 A `test.failing` is a known bug: it passes while the bug is there, and fails once it's fixed, so swap it for `test`.
 CI runs typecheck, lint and the tests on every PR.
 
+## Branch workflow
+
+1. Push changes to `develop` first. Railway's `staging` environment (the shadow database) deploys it. Its pre-deploy step (`bun run staging:check`) runs the full test suite against a throwaway `roam_publish_test` database on the staging Postgres, then migrates staging. Wait for that deploy to succeed.
+2. Only then open a PR from `develop` into `main`.
+3. Repeat for every later change; `develop` is always the staging branch for `main`.
+
 ## Schema changes
 
 Edit `src/db/app-schema.ts` (or re-run `bunx auth@latest generate --config src/lib/auth.ts --output src/db/auth-schema.ts`
@@ -82,6 +88,25 @@ Deleting can't be a way out of a moderation action:
 - When an account is deleted after a moderator acted on it, its email (hashed), graph names and usernames go on
   the `blocked_identity` blocklist, and its suspended collections keep their slugs. Sign-up, graph verification
   and username claims check the blocklist. Admins lift entries at `/admin/blocked`.
+
+## Monitoring
+
+Every route handler, server action and call to an outside service (Roam's Append API, Umami, Resend) is timed by
+`src/lib/telemetry.ts`; page render errors come in through `onRequestError` in `src/instrumentation.ts`. Counts,
+errors and a latency histogram are kept per minute in memory, saved to `endpoint_metric` by the `metrics-flush` job
+and kept two weeks.
+
+- **`/admin/status`**: health, then calls, error rate, p50/p95/max and the last error for each entry point over
+  the last hour, day or week. Rows past 2% errors or a slow p95 (2 s, 5 s for outside services) are flagged.
+- **`GET /api/health`**: `200 {"status":"ok"}` while the database answers and the job worker has written a
+  heartbeat in the last three minutes, else `503 {"status":"degraded","checks":{...}}`. Point Railway's
+  healthcheck or an uptime monitor at it.
+- **Logs**: each failure or call over a second is one JSON line on stdout
+  (`{"level":"error","metric":"GET /api/search","ms":…,"error":…}`); search Railway's logs with `@metric:…`.
+
+A new route handler must wrap each method in `withRoute(...)`, and a new server action its body in
+`return withAction(...)`; `tests/unit/entry-points.test.ts` fails otherwise. A thrown error or 5xx is a failure;
+an `{ ok: false }` result or a 4xx isn't. Page timings aren't recorded: Railway's HTTP metrics have them.
 
 ## Extension API
 
