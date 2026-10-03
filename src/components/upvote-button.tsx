@@ -25,7 +25,7 @@ export function UpvoteButton({ publicationId, initialCount }: { publicationId: s
 
   const inner = (
     <>
-      <ChevronUp className={state?.voted ? "text-primary" : undefined} strokeWidth={state?.voted ? 2.75 : 2} />
+      <ChevronUp className={state?.voted ? "size-4 text-primary" : "size-4"} strokeWidth={state?.voted ? 2.75 : 2} />
       <span className="tabular-nums">{count.toLocaleString("en-US")}</span>
       <span className="sr-only">{count === 1 ? "upvote" : "upvotes"}</span>
     </>
