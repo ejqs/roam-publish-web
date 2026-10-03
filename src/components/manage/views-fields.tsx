@@ -2,8 +2,8 @@
 
 import { Field, FieldContent, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
-import type { ViewsMode } from "@/db/schema";
-import { MIN_SHOWN_VIEWS } from "@/lib/views";
+import type { PlaceViews, ViewsMode } from "@/db/schema";
+import { viewsMode } from "@/lib/views";
 import { Choice, type ChoiceOption } from "./choice";
 
 export const VIEWS_LABELS: Record<ViewsMode, string> = {
@@ -13,10 +13,30 @@ export const VIEWS_LABELS: Record<ViewsMode, string> = {
 };
 
 export const VIEWS_DESCRIPTIONS: Record<ViewsMode, string> = {
-  show: `Listed pages show their count once they reach ${MIN_SHOWN_VIEWS} views. Unlisted pages show theirs only when set to.`,
+  show: "Listed pages show their count. Unlisted pages show theirs only when set to.",
   hide: "Visitors see nothing. You see the count with a crossed-out eye.",
-  off: "No counts anywhere, not even for you, and views aren't looked up.",
+  off: "No counts for anyone, and views aren't looked up. Managers can turn them back on from the page.",
 };
+
+/**
+ * A page's own view count choices. "Use …'s setting" names what inheriting means here: an unlisted
+ * page keeps its count to its managers even when its graph or collection shows counts.
+ */
+export function placeViewsOptions(container: { label: string; views: ViewsMode }, listed: boolean) {
+  const inherited = viewsMode(container, { views: "inherit" }, listed);
+  const options: { value: PlaceViews; label: string; short: string; description?: string }[] = [
+    {
+      value: "inherit",
+      label: `Use ${container.label}'s setting (${inherited === "hide" ? "managers only" : VIEWS_LABELS[inherited].toLowerCase()})`,
+      short: `${container.label}'s setting`,
+      description: !listed && container.views === "show" ? "Unlisted pages show their count only when set to Show." : undefined,
+    },
+    { value: "show", label: "Show", short: "Show", description: "Everyone sees the count." },
+    { value: "hide", label: "Only people who manage it", short: "Managers only", description: "Visitors see nothing; you see it with a crossed-out eye." },
+    { value: "off", label: "Off", short: "Off", description: "No count for anyone, and views aren't looked up." },
+  ];
+  return options;
+}
 
 /** A graph's or collection's view count settings. Pages can override both. */
 export function ContainerViewsFields({

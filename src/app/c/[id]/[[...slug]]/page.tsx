@@ -251,6 +251,7 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
 
   // Only open pages listed on Discover in an open, indexable collection can be upvoted.
   const onDiscover = entry.listing === "discover" && access === "open" && c.indexAccess === "open" && c.indexable;
+  const manageFor = me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : Promise.resolve(undefined);
   const [siblings, votes, byline, manage, views] = await Promise.all([
     liveEntries(c.id),
     onDiscover
@@ -261,15 +262,27 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
           .then(([v]) => v.n)
       : null,
     bylineFor(pub, showsAuthor(container, place)),
-    me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : undefined,
-    loadViewFooter({
-      mode: viewsMode(container, place, entry.listing !== "unlisted"),
-      countries: showsViewCountries(container, place),
-      manager,
-      passwordProtected: access === "password",
-      publicationId: pub.id,
-      entryId: entry.id,
-    }),
+    manageFor,
+    manageFor.then((m) =>
+      loadViewFooter({
+        mode: viewsMode(container, place, entry.listing !== "unlisted"),
+        countries: showsViewCountries(container, place),
+        manager,
+        lock: access === "password" ? pageLock(container, place) : null,
+        publicationId: pub.id,
+        entryId: entry.id,
+        // Only someone who can change this entry: a graph manager may not be one.
+        controls: m?.entries.find((e) => e.entryId === entry.id)?.canManage
+          ? {
+              target: { kind: "entry", entryId: entry.id },
+              views: entry.views,
+              showViewCountries: entry.showViewCountries,
+              container: { label: c.name, views: c.views, showViewCountries: c.showViewCountries },
+              listed: entry.listing !== "unlisted",
+            }
+          : null,
+      }),
+    ),
   ]);
   // [[links]] resolve to other pages in this collection.
   const links = new PageLinks(
