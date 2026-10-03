@@ -1,6 +1,7 @@
 "use client";
 
 import { LockKeyholeIcon, RefreshCwIcon, SearchIcon, ShieldCheckIcon, TriangleAlertIcon, TypeIcon, UsersIcon } from "lucide-react";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { setEncryption } from "@/app/(app)/dashboard/encryption-actions";
@@ -65,6 +66,8 @@ export function EncryptionSection({ data, onChanged }: { data: ManageData; onCha
   const spots = spotsOf(data);
   const blocked = spots.filter((s) => s.access !== "password" || !s.hasPassword);
   const canTurnOn = !data.encrypted && spots.length > 0 && blocked.length === 0;
+  // Encryption only works with a password, so it's offered once the page uses Password somewhere.
+  const usesPassword = spots.some((s) => s.access === "password");
 
   function close() {
     setConfirming(null);
@@ -113,6 +116,8 @@ export function EncryptionSection({ data, onChanged }: { data: ManageData; onCha
       onChanged();
     });
   }
+
+  if (!data.encrypted && !usesPassword) return null;
 
   return (
     <section className="flex flex-col gap-2.5 border-t pt-3">
@@ -276,6 +281,13 @@ export function EncryptionSection({ data, onChanged }: { data: ManageData; onCha
                   If the password is forgotten, we can&apos;t recover the page. Republish it from Roam to bring it back.
                 </li>
               </ul>
+              <p className="rounded-sm bg-muted px-3 py-2.5 text-xs text-muted-foreground">
+                This isn&apos;t end-to-end encryption: roam.pub decrypts the page to show it to readers, so it&apos;s only as safe as
+                you trust roam.pub and its host.{" "}
+                <Link href="/privacy/encryption" target="_blank" className="text-link hover:underline">
+                  How encrypted pages work
+                </Link>
+              </p>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <DialogFooter>
                 <Button variant="outline" onClick={close} disabled={pending}>
