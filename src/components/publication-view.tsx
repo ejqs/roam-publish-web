@@ -11,8 +11,10 @@ import { SiteFooter } from "@/components/site-footer";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UpvoteButton } from "@/components/upvote-button";
 import { ViewBeacon } from "@/components/view-beacon";
+import { PasswordViewsWarning, ViewCount } from "@/components/view-count";
 import type { publication } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
+import type { ViewFooter } from "@/lib/views-data";
 
 export type Byline = { label: string; href?: string } | null;
 
@@ -30,6 +32,7 @@ export function PublicationView({
   report,
   votes,
   countViews,
+  views = null,
   manage,
   afterUnpublish,
 }: {
@@ -46,6 +49,8 @@ export function PublicationView({
   votes: number | null;
   /** Record a view (open places only). */
   countViews: boolean;
+  /** The view count in the footer, when this reader gets one (lib/views-data.ts). */
+  views?: ViewFooter | null;
   /** Shown to people who can manage this page. */
   manage?: ManageData;
   afterUnpublish?: string;
@@ -105,11 +110,18 @@ export function PublicationView({
             </section>
           )}
           <div className="mt-12 flex items-center justify-between gap-4">
-            <p className="text-xs text-muted-foreground">
-              Last updated {pub.updatedAt.toLocaleDateString("en-US", { dateStyle: "medium" })}
+            <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+              <span>Last updated {pub.updatedAt.toLocaleDateString("en-US", { dateStyle: "medium" })}</span>
+              {views && (
+                <>
+                  <span aria-hidden>·</span>
+                  <ViewCount v={views} />
+                </>
+              )}
             </p>
             {votes !== null && <UpvoteButton publicationId={pub.id} initialCount={votes} />}
           </div>
+          {views?.passwordWarning && <PasswordViewsWarning v={views} />}
         </article>
         {countViews && <ViewBeacon publicationId={pub.id} />}
       </main>

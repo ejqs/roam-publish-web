@@ -5,7 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { ACCESS, collection, collectionEntry } from "@/db/schema";
+import { ACCESS, collection, collectionEntry, VIEWS_MODE } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { logForPublications, roamInert } from "@/lib/changelog";
 import { CollectionName, CollectionSlug, reservePath } from "@/lib/collections";
@@ -63,6 +63,8 @@ const Settings = z.object({
   indexAccess: z.enum(ACCESS),
   defaultAccess: z.enum(ACCESS),
   showAuthors: z.boolean(),
+  views: z.enum(VIEWS_MODE),
+  showViewCountries: z.boolean(),
   indexable: z.boolean(),
   featured: z.boolean(),
   discoverable: z.boolean(),
@@ -103,6 +105,8 @@ export async function updateCollection(collectionId: string, input: CollectionSe
       indexAccess: s.indexAccess,
       defaultAccess: s.defaultAccess,
       showAuthors: s.showAuthors,
+      views: s.views,
+      showViewCountries: s.showViewCountries,
       indexable: s.indexable,
       featured: s.featured && open && s.defaultAccess === "open",
       discoverable: s.discoverable && open,

@@ -52,6 +52,8 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
           indexAccess: c.indexAccess,
           defaultAccess: c.defaultAccess,
           showAuthors: c.showAuthors,
+          views: c.views,
+          showViewCountries: c.showViewCountries,
           indexable: c.indexable,
           featured: c.featured,
           discoverable: c.discoverable,

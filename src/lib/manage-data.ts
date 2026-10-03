@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { collection, collectionEntry, graph, publication } from "@/db/schema";
+import { collection, collectionEntry, graph, publication, type ViewsMode } from "@/db/schema";
 import { discoverBlocked } from "@/app/(app)/dashboard/filters";
 import { canManageEntry, collectionsOf } from "./collections";
 import { canManage, graphsOf } from "./graph-access";
@@ -25,7 +25,14 @@ export type ManageData = {
     /** Why the graph can't list pages on Discover right now, if it can't. */
     discoverBlocked?: string;
     state: PlaceState;
-    container: { label: string; defaultAccess: "open" | "password" | "members"; hasPassword: boolean; showAuthors: boolean };
+    container: {
+      label: string;
+      defaultAccess: "open" | "password" | "members";
+      hasPassword: boolean;
+      showAuthors: boolean;
+      views: ViewsMode;
+      showViewCountries: boolean;
+    };
   };
   entries: {
     entryId: string;
@@ -39,6 +46,8 @@ export type ManageData = {
       defaultAccess: "open" | "password" | "members";
       hasPassword: boolean;
       showAuthors: boolean;
+      views: ViewsMode;
+      showViewCountries: boolean;
       discoverBlocked?: string;
     };
   }[];
@@ -89,6 +98,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           access: entry.access,
           hasOwnPassword: !!entry.passwordHash,
           showAuthor: entry.showAuthor,
+          views: entry.views,
+          showViewCountries: entry.showViewCountries,
           listing: entry.listing,
         },
         container: {
@@ -96,6 +107,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           defaultAccess: c.defaultAccess,
           hasPassword: !!c.passwordHash,
           showAuthors: c.showAuthors,
+          views: c.views,
+          showViewCountries: c.showViewCountries,
           discoverBlocked: c.suspendedAt
             ? "This collection is suspended."
             : c.indexAccess !== "open"
@@ -120,12 +133,20 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
         frontPage: g.frontPage,
         indexable: g.indexable,
         discoverBlocked: discoverBlocked(g),
-        state: { access: pub.access, hasOwnPassword: !!pub.passwordHash, showAuthor: pub.showAuthor },
+        state: {
+          access: pub.access,
+          hasOwnPassword: !!pub.passwordHash,
+          showAuthor: pub.showAuthor,
+          views: pub.views,
+          showViewCountries: pub.showViewCountries,
+        },
         container: {
           label: g.name,
           defaultAccess: g.defaultAccess,
           hasPassword: !!g.passwordHash,
           showAuthors: g.showAuthors,
+          views: g.views,
+          showViewCountries: g.showViewCountries,
         },
       },
       entries,
