@@ -182,25 +182,27 @@ export function ResourceList({
                             <ChevronRightIcon />
                           </Link>
                         )}
-                        <Popover>
-                          <PopoverTrigger
-                            render={
-                              <Button variant="ghost" size="icon-sm" aria-label={`More for ${it.name}`}>
-                                <MoreHorizontalIcon />
-                              </Button>
-                            }
-                          />
-                          <PopoverContent align="end" className="w-40 gap-0.5 p-1">
-                            <Link href={it.membersHref} className={menuItem}>
-                              Members
-                            </Link>
-                            {it.settingsHref && (
-                              <Link href={it.settingsHref} className={menuItem}>
-                                Settings
+                        {!it.canManage && (
+                          <Popover>
+                            <PopoverTrigger
+                              render={
+                                <Button variant="ghost" size="icon-sm" aria-label={`More for ${it.name}`}>
+                                  <MoreHorizontalIcon />
+                                </Button>
+                              }
+                            />
+                            <PopoverContent align="end" className="w-40 gap-0.5 p-1">
+                              <Link href={it.membersHref} className={menuItem}>
+                                Members
                               </Link>
-                            )}
-                          </PopoverContent>
-                        </Popover>
+                              {it.settingsHref && (
+                                <Link href={it.settingsHref} className={menuItem}>
+                                  Settings
+                                </Link>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
