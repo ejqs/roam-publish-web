@@ -11,6 +11,7 @@ import type { DiscoverSort } from "@/app/discover/sort";
 export const DISCOVER_TAG = "discover";
 
 export type DiscoverRow = {
+  id: string;
   rootUid: string;
   kind: "page" | "block";
   title: string;
@@ -79,15 +80,15 @@ export function isListed(
 async function query(sort: DiscoverSort, limit: number, offset: number) {
   // Views in the last 7 days, aggregated over the created_at index only.
   const recentViews = db
-    .select({ publicationId: publicationView.publicationId, recentViewCount: count().as("recent_view_count") })
+    .select({ publicationId: publicationView.publicationId, views: count().as("recent_view_count") })
     .from(publicationView)
     .where(sql`${publicationView.createdAt} > now() - interval '7 days'`)
     .groupBy(publicationView.publicationId)
     .as("recent_views");
-  const views = sql<number>`coalesce(${recentViews.recentViewCount}, 0)`.mapWith(Number);
+  const views = sql<number>`coalesce(${recentViews.views}, 0)`.mapWith(Number);
   // All-time upvotes, grouped over the primary key.
   const allVotes = db
-    .select({ publicationId: publicationVote.publicationId, votes: count().as("votes") })
+    .select({ publicationId: publicationVote.publicationId, votes: count().as("vote_count") })
     .from(publicationVote)
     .groupBy(publicationVote.publicationId)
     .as("all_votes");
@@ -98,6 +99,7 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
     sql<string | null>`(select ${sql.raw(col)} ${entryFrom} where e.publication_id = ${publication.id} and ${entryOnDiscoverWhere} order by e.added_at limit 1)`;
   const base = db
     .select({
+      id: publication.id,
       rootUid: publication.rootUid,
       kind: publication.kind,
       title: publication.title,
@@ -148,7 +150,7 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
  * Cached for five minutes so traffic never multiplies the aggregate. Dashboard actions bust the
  * tag when listings change; view and vote counts are allowed to lag.
  */
-export const discoverPublications = unstable_cache(query, ["discover-publications-v2"], {
+export const discoverPublications = unstable_cache(query, ["discover-publications-v3"], {
   revalidate: 300,
   tags: [DISCOVER_TAG],
 });
