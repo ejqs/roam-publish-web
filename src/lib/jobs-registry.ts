@@ -48,7 +48,7 @@ export const JOBS: JobDef[] = [
     name: "status-alerts",
     label: "Failure emails",
     description:
-      "Emails the admins (or ALERT_EMAILS) when routes, actions, outside services or jobs start failing, every 6 hours while it lasts, and when it's fixed.",
+      "Emails the admins when routes, actions, outside services or jobs start failing, every 6 hours while it lasts, and when it's fixed.",
     schedule: "Every 5 minutes",
     intervalMs: 5 * MINUTE,
     exclusive: true,
