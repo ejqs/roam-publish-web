@@ -11,6 +11,7 @@ import type { DiscoverSort } from "@/app/discover/sort";
 export const DISCOVER_TAG = "discover";
 
 export type DiscoverRow = {
+  id: string;
   rootUid: string;
   kind: "page" | "block";
   title: string;
@@ -98,6 +99,7 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
     sql<string | null>`(select ${sql.raw(col)} ${entryFrom} where e.publication_id = ${publication.id} and ${entryOnDiscoverWhere} order by e.added_at limit 1)`;
   const base = db
     .select({
+      id: publication.id,
       rootUid: publication.rootUid,
       kind: publication.kind,
       title: publication.title,
@@ -148,7 +150,7 @@ async function query(sort: DiscoverSort, limit: number, offset: number) {
  * Cached for five minutes so traffic never multiplies the aggregate. Dashboard actions bust the
  * tag when listings change; view and vote counts are allowed to lag.
  */
-export const discoverPublications = unstable_cache(query, ["discover-publications-v2"], {
+export const discoverPublications = unstable_cache(query, ["discover-publications-v3"], {
   revalidate: 300,
   tags: [DISCOVER_TAG],
 });
