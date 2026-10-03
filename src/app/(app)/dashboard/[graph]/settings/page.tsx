@@ -70,6 +70,8 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
           defaultAccess: g.defaultAccess,
           hasPassword: !!g.passwordHash,
           showAuthors: g.showAuthors,
+          views: g.views,
+          showViewCountries: g.showViewCountries,
           newPagesInGraph: g.newPagesInGraph,
           defaultCollections: defaults.map((d) => d.collectionId),
         }}

@@ -12,6 +12,9 @@ process.env.NEXT_PUBLIC_APP_URL ??= "http://localhost:3000";
 process.env.APPEND_TOKEN_KEY ??= Buffer.alloc(32, 7).toString("base64");
 process.env.ROAM_APPEND_API = "http://roam-append.test";
 process.env.CHANGELOG_WORKER = "off";
+process.env.JOBS = "off";
+process.env.UMAMI_API_URL = "http://umami.test";
+process.env.UMAMI_API_KEY = "test-umami-key";
 delete process.env.RESEND_API_KEY;
 
 const { request } = await import("./request");

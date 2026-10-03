@@ -1,7 +1,9 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import type { Access, PlaceAccess, ShowAuthor } from "@/db/schema";
+import type { Access, PlaceAccess, PlaceViews, ShowAuthor, ViewsMode } from "@/db/schema";
+
+export { showsViewCountries, viewsMode } from "./views";
 
 /**
  * Access for graphs, collections and the pages in them.
@@ -19,6 +21,8 @@ export type Container = {
   passwordHash: string | null;
   passwordVersion: number;
   showAuthors: boolean;
+  views: ViewsMode;
+  showViewCountries: boolean;
 };
 
 export type Place = {
@@ -28,6 +32,8 @@ export type Place = {
   passwordHash: string | null;
   passwordVersion: number;
   showAuthor: ShowAuthor;
+  views: PlaceViews;
+  showViewCountries: ShowAuthor;
 };
 
 export const effectiveAccess = (c: Container, p: Pick<Place, "access">): Access =>

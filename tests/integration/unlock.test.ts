@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { unlock } from "@/app/unlock/actions";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { graph, passwordUnlock } from "@/db/schema";
 import { hashPassword } from "@/lib/gates";
 import { resetDb } from "../helpers/db";
 import { makeGraph, makeUser } from "../helpers/factories";
@@ -45,5 +48,19 @@ describe("unlock", () => {
     }
     const r = await unlock({ scope: "graph", id: g.id, password: "right-password" });
     expect(r.message).toContain("Too many");
+  });
+
+  test("counts successful entries per password version, not wrong ones", async () => {
+    const g = await protectedGraph();
+    await unlock({ scope: "graph", id: g.id, password: "wrong" });
+    await unlock({ scope: "graph", id: g.id, password: "right-password" });
+    await unlock({ scope: "graph", id: g.id, password: "right-password" });
+    await db.update(graph).set({ passwordVersion: 1 }).where(eq(graph.id, g.id));
+    await unlock({ scope: "graph", id: g.id, password: "right-password" });
+    const rows = await db.select().from(passwordUnlock).where(eq(passwordUnlock.targetId, g.id));
+    expect(rows.map((r) => [r.passwordVersion, r.unlocks]).sort()).toEqual([
+      [0, 2],
+      [1, 1],
+    ]);
   });
 });
