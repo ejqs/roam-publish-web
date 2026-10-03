@@ -1,7 +1,6 @@
-import { eq, inArray, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { backgroundJob, type JobResult, user } from "@/db/schema";
-import { ADMIN_USER_IDS } from "./auth";
 import { sendEmail } from "./email";
 import { type JobDef, jobStatus } from "./jobs";
 import {
@@ -71,18 +70,10 @@ export function findProblems(stats: MetricStats[], jobs: { def: JobDef; row: typ
   return out;
 }
 
-/** Who gets alerts: ALERT_EMAILS (comma-separated), else every admin's email. */
+/** Who gets alerts: every user with better-auth's "admin" role. */
 export async function alertRecipients() {
-  const listed = (process.env.ALERT_EMAILS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (listed.length) return listed;
-  const admins = await db
-    .select({ email: user.email })
-    .from(user)
-    .where(ADMIN_USER_IDS.length ? or(eq(user.role, "admin"), inArray(user.id, ADMIN_USER_IDS)) : eq(user.role, "admin"));
-  return [...new Set(admins.map((a) => a.email))];
+  const admins = await db.select({ email: user.email }).from(user).where(eq(user.role, "admin"));
+  return admins.map((a) => a.email);
 }
 
 /**
@@ -129,7 +120,7 @@ export async function runAlerts(
   const to = await alertRecipients();
   if (!to.length) {
     cursor.open = next;
-    return { problems: problems.length, sent: 0, reason: "no admin email" };
+    return { problems: problems.length, sent: 0, reason: "no admins" };
   }
 
   const ongoing = problems.filter((p) => open[p.key]);

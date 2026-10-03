@@ -25,7 +25,6 @@ beforeEach(async () => {
   resetRequest();
   drainBuckets(new Date(8.64e15), true);
   cursor = {};
-  delete process.env.ALERT_EMAILS;
   const admin = await makeUser({ email: "admin@example.com" });
   await db.update(user).set({ role: "admin" }).where(eq(user.id, admin.id));
   await makeUser({ email: "someone@example.com" });
@@ -104,10 +103,12 @@ describe("failure emails", () => {
     expect(request.emails).toHaveLength(1);
   });
 
-  test("ALERT_EMAILS replaces the admin list", async () => {
-    process.env.ALERT_EMAILS = "ops@example.com, oncall@example.com";
+  test("only users with the admin role get it", async () => {
+    const second = await makeUser({ email: "admin2@example.com" });
+    await db.update(user).set({ role: "admin" }).where(eq(user.id, second.id));
+    request.emails = [];
     await failures(T);
     await runAlerts(cursor, [], at(2));
-    expect(request.emails.map((e) => e.match(/to=(\S+)/)?.[1])).toEqual(["ops@example.com", "oncall@example.com"]);
+    expect(request.emails.map((e) => e.match(/to=(\S+)/)?.[1]).sort()).toEqual(["admin2@example.com", "admin@example.com"]);
   });
 });

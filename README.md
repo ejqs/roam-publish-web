@@ -106,7 +106,7 @@ and kept two weeks.
 - **Failure emails**: the `status-alerts` job checks the last 15 minutes every 5 minutes and emails a digest when
   something starts failing, a reminder every 6 hours while it lasts, and an all-clear when it's fixed. It counts
   3+ errors over 2% of calls, a slow p95 over 10+ calls, a mostly-refused route, or a failing, overdue or stalled job.
-  It goes to every admin, or to `ALERT_EMAILS` (comma-separated) when set; `ALERTS=off` stops it. It needs the
+  It goes to every user with better-auth's `admin` role; `ALERTS=off` stops it. It needs the
   database and Resend, so pair it with an uptime monitor on `/api/health` for outages.
 - **Logs**: each failure or call over a second is one JSON line on stdout
   (`{"level":"error","metric":"GET /api/search","ms":…,"error":…}`); search Railway's logs with `@metric:…`.
