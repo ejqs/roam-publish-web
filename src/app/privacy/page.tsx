@@ -16,111 +16,69 @@ const links = new PageLinks([...siteLinks, ["encrypted pages", "/privacy/encrypt
 
 const outline = [
   block(`Last updated ${UPDATED}.`),
-  block("**Who runs this**", [
+  block("**In short**", [
     block(
-      "Roam Publish (roam.pub and the Roam Publish extension) is run by one person, [@ejqs](https://ejqs.net). It isn't affiliated with Roam Research.",
+      "Roam Publish (roam.pub and the Roam Publish extension) is run by one person, [@ejqs](https://ejqs.net), from the Philippines. It isn't affiliated with Roam Research.",
     ),
-    block("It's run from the Philippines, so the Philippine Data Privacy Act of 2012 applies, along with the privacy laws where you live."),
-    block(
-      "The operator can access everything stored on the service, and only uses it to run, support and moderate it. The exception is the content of encrypted pages, which is stored so it can't be read without one of the page's passwords. It still passes through the server readable while it's published or read: see [[Encrypted pages]].",
-    ),
+    block("You choose what's published and who can read it. The extension sends nothing until you publish."),
+    block("No ads, no tracking cookies, and nothing is sold."),
+    block("Deleting something deletes it, for good."),
     block("Questions, or to ask about your data: ejqs [at] ejqs [dot] net."),
   ]),
   block("**What's public**", [
     block(
-      "Whatever you publish, and who can read it, is up to you: unlisted pages are readable by anyone with the link, public pages are also listed on your graph's front page, and pages on Discover are listed site-wide. Password and members-only pages are only shown to people who unlock them or are members. Password-protected pages can also be encrypted with their password: what that does and doesn't protect against is explained in [[Encrypted pages]].",
+      "Each page is as public as you set it: anywhere from listed on Discover to readable only by members or people with its password.",
     ),
     block(
       "Published pages include their block references and embeds, which can come from elsewhere in your graph. Check them before publishing.",
     ),
     block("Your username, profile bio and graph names are public when you choose to show them."),
-    block(
-      "RSS feeds you turn on can be copied by feed readers, and a copy may outlive the page if you unpublish it.",
-    ),
+    block("Feed readers can copy pages from RSS feeds you turn on, and a copy may outlive the page."),
   ]),
   block("**What's collected**", [
     block(
-      "Your account: email address, name, and a hashed password. Login sessions record the IP address and browser they came from, kept until you sign out or delete your account.",
+      "Your account: email address, name and a hashed password. Login sessions record the IP address and browser they came from.",
     ),
-    block(
-      "Your graphs: their names, and the time zone the extension sends. The codes that prove you own a graph are stored hashed and expire.",
-    ),
+    block("Your graphs: their names, and the time zone the extension sends."),
     block("What you publish: the page or block text and structure the extension sends, its title, tags, byline and settings."),
     block(
-      "For encrypted pages, the text is stored encrypted instead, with no search text or tags. Each password that opens them gets a key pair, whose private key is stored encrypted with the password. The title stays readable.",
+      "Your API keys, hashed. If you turn on the change log, your Roam append-only token, encrypted, and only ever sent to Roam.",
     ),
     block(
-      "Your API keys are stored hashed. If you opt in to the change log, your Roam append-only token is stored encrypted. It's never shown again and is only ever sent to Roam.",
+      "Views and upvotes by signed-in people who have a graph, one per page, to count views and rank Discover. Anonymous visits aren't recorded this way.",
     ),
+    block("Invites: the invited person's email address and who sent it."),
     block(
-      "Views and upvotes: when a signed-in person who has a graph opens or upvotes a page, that's recorded against their account (one per page), to count views and rank Discover. Anonymous visits aren't recorded this way.",
+      "Reports: what you write, an email address if you give one (or your account's, when signed in), and a one-way hash of your IP address to catch repeat reports.",
     ),
+    block("IP addresses, briefly and only in memory, to rate-limit requests. They aren't written to the database."),
     block(
-      "Invites: the invited person's email address and who sent it. An invite can be accepted for 7 days.",
-    ),
-    block(
-      "Reports: what you write, an email address if you give one (or your account's, when signed in), and a keyed one-way hash of your IP address, used to drop repeat reports within a day. The hash can't be turned back into the address without the server's secret key.",
-    ),
-    block(
-      "Rate limiting keeps IP addresses in the server's memory while a limit runs (15 minutes at most), and clears them soon after. They aren't written to the database.",
-    ),
-    block(
-      "Logs: the server logs errors and slow requests, without IP addresses or emails. Railway keeps its own request logs, which include IP addresses, for a limited time.",
+      "Error and slow-request logs, without IP addresses or emails. Railway, the host, keeps its own request logs, which include IP addresses, for a limited time.",
     ),
     block("Cookies, all needed for the site to work, none for advertising or tracking:", [
-      block("A login session cookie."),
-      block(
-        "One for each password-protected page you unlock, for 30 days, and a second one holding the password's key (encrypted) when the password can open encrypted pages.",
-      ),
-      block("One remembering an announcement you dismissed, for 30 days."),
-      block("One remembering when you last opened What's new, for about a year."),
+      block("Your login session."),
+      block("Each password-protected page you unlock, plus its key (encrypted) when the page is encrypted."),
+      block("An announcement you dismissed."),
+      block("When you last opened What's new."),
     ]),
-    block(
-      "Your browser also stores a note of each page you've viewed while signed in, so a view is only counted once.",
-    ),
+    block("Your browser also notes each page you've viewed while signed in, so a view is only counted once."),
   ]),
   block("**Analytics**", [
     block(
-      "The website uses [Umami](https://umami.is) (Umami Cloud) for privacy-friendly, aggregate statistics: page views, referrers, browsers, devices and countries. It sets no cookies and doesn't track you across sites.",
+      "The website uses [Umami](https://umami.is) (Umami Cloud) for aggregate statistics: page views, referrers, browsers, devices and countries. It sets no cookies and doesn't track you across sites.",
     ),
     block(
-      "Published pages can show how many times they were viewed, and from which countries, using these aggregate Umami numbers and a count of signed-in readers. Countries with fewer than 3 views are grouped together. Page owners can hide view counts or turn them off.",
+      "Published pages can show their view count and readers' countries, from these numbers plus signed-in readers. Countries with fewer than 3 views are grouped together. Page owners can hide view counts or turn them off.",
     ),
     block("The Roam extension has no analytics."),
   ]),
-  block("**Embedded media**", [
-    block(
-      "Published pages can show images, videos and embeds from other sites, such as YouTube (in its privacy-enhanced mode), Vimeo, Loom, or wherever an author's images are stored. Your browser loads these directly from those sites, which see your IP address and browser, under their own privacy policies.",
-    ),
-  ]),
   block("**The Roam extension**", [
-    block("Nothing leaves Roam until you publish, unpublish or check a page, and then only that page or block goes to roam.pub."),
+    block("It sends a page or block to roam.pub only when you publish, unpublish or check it."),
     block(
       "While Roam is open, about every 5 minutes, it tells roam.pub which of its status link blocks still exist (block ids only, no text). Turning off the Roam Publish block stops this.",
     ),
     block(
-      "What it writes into your graph: the Roam Publish block when you publish, and change log entries if you kept an append-only token. Nothing else.",
-    ),
-  ]),
-  block("**Who else handles it**", [
-    block("[Railway](https://railway.com) hosts the website and its database, on servers in Singapore."),
-    block("[Resend](https://resend.com) sends account emails (verification, password reset, invites, moderation notices)."),
-    block("Umami, as above."),
-    block("[Roam Research](https://roamresearch.com) receives the blocks roam.pub appends to your graph with your token."),
-    block("Resend and Umami may handle data in other countries, including the United States."),
-    block("Nothing is sold or shared for advertising."),
-    block(
-      "Beyond these, data is only handed over when the law requires it, such as a valid court order. Where the law allows, you'll be told first.",
-    ),
-  ]),
-  block("**Security**", [
-    block("Everything is sent over HTTPS."),
-    block("Account passwords, page passwords and API keys are stored hashed, and append-only tokens encrypted."),
-    block(
-      "Encrypted pages are stored encrypted with their password. This isn't end-to-end encryption: the server decrypts them to show them. See [[Encrypted pages]].",
-    ),
-    block(
-      "If a data breach affects your information, you'll be told, and so will the National Privacy Commission, as the law requires.",
+      "It only writes the Roam Publish block into your graph, plus change log entries if you kept an append-only token.",
     ),
   ]),
   block("**Why it's used**", [
@@ -131,29 +89,52 @@ const outline = [
     block("Aggregate analytics: to see how the site is used and show page view counts."),
     block("Account emails: sent only when needed to run your account. There's no marketing email."),
   ]),
-  block("**Keeping and deleting**", [
-    block("Unpublishing a page deletes it."),
-    block("Deleting a graph deletes its pages, including members' pages, and the API keys for it."),
+  block("**Who else handles it**", [
+    block("[Railway](https://railway.com) hosts the website and its database, on servers in Singapore."),
+    block("[Resend](https://resend.com) sends account emails (verification, password reset, invites, moderation notices)."),
+    block("Umami runs the analytics above."),
+    block("[Roam Research](https://roamresearch.com) receives the blocks roam.pub appends to your graph with your token."),
     block(
-      "Deleting your account (Settings) deletes your graphs, pages, collections, API keys and profile, and what you published into other people's graphs.",
+      "Images, videos and embeds on published pages, such as YouTube (in its privacy-enhanced mode), Vimeo, Loom, or wherever an author's images are stored, load straight from those sites. They see your IP address and browser, under their own privacy policies.",
     ),
+    block("Resend and Umami may handle data in other countries, including the United States."),
     block(
-      "If a moderator had acted on your account, a few things are kept after deletion so it can't simply be re-created: your graph names, usernames, and a one-way hash of your email.",
+      "Beyond these, data is only handed over when the law requires it, such as a valid court order. Where the law allows, you'll be told first.",
     ),
-    block(
-      "Reports you filed are kept for moderation. When you delete your account, the email address on them is replaced with a keyed hash.",
-    ),
-    block(
-      "Reports, and a short log of moderation actions and account deletions, are kept with no fixed end date, to deal with repeated abuse.",
-    ),
-    block("There are no backups yet, so deleted data can't be recovered."),
   ]),
-  block("**Your choices**", [
-    block("You can see, change or delete everything you publish from the dashboard, and delete your account at any time."),
+  block("**How long it's kept**", [
     block(
-      "Depending on where you live (for example under the Philippine Data Privacy Act, or the GDPR in the EU and UK), you have the right to know how your data is used, get a copy, correct it, object to how it's used, and have it deleted.",
+      "Your account, graphs and pages: until you delete them. Unpublishing a page deletes it. Deleting a graph deletes its pages, including members' pages, and its API keys. Deleting your account (Settings) deletes your graphs, pages, collections, API keys and profile, and what you published into other people's graphs.",
     ),
-    block("To ask for a copy of your data, or about anything here, email ejqs [at] ejqs [dot] net."),
+    block("Login sessions: until you sign out or delete your account."),
+    block("Invites: 7 days. The codes that prove you own a graph are stored hashed and expire too."),
+    block("Rate-limit IP addresses: 15 minutes at most."),
+    block("Cookies: 30 days for unlocked pages and dismissed announcements, about a year for What's new."),
+    block(
+      "Reports, and a short log of moderation actions and account deletions: no fixed end date, to deal with repeated abuse. When you delete your account, the email address on reports you filed is replaced with a hash.",
+    ),
+    block(
+      "If a moderator had acted on your account, your graph names, usernames and a one-way hash of your email are kept after deletion, so it can't simply be re-created.",
+    ),
+    block("There are no backups, so deleted data can't be recovered."),
+  ]),
+  block("**Security**", [
+    block("Everything is sent over HTTPS."),
+    block("Account passwords, page passwords and API keys are stored hashed, and append-only tokens encrypted."),
+    block(
+      "The operator can access what's stored, and only uses it to run, support and moderate the service. The exception is encrypted pages, whose text is stored encrypted with their passwords; their titles stay readable. This isn't end-to-end encryption: the server decrypts them to show them. See [[Encrypted pages]].",
+    ),
+    block(
+      "If a data breach affects your information, you'll be told, and so will the National Privacy Commission, as the law requires.",
+    ),
+  ]),
+  block("**Your rights**", [
+    block("The Philippine Data Privacy Act of 2012 applies, along with the privacy laws where you live."),
+    block(
+      "Under them (for example, the GDPR in the EU and UK), you have the right to know how your data is used, get a copy, correct it, object to how it's used, and have it deleted.",
+    ),
+    block("You can see, change or delete everything you publish from the dashboard, and delete your account at any time."),
+    block("For a copy of your data, or anything else, email ejqs [at] ejqs [dot] net."),
     block(
       "You can also complain to a data protection authority: the Philippines' [National Privacy Commission](https://privacy.gov.ph), or the one where you live.",
     ),
