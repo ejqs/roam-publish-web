@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { bulletClass, childrenClass, rowClass } from "@/components/roam/outline";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export type TrendingRow = { key: string; href: string; title: string; source: string };
 
@@ -10,7 +12,7 @@ const SWAP_MS = 4000;
 const FADE_MS = 250;
 
 function Bullet() {
-  return <span aria-hidden className="absolute top-[9px] left-2 size-[5px] rounded-full bg-roam-bullet" />;
+  return <span aria-hidden className={bulletClass} />;
 }
 
 /**
@@ -46,7 +48,7 @@ export function TrendingPages({ rows }: { rows: TrendingRow[] }) {
   const current = rows[start % Math.max(rows.length, 1)];
 
   return (
-    <li className="relative pl-6">
+    <li className={rowClass}>
       <Bullet />
       <div className="py-0.5 leading-[1.6]">
         Trending pages on{" "}
@@ -69,22 +71,22 @@ export function TrendingPages({ rows }: { rows: TrendingRow[] }) {
         </Popover>
       </div>
       {!current ? (
-        <ul className="ml-2 flex flex-col border-l border-border/70">
-          <li className="relative pl-6">
+        <ul className={cn("flex flex-col", childrenClass)}>
+          <li className={rowClass}>
             <Bullet />
             <div className="py-0.5 leading-[1.6] text-muted-foreground">Nothing here yet.</div>
           </li>
         </ul>
       ) : (
         <ul
-          className="ml-2 flex flex-col border-l border-border/70 transition-opacity duration-200 data-[fading=true]:opacity-0"
+          className={cn("flex flex-col transition-opacity duration-200 data-[fading=true]:opacity-0", childrenClass)}
           data-fading={fading}
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
           onFocus={() => setPaused(true)}
           onBlur={() => setPaused(false)}
         >
-          <li className="relative pl-6">
+          <li className={rowClass}>
             <Bullet />
             <div className="py-0.5 leading-[1.6] break-words">
               <Link href={current.href} className="text-link hover:underline">
