@@ -35,7 +35,7 @@ const outline = [
     block("Your account: email address, name, and a hashed password. Login sessions record the IP address and browser they came from."),
     block("What you publish: the page or block text and structure the extension sends, its title, tags, byline and settings."),
     block(
-      "Your API keys are stored hashed. A Roam append-only token you choose to keep is stored encrypted and is never shown again or sent anywhere but Roam.",
+      "Your API keys are stored hashed. If you opt in to the change log, your Roam append-only token is stored encrypted. It's never shown again and is only ever sent to Roam.",
     ),
     block(
       "Views and upvotes: when a signed-in person who has a graph opens or upvotes a page, that's recorded against their account (one per page), to count views and rank Discover. Anonymous visits aren't recorded this way.",
@@ -76,9 +76,10 @@ const outline = [
     block("Nothing is sold or shared for advertising."),
   ]),
   block("**Keeping and deleting**", [
-    block("Unpublishing a page deletes it. Deleting a graph deletes its pages, members' pages included, and its keys."),
+    block("Unpublishing a page deletes it."),
+    block("Deleting a graph deletes its pages, including members' pages, and the API keys for it."),
     block(
-      "Deleting your account (Settings) deletes your graphs, pages, collections, keys and profile, and what you published into other people's graphs.",
+      "Deleting your account (Settings) deletes your graphs, pages, collections, API keys and profile, and what you published into other people's graphs.",
     ),
     block(
       "If a moderator had acted on your account, a few things are kept after deletion so it can't simply be re-created: your graph names, usernames, and a one-way hash of your email.",
@@ -92,6 +93,7 @@ const outline = [
   ]),
   block("**Changes**", [
     block("If this policy changes in a way that matters, the date above changes and signed-up users are told by email."),
+    block("Every past version is in the [full change history](https://github.com/ejqs/roam-publish-web/commits/main/src/app/privacy/page.tsx)."),
   ]),
 ];
 
