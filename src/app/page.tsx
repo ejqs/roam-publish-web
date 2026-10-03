@@ -16,7 +16,7 @@ const outline = [
   block("New here? Start with [[Setting it up]]"),
 ];
 
-// Its own list so the footer's About and Contact links have somewhere to land.
+// Its own list so the footer's "About & contact" link has somewhere to land.
 const about = [
   block("**Who runs this**", [
     block("Me, [@ejqs](https://ejqs.net). It's free and not affiliated with Roam Research."),
@@ -37,7 +37,6 @@ export default async function Home() {
           <h1 className="mb-6 text-[32px] sm:text-[42px] leading-tight font-semibold">Roam Publish</h1>
           <BlockList nodes={outline} links={siteLinks} />
           <section id="about" aria-label="About" className="scroll-mt-16">
-            <span id="contact" className="block scroll-mt-16" />
             <BlockList nodes={about} links={siteLinks} />
           </section>
           {/* Same markup as BlockList, with live rows that aren't Roam text. */}

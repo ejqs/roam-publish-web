@@ -5,8 +5,7 @@ export const SOURCE_URL = "https://github.com/ejqs/roam-publish-web";
 export const ISSUES_URL = `${SOURCE_URL}/issues`;
 
 const LINKS = [
-  { label: "About", href: "/#about" },
-  { label: "Contact", href: "/#contact" },
+  { label: "About & contact", href: "/#about" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
   { label: "Source code", href: SOURCE_URL, external: true },
@@ -37,7 +36,7 @@ const ejqs = (className: string) => (
 );
 
 /**
- * The disclaimer on the left, About, Contact and Source code on the right. `full` is the home page's
+ * The disclaimer on the left, About & contact and Source code on the right. `full` is the home page's
  * footer. Everywhere else gets the quiet one: no border, small muted text, and the background of
  * whatever it sits under (pass `className="bg-card"` on card pages).
  */
