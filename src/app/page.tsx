@@ -9,7 +9,7 @@ import { PageLinks } from "@/components/roam/markup";
 import { plainText } from "@/lib/slug";
 
 const outline = [
-  block("Publish a page or a single block from your [[Roam Research]] graph to the web.", [
+  block("Publish a page or a single block from your [Roam Research](https://roamresearch.com) graph to the web.", [
     block("You'll need an active Roam Research account."),
     block("Only what you publish is public. The rest of your graph stays where it is."),
     block("Page refs, block refs, embeds and ^^highlights^^ render the way they do in Roam."),
