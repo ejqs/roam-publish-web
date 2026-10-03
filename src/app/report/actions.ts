@@ -6,9 +6,9 @@ import { z } from "zod";
 import { db } from "@/db";
 import { collectionEntry, profile, publication, report, usernameAlias } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { sha256 } from "@/lib/content-hash";
 import { loadCollection } from "@/lib/collections";
 import { loadGraph } from "@/lib/graphs";
+import { keyedHash } from "@/lib/keyed-hash";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { reportReasons } from "@/lib/report-reasons";
 import { withAction } from "@/lib/telemetry";
@@ -97,7 +97,7 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
       }
     }
 
-    const ipHash = sha256(`report:${ip}`);
+    const ipHash = keyedHash("report-ip", ip);
     // One report per visitor, target and reason a day; repeats just get the same thanks.
     const dupe = await db.query.report.findFirst({
       where: and(
