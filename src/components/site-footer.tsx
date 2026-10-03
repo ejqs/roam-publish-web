@@ -2,14 +2,16 @@ import Link from "next/link";
 import { cn } from "cn";
 
 export const SOURCE_URL = "https://github.com/ejqs/roam-publish-web";
+export const EXTENSION_SOURCE_URL = "https://github.com/ejqs/roam-publish";
 export const ISSUES_URL = `${SOURCE_URL}/issues`;
 
 const LINKS = [
-  { label: "About", href: "/#about" },
-  { label: "Contact", href: "/#contact" },
+  { label: "About & contact", href: "/#about" },
+  { label: "Costs", href: "/costs" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
-  { label: "Source code", href: SOURCE_URL, external: true },
+  { label: "Web source", href: SOURCE_URL, external: true },
+  { label: "Extension source", href: EXTENSION_SOURCE_URL, external: true },
 ];
 
 function FooterLinks({ className }: { className: string }) {
@@ -37,7 +39,7 @@ const ejqs = (className: string) => (
 );
 
 /**
- * The disclaimer on the left, About, Contact and Source code on the right. `full` is the home page's
+ * The disclaimer on the left, About & contact and the two source code links (web, extension) on the right. `full` is the home page's
  * footer. Everywhere else gets the quiet one: no border, small muted text, and the background of
  * whatever it sits under (pass `className="bg-card"` on card pages).
  */

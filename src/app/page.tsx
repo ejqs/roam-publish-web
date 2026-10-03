@@ -5,6 +5,7 @@ import { ISSUES_URL, SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { TrendingPages } from "@/components/trending-pages";
 import { discoverPublications } from "@/lib/discover";
+import { PageLinks } from "@/components/roam/markup";
 import { plainText } from "@/lib/slug";
 
 const outline = [
@@ -16,10 +17,12 @@ const outline = [
   block("New here? Start with [[Setting it up]]"),
 ];
 
-// Its own list so the footer's About and Contact links have somewhere to land.
+const links = new PageLinks([...siteLinks, ["costs", "/costs"]]);
+
+// Its own list so the footer's "About & contact" link has somewhere to land.
 const about = [
   block("**Who runs this**", [
-    block("Me, [@ejqs](https://ejqs.net). It's free and not affiliated with Roam Research."),
+    block("Me, [@ejqs](https://ejqs.net). It's [free*]([[Costs]]) and not affiliated with Roam Research."),
     block("I pay for hosting myself. If it's useful to you, [buy me a coffee](https://buymeacoffee.com/ejqs)."),
     block(`Bugs and ideas: [GitHub Issues](${ISSUES_URL}) or send it over in ejqs [at] ejqs [dot] net`),
   ]),
@@ -37,8 +40,7 @@ export default async function Home() {
           <h1 className="mb-6 text-[32px] sm:text-[42px] leading-tight font-semibold">Roam Publish</h1>
           <BlockList nodes={outline} links={siteLinks} />
           <section id="about" aria-label="About" className="scroll-mt-16">
-            <span id="contact" className="block scroll-mt-16" />
-            <BlockList nodes={about} links={siteLinks} />
+            <BlockList nodes={about} links={links} />
           </section>
           {/* Same markup as BlockList, with live rows that aren't Roam text. */}
           <ul className="flex flex-col">
