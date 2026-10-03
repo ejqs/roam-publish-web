@@ -50,8 +50,7 @@ describe("pages in someone else's graph", () => {
     test(`a ${who} can't unpublish, list, protect, hide, retag or bulk-change the owner's page`, async () => {
       actAs(who === "stranger" ? stranger : member);
       await unpublish(pub.id);
-      // setAccess answers "Saved." either way; what matters is that nothing changed (checked below).
-      await setAccess(pub.id, "public");
+      expect((await setAccess(pub.id, "public"))?.ok).toBe(false);
       expect((await updateGraphPlace(pub.id, { access: "members" })).ok).toBe(false);
       expect((await setPageTags(pub.id, { add: ["x"] })).ok).toBe(false);
       expect((await bulkUpdatePublications({ ids: [pub.id], reach: "discover" })).ok).toBe(false);
