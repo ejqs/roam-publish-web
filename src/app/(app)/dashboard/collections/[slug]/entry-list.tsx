@@ -12,7 +12,7 @@ import { AllCheckbox, BulkSelect, RowCheckbox } from "../../bulk-select";
 import { fmtDate, HeaderCell, type SortHeader } from "../../publication-list";
 
 // Like the graph list, with room for reordering next to Manage.
-const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.5rem_12.5rem_7.5rem_9rem] sm:items-center sm:gap-3";
+const COLUMNS = "sm:grid sm:grid-cols-[minmax(0,1fr)_12.5rem_7.5rem_9rem] sm:items-center sm:gap-3";
 import { EntryReorder } from "./entry-reorder";
 
 export type EntryRowData = {
@@ -61,8 +61,7 @@ export function EntryList({
             <AllCheckbox />
             <HeaderCell label="Title" sort={sort.title} />
           </span>
-          <span>Type</span>
-          <span>In collection</span>
+          <span>Visibility</span>
           <HeaderCell label="Updated" sort={sort.updated} />
           <span />
         </div>
@@ -79,12 +78,19 @@ export function EntryList({
                     {selectable.includes(entry.id) && <RowCheckbox id={entry.id} title={pub.title} />}
                   </span>
                   <div className="min-w-0">
-                    <Link
-                      href={entryPath(c.slug, entry.entryUid, pub.title)}
-                      className="line-clamp-2 font-medium break-words text-link hover:underline sm:line-clamp-1 sm:font-normal"
-                    >
-                      {pub.title}
-                    </Link>
+                    <div className="flex items-start gap-2">
+                      <Link
+                        href={entryPath(c.slug, entry.entryUid, pub.title)}
+                        className="line-clamp-2 min-w-0 break-words text-foreground hover:underline sm:line-clamp-1"
+                      >
+                        {pub.title}
+                      </Link>
+                      {pub.kind === "block" && (
+                        <Badge variant="secondary" className="mt-px shrink-0">
+                          Block
+                        </Badge>
+                      )}
+                    </div>
                     {pub.tags.length > 0 && (
                       <p className="truncate text-xs text-roam-ref">
                         {pub.tags.slice(0, 5).map((t) => `#${t}`).join(" ")}
@@ -96,13 +102,8 @@ export function EntryList({
                     </p>
                   </div>
                 </div>
-                {/* Phones: type and date share a line under the title. */}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground sm:contents">
-                  <span>
-                    <Badge variant="outline">{pub.kind}</Badge>
-                  </span>
-                  <span className="order-last sm:order-none sm:hidden">Updated {fmtDate(pub.updatedAt)}</span>
-                </div>
+                {/* Phones: the date goes under the title. */}
+                <span className="text-xs text-muted-foreground sm:hidden">Updated {fmtDate(pub.updatedAt)}</span>
                 <div className="flex flex-wrap items-center justify-between gap-2 sm:contents">
                   <div className="min-w-0">
                     {pub.removedAt ? (

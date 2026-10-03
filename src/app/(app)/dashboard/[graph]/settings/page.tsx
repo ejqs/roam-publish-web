@@ -1,8 +1,6 @@
 import { and, count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { buttonVariants } from "@/components/ui/button";
 import { db } from "@/db";
 import { graph, graphDefaultCollection, publication } from "@/db/schema";
 import { collectionsOf } from "@/lib/collections";
@@ -12,6 +10,8 @@ import { GraphAccessForm } from "./access-form";
 import { ChangeLogForm } from "./change-log-form";
 import { DeleteGraphCard } from "./delete-graph";
 import { GraphSettingsForm } from "./settings-form";
+import { graphPagesPath } from "../../filters";
+import { ResourceHeader, resourceTabs } from "../../section-tabs";
 
 export const metadata: Metadata = { title: "Graph settings · Roam Publish" };
 
@@ -32,21 +32,12 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 sm:py-12">
-      <div className="flex flex-col gap-1">
-        <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Dashboard
-        </Link>
-        <h1 className="text-2xl font-semibold">{g.name}</h1>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm text-muted-foreground">Graph settings</p>
-          <Link
-            href={`/dashboard/${encodeURIComponent(g.name)}/members`}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            Members
-          </Link>
-        </div>
-      </div>
+      <ResourceHeader
+        name={g.name}
+        caption="Graph settings"
+        tabs={resourceTabs(graphPagesPath(g.name), true)}
+        current={`${graphPagesPath(g.name)}/settings`}
+      />
       <GraphSettingsForm
         graphId={g.id}
         graphName={g.name}

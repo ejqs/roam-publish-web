@@ -1,18 +1,22 @@
 "use client";
 
+import { ExternalLinkIcon, GlobeIcon, LockIcon, MoreHorizontalIcon } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { CopyButton } from "@/components/copy-button";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { claimUsername, setProfilePublic, updateBio } from "./actions";
@@ -23,6 +27,7 @@ export function ProfileCard({
   bio,
   hasGraph,
   appUrl,
+  stats,
 }: {
   username: string | null;
   isPublic: boolean;
@@ -30,6 +35,8 @@ export function ProfileCard({
   /** Usernames and public profiles need a verified Roam graph. */
   hasGraph: boolean;
   appUrl: string;
+  /** A line of totals along the bottom. */
+  stats?: React.ReactNode;
 }) {
   const [state, claim, pending] = useActionState(claimUsername, null);
   const host = appUrl.replace(/^https?:\/\//, "");
@@ -81,47 +88,113 @@ export function ProfileCard({
   const path = `/u/${username}`;
   return (
     <Card id="profile" className="scroll-mt-4">
-      <CardHeader>
-        <CardTitle>@{username}</CardTitle>
-        <CardDescription>
+      <CardContent className="flex flex-wrap items-start gap-4">
+        <div
+          aria-hidden
+          className="flex size-11 shrink-0 items-center justify-center rounded-sm bg-muted text-base font-semibold uppercase"
+        >
+          {username[0]}
+        </div>
+        <div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold">@{username}</h2>
+            {hasGraph &&
+              (isPublic ? (
+                <Badge variant="outline" className="border-transparent bg-success/10 text-success">
+                  <GlobeIcon />
+                  Public
+                </Badge>
+              ) : (
+                <Badge variant="secondary">
+                  <LockIcon />
+                  Private
+                </Badge>
+              ))}
+          </div>
           {!hasGraph ? (
-            <>Your profile is hidden until you connect a Roam graph.</>
-          ) : isPublic ? (
+            <p className="text-sm text-muted-foreground">Your profile is hidden until you connect a Roam graph.</p>
+          ) : (
             <>
-              Public profile at{" "}
-              <Link href={path} className="text-link hover:underline">
-                {host}
-                {path}
-              </Link>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                {isPublic ? (
+                  <>
+                    <Link href={path} className="text-link hover:underline">
+                      {host}
+                      {path}
+                    </Link>
+                    <CopyButton text={`${appUrl}${path}`} label="Copy profile link" variant="ghost" size="icon-xs" />
+                  </>
+                ) : (
+                  <>Make it public to share {host + path}.</>
+                )}
+              </div>
+              <Bio bio={bio} />
             </>
-          ) : (
-            <>Your profile is private. Make it public to share {host + path}.</>
           )}
-        </CardDescription>
-        <CardAction>
-          {hasGraph ? (
-            <form action={setProfilePublic.bind(null, !isPublic)}>
-              <Button type="submit" variant="outline">
-                {isPublic ? "Make private" : "Make public"}
-              </Button>
-            </form>
-          ) : (
+        </div>
+        <div className="flex items-center gap-1">
+          {!hasGraph ? (
             <Link href="/onboarding" className={buttonVariants({ variant: "outline" })}>
               Connect a graph
             </Link>
+          ) : (
+            <>
+              {isPublic && (
+                <Link href={path} className={buttonVariants({ variant: "outline" })}>
+                  View profile
+                  <ExternalLinkIcon />
+                </Link>
+              )}
+              <VisibilityMenu isPublic={isPublic} />
+            </>
           )}
-        </CardAction>
-      </CardHeader>
-      {hasGraph && (
-        <CardContent>
-          <BioForm bio={bio} />
-        </CardContent>
+        </div>
+      </CardContent>
+      {stats && (
+        <CardFooter className="flex-wrap gap-x-6 py-2.5 gap-y-1 text-[13px] text-muted-foreground">{stats}</CardFooter>
       )}
     </Card>
   );
 }
 
-function BioForm({ bio }: { bio: string }) {
+/** "Make private" / "Make public" behind a ··· button. Closes on choosing, so it reopens cleanly. */
+function VisibilityMenu({ isPublic }: { isPublic: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button variant="ghost" size="icon" aria-label="More profile options">
+            <MoreHorizontalIcon />
+          </Button>
+        }
+      />
+      <PopoverContent align="end" className="w-44 gap-0.5 p-1">
+        <form action={setProfilePublic.bind(null, !isPublic)} onSubmit={() => setOpen(false)}>
+          <button type="submit" className="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted">
+            {isPublic ? "Make private" : "Make public"}
+          </button>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** The description as text, swapped for the form while editing. */
+function Bio({ bio }: { bio: string }) {
+  const [editing, setEditing] = useState(false);
+  if (editing) return <BioForm bio={bio} onDone={() => setEditing(false)} />;
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
+      {bio && <p className="break-words">{bio}</p>}
+      <Button variant="link" size="xs" className="h-auto px-0" onClick={() => setEditing(true)}>
+        {bio ? "Edit description" : "Add a description"}
+      </Button>
+    </div>
+  );
+}
+
+function BioForm({ bio, onDone }: { bio: string; onDone: () => void }) {
   const [state, action, pending] = useActionState(updateBio, null);
   const [value, setValue] = useState(bio);
   const dirty = value.replace(/\s+/g, " ").trim() !== bio;
@@ -134,6 +207,7 @@ function BioForm({ bio }: { bio: string }) {
           id="profile-bio"
           name="bio"
           rows={2}
+          autoFocus
           maxLength={DESCRIPTION_MAX}
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -152,9 +226,12 @@ function BioForm({ bio }: { bio: string }) {
           </span>
         </div>
       </Field>
-      <div>
+      <div className="flex gap-2">
         <Button type="submit" variant="outline" size="sm" disabled={pending || !dirty}>
           {pending ? "Saving…" : "Save description"}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onDone}>
+          {state?.ok && !dirty ? "Done" : "Cancel"}
         </Button>
       </div>
     </form>
