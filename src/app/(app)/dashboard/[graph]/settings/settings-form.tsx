@@ -1,51 +1,83 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldSeparator,
-} from "@/components/ui/field";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { type GraphSettings, updateGraphSettings } from "../../actions";
 
-export function GraphSettingsForm({
+export function GraphSettingsForm({ graphId, initial }: { graphId: string; initial: { description: string } }) {
+  const [description, setDescription] = useState(initial.description);
+  const [saved, setSaved] = useState(initial.description);
+  const [pending, startTransition] = useTransition();
+  const current = description.replace(/\s+/g, " ").trim();
+
+  function save() {
+    startTransition(async () => {
+      const res = await updateGraphSettings(graphId, { description });
+      if (!res?.ok) return void toast.error(res?.message ?? "Couldn't save settings.");
+      setDescription(current);
+      setSaved(current);
+      toast.success(res.message);
+    });
+  }
+
+  return (
+    <Card>
+      <CardContent>
+        <Field>
+          <FieldLabel htmlFor="description">Description</FieldLabel>
+          <Textarea
+            id="description"
+            rows={2}
+            maxLength={DESCRIPTION_MAX}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What's in this graph?"
+          />
+          <div className="flex items-start justify-between gap-2">
+            <FieldDescription>Shown under the title on the front page. Plain text.</FieldDescription>
+            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+              {description.length}/{DESCRIPTION_MAX}
+            </span>
+          </div>
+        </Field>
+      </CardContent>
+      <CardFooter className="justify-end">
+        <Button onClick={save} disabled={current === saved || pending}>
+          {pending ? "Saving…" : "Save"}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+type Listing = Omit<GraphSettings, "description">;
+
+/** On the Sharing tab: the front page, search engines, Discoverable, RSS and breadcrumbs. */
+export function GraphListingForm({
   graphId,
   graphName,
   indexOpen,
-  defaultsHref,
   initial,
 }: {
   graphId: string;
   graphName: string;
   /** Anyone can open the front page; feeds only list open graphs. */
   indexOpen: boolean;
-  /** The Defaults tab, where who can open the front page is set. */
-  defaultsHref: string;
-  initial: GraphSettings;
+  initial: Listing;
 }) {
   const [settings, setSettings] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [pending, startTransition] = useTransition();
-  const set = (key: Exclude<keyof GraphSettings, "description">) => (value: boolean) =>
-    setSettings((s) => ({ ...s, [key]: value }));
-  const normalize = (s: GraphSettings): GraphSettings => ({
-    ...s,
-    featured: s.featured && s.frontPage,
-    rss: s.rss && s.frontPage,
-    description: s.description.replace(/\s+/g, " ").trim(),
-  });
+  const set = (key: keyof Listing) => (value: boolean) => setSettings((s) => ({ ...s, [key]: value }));
+  const normalize = (s: Listing): Listing => ({ ...s, featured: s.featured && s.frontPage, rss: s.rss && s.frontPage });
   const current = normalize(settings);
-  const dirty = (Object.keys(current) as (keyof GraphSettings)[]).some((k) => current[k] !== saved[k]);
+  const dirty = (Object.keys(current) as (keyof Listing)[]).some((k) => current[k] !== saved[k]);
 
   function save() {
     startTransition(async () => {
@@ -59,30 +91,16 @@ export function GraphSettingsForm({
 
   return (
     <Card>
+      <CardHeader>
+        <CardTitle>Listing</CardTitle>
+        <CardDescription>Where this graph&apos;s listed pages show up.</CardDescription>
+      </CardHeader>
       <CardContent>
         <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="description">Description</FieldLabel>
-            <Textarea
-              id="description"
-              rows={2}
-              maxLength={DESCRIPTION_MAX}
-              value={settings.description}
-              onChange={(e) => setSettings((s) => ({ ...s, description: e.target.value }))}
-              placeholder="What's in this graph?"
-            />
-            <div className="flex items-start justify-between gap-2">
-              <FieldDescription>Shown under the title on the front page. Plain text.</FieldDescription>
-              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                {settings.description.length}/{DESCRIPTION_MAX}
-              </span>
-            </div>
-          </Field>
-          <FieldSeparator />
           <SettingSwitch
             id="frontPage"
             label="Front page"
-            description={`An index of your public pages at roam.pub/${graphName}.`}
+            description={`An index of your listed pages at roam.pub/${graphName}.`}
             checked={settings.frontPage}
             onChange={set("frontPage")}
           />
@@ -97,13 +115,13 @@ export function GraphSettingsForm({
           <FieldSeparator />
           <SettingSwitch
             id="featured"
-            label="List new pages on Discover"
+            label="New pages are Discoverable when listed"
             description={
               !settings.frontPage
-                ? "Turn on the front page to list this graph's pages on Discover."
+                ? "Turn on the front page to make this graph's pages Discoverable."
                 : !settings.indexable
-                  ? "Turn on search engines to list this graph's pages on Discover."
-                  : "New public pages start out on roam.pub/discover. Existing pages keep their own setting."
+                  ? "Turn on search engines to make this graph's pages Discoverable."
+                  : "Listing a new page also puts it on roam.pub/discover. Existing pages keep their own setting."
             }
             checked={settings.featured && settings.frontPage}
             disabled={!settings.frontPage || !settings.indexable}
@@ -117,15 +135,7 @@ export function GraphSettingsForm({
               !settings.frontPage
                 ? "Turn on the front page to offer an RSS feed."
                 : !indexOpen
-                  ? (
-                      <>
-                        The feed only works while anyone can open the front page. Change that in{" "}
-                        <Link href={defaultsHref} className="underline">
-                          Defaults
-                        </Link>
-                        .
-                      </>
-                    )
+                  ? "The feed only works while anyone can open the front page. Change that above."
                   : `A feed at roam.pub/${graphName}/feed.xml with pages open to everyone.`
             }
             checked={settings.rss && settings.frontPage}
@@ -133,9 +143,6 @@ export function GraphSettingsForm({
             onChange={set("rss")}
           />
           <FieldSeparator />
-          <details>
-            <summary className="cursor-pointer text-sm font-medium select-none">Breadcrumbs</summary>
-            <FieldGroup className="mt-4">
           <SettingSwitch
             id="showOwner"
             label="Link to your profile"
@@ -146,13 +153,11 @@ export function GraphSettingsForm({
           <FieldSeparator />
           <SettingSwitch
             id="hideUnlistedBreadcrumbs"
-            label="Hide breadcrumbs on pages that aren't listed"
+            label="Hide breadcrumbs on unlisted pages"
             description="Unlisted pages won't link back to this graph or your profile."
             checked={settings.hideUnlistedBreadcrumbs}
             onChange={set("hideUnlistedBreadcrumbs")}
           />
-            </FieldGroup>
-          </details>
         </FieldGroup>
       </CardContent>
       <CardFooter className="justify-end">

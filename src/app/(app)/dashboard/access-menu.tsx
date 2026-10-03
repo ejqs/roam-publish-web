@@ -30,9 +30,9 @@ export type Option<T> = { value: T; label: string; description?: string; disable
 export function AccessMenu(props: PlaceSettingsProps) {
   const s = usePlaceSettings(props);
   const [open, setOpen] = useState(false);
-  const Icon = s.read === "open" ? ICONS[s.reach] : s.encrypted ? PRIVACY_ICONS.encrypted : READ_ICONS[s.read];
+  const ReadIcon = s.encrypted ? PRIVACY_ICONS.encrypted : READ_ICONS[s.read];
+  const ReachIcon = ICONS[s.reach];
   const readLabel = s.encrypted ? "Encrypted" : READ_LABELS[s.read];
-  const label = s.read === "open" ? LABELS[s.reach] : `${readLabel} · ${s.reach === "unlisted" ? "Not listed" : "Listed"}`;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -44,9 +44,9 @@ export function AccessMenu(props: PlaceSettingsProps) {
             title={s.paused ? `Not shown on Discover: ${s.blocked}` : undefined}
             className={cn("max-w-full gap-1.5", s.paused && "text-muted-foreground")}
           >
-            <Icon />
+            <ReadIcon />
             <span className="truncate">
-              {label}
+              {readLabel} · <ReachIcon className="inline align-[-2px]" /> {LABELS[s.reach]}
               {s.paused && " (paused)"}
             </span>
             <ChevronDownIcon className="opacity-60" />

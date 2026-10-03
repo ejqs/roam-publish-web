@@ -19,7 +19,7 @@ const LEVEL_FILL: Record<Level, string> = {
   removed: "bg-destructive",
 };
 const LEVEL_LABELS: Record<Level, string> = {
-  unlisted: "Not listed",
+  unlisted: "Unlisted",
   listed: "Listed",
   discover: "Discoverable",
   removed: "Removed",

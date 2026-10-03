@@ -22,6 +22,8 @@ export function SegmentedControl<T extends string>({
   onChange,
   disabled,
   className,
+  defaultValue,
+  defaultLabel = "default",
   ...aria
 }: {
   value: T;
@@ -29,6 +31,9 @@ export function SegmentedControl<T extends string>({
   onChange: (v: T) => void;
   disabled?: boolean;
   className?: string;
+  /** The choice something else starts as (a graph's or collection's default), tagged in its segment. */
+  defaultValue?: T;
+  defaultLabel?: string;
   "aria-label"?: string;
   "aria-labelledby"?: string;
 }) {
@@ -78,6 +83,11 @@ export function SegmentedControl<T extends string>({
           >
             {Icon && <Icon aria-hidden />}
             <span>{o.label}</span>
+            {o.value === defaultValue && (
+              <span className="rounded-4xl px-1 text-[11px] leading-4 font-medium text-muted-foreground shadow-[inset_0_0_0_1px_var(--color-border)]">
+                {defaultLabel}
+              </span>
+            )}
           </button>
         );
       })}
