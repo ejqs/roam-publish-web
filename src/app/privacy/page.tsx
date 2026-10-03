@@ -79,7 +79,7 @@ const outline = [
     block("Unpublishing a page deletes it."),
     block("Deleting a graph deletes its pages, including members' pages, and the API keys for it."),
     block(
-      "Deleting your account (Settings) deletes your graphs, pages, collections, keys and profile, and what you published into other people's graphs.",
+      "Deleting your account (Settings) deletes your graphs, pages, collections, API keys and profile, and what you published into other people's graphs.",
     ),
     block(
       "If a moderator had acted on your account, a few things are kept after deletion so it can't simply be re-created: your graph names, usernames, and a one-way hash of your email.",
