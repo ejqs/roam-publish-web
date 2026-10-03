@@ -35,7 +35,7 @@ CI runs typecheck, lint and the tests on every PR.
 
 ## Branch workflow
 
-1. Push changes to `develop` first. Railway's `develop` environment builds and deploys it; wait for that deploy to succeed.
+1. Push changes to `develop` first. Railway's `staging` environment (the shadow database) deploys it. Its pre-deploy step (`bun run staging:check`) runs the full test suite against a throwaway `roam_publish_test` database on the staging Postgres, then migrates staging. Wait for that deploy to succeed.
 2. Only then open a PR from `develop` into `main`.
 3. Repeat for every later change; `develop` is always the staging branch for `main`.
 
