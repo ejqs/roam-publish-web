@@ -24,5 +24,13 @@ const run = (cmd: string[], extra: Record<string, string> = {}) => {
   if (exitCode !== 0) process.exit(exitCode ?? 1);
 };
 
-run(["bun", "run", "test"], { TEST_DATABASE_URL: testUrl.toString() });
+// Railway's own settings (staging URL, secrets) would leak into the tests, which assume their defaults from
+// tests/helpers/preload.ts, so pin those back to the same values the tests use locally and in CI.
+run(["bun", "run", "test"], {
+  TEST_DATABASE_URL: testUrl.toString(),
+  BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-1234",
+  BETTER_AUTH_URL: "http://localhost:3000",
+  NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+  APPEND_TOKEN_KEY: Buffer.alloc(32, 7).toString("base64"),
+});
 run(["bun", "run", "db:migrate"]);
