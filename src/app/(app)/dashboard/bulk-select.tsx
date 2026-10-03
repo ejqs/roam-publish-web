@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
-import { createContext, use, useState, useTransition } from "react";
+import { createContext, use, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { readOptions } from "@/components/manage/labels";
 import { Button } from "@/components/ui/button";
@@ -27,9 +27,23 @@ type Ctx = {
   ids: string[];
   /** Current tags per selectable id. */
   tags: Record<string, string[]>;
-  toggle: (id: string, on: boolean) => void;
+  /** Tick or untick a row; with `shift`, every row from the last plain-clicked one through it. */
+  select: (id: string, on: boolean, shift: boolean) => void;
   setAll: (on: boolean) => void;
 };
+
+/** Rows from `anchor` through `id` (in `ids` order) set to `on`; just `id` if there's no usable anchor. */
+export function selectRange(ids: string[], prev: Set<string>, anchor: string | null, id: string, on: boolean): Set<string> {
+  const a = anchor === null ? -1 : ids.indexOf(anchor);
+  const b = ids.indexOf(id);
+  const range = a === -1 || b === -1 ? [id] : ids.slice(Math.min(a, b), Math.max(a, b) + 1);
+  const next = new Set(prev);
+  for (const r of range) {
+    if (on) next.add(r);
+    else next.delete(r);
+  }
+  return next;
+}
 const BulkContext = createContext<Ctx | null>(null);
 
 /**
@@ -54,22 +68,25 @@ export function BulkSelect({
   children: React.ReactNode;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // The last row clicked without shift, where a shift-click range starts.
+  const anchor = useRef<string | null>(null);
   const ctx: Ctx = {
     selected,
     ids,
     tags,
-    toggle: (id, on) =>
-      setSelected((prev) => {
-        const next = new Set(prev);
-        if (on) next.add(id);
-        else next.delete(id);
-        return next;
-      }),
-    setAll: (on) => setSelected(on ? new Set(ids) : new Set()),
+    select: (id, on, shift) => {
+      const from = shift ? anchor.current : null;
+      if (!shift) anchor.current = id;
+      setSelected((prev) => selectRange(ids, prev, from, id, on));
+    },
+    setAll: (on) => {
+      anchor.current = null;
+      setSelected(on ? new Set(ids) : new Set());
+    },
   };
   return (
     <BulkContext value={ctx}>
-      {selected.size > 0 && <BulkBar kind={kind} name={graphName} onDone={() => setSelected(new Set())} />}
+      {selected.size > 0 && <BulkBar kind={kind} name={graphName} onDone={() => ctx.setAll(false)} />}
       {children}
     </BulkContext>
   );
@@ -77,12 +94,20 @@ export function BulkSelect({
 
 export function RowCheckbox({ id, title }: { id: string; title: string }) {
   const ctx = use(BulkContext);
+  // The change event comes from the hidden input and has no modifier keys, so note shift on the click.
+  const shift = useRef(false);
   if (!ctx) return null;
   return (
     <Checkbox
       aria-label={`Select ${title}`}
       checked={ctx.selected.has(id)}
-      onCheckedChange={(v) => ctx.toggle(id, !!v)}
+      // Keep shift-click from selecting the text between the two rows.
+      onMouseDown={(e) => e.shiftKey && e.preventDefault()}
+      onClick={(e) => (shift.current = e.shiftKey)}
+      onCheckedChange={(v) => {
+        ctx.select(id, !!v, shift.current);
+        shift.current = false;
+      }}
     />
   );
 }
