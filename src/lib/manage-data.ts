@@ -11,6 +11,10 @@ import type { PlaceState } from "@/components/manage/place-access-form";
 export type ManageData = {
   publicationId: string;
   title: string;
+  /** Encrypted with its passwords (lib/encryption.ts). */
+  encrypted: boolean;
+  /** A password it was encrypted with was reset: some place can't open it until it's republished. */
+  needsRepublish: boolean;
   /** Can change the page itself: its graph place, collections, unpublish. */
   canManagePage: boolean;
   origin: { graphName: string; rootUid: string };
@@ -101,6 +105,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           views: entry.views,
           showViewCountries: entry.showViewCountries,
           listing: entry.listing,
+          encrypted: pub.encrypted,
         },
         container: {
           label: c.name,
@@ -123,6 +128,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
     out.set(pub.id, {
       publicationId: pub.id,
       title: pub.title,
+      encrypted: pub.encrypted,
+      needsRepublish: pub.needsRepublish,
       canManagePage,
       origin: { graphName: g.name, rootUid: pub.rootUid },
       graphPlace: {
@@ -139,6 +146,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           showAuthor: pub.showAuthor,
           views: pub.views,
           showViewCountries: pub.showViewCountries,
+          encrypted: pub.encrypted,
         },
         container: {
           label: g.name,

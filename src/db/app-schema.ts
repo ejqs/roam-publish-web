@@ -191,6 +191,15 @@ export const publication = pgTable(
     tagsAdded: text("tags_added").array().notNull().default(sql`'{}'::text[]`),
     /** Tags from the Roam text removed on the website. Kept across republishes. */
     tagsHidden: text("tags_hidden").array().notNull().default(sql`'{}'::text[]`),
+    /**
+     * Encrypted with the passwords of every place it's shown (lib/encryption.ts). While set, `tree`
+     * is an empty root, `searchText` and `tags` are empty, `cipher` holds the content and
+     * `contentHash` is stored encrypted under the server secret.
+     */
+    encrypted: boolean("encrypted").notNull().default(false),
+    cipher: text("cipher"),
+    /** A password it was encrypted with was reset, so some place can't open it until it's republished. */
+    needsRepublish: boolean("needs_republish").notNull().default(false),
     /** Plain text of the tree for full-text search (lib/tags.ts). Set on every write of `tree`. */
     searchText: text("search_text").notNull().default(""),
     /** Title weighted above body. 'simple' so any language matches word for word. */
@@ -638,6 +647,41 @@ export const passwordUnlock = pgTable(
     lastUnlockAt: timestamp("last_unlock_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.scope, t.targetId, t.passwordVersion] })],
+);
+
+export const LOCK_SCOPES = ["graph", "collection", "publication", "entry"] as const;
+export type LockScope = (typeof LOCK_SCOPES)[number];
+
+/**
+ * A password's key pair, for encrypted pages (lib/encryption.ts). The private key is stored
+ * encrypted with a key made from the password, so only someone who knows it can open a page. Kept
+ * only for passwords of at least 10 characters.
+ */
+export const lockKey = pgTable(
+  "lock_key",
+  {
+    scope: text("scope", { enum: LOCK_SCOPES }).notNull(),
+    targetId: text("target_id").notNull(),
+    publicKey: text("public_key").notNull(),
+    /** "v1.{salt}.{iv}.{tag}.{ciphertext}", base64url: the private key under scrypt(password, salt). */
+    wrappedPrivateKey: text("wrapped_private_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.scope, t.targetId] })],
+);
+
+/** An encrypted page's content key, sealed to the key pair of one password that opens it. */
+export const publicationKey = pgTable(
+  "publication_key",
+  {
+    publicationId: text("publication_id")
+      .notNull()
+      .references(() => publication.id, { onDelete: "cascade" }),
+    scope: text("scope", { enum: LOCK_SCOPES }).notNull(),
+    targetId: text("target_id").notNull(),
+    sealedKey: text("sealed_key").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.publicationId, t.scope, t.targetId] }), index("publication_key_lock_idx").on(t.scope, t.targetId)],
 );
 
 /**

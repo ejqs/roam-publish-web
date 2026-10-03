@@ -6,6 +6,8 @@ import { updateEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actio
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { EntryListing, PlaceAccess, PlaceViews, ShowAuthor } from "@/db/schema";
+import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
+import { usePasswordPrompt } from "./password-prompt";
 
 export type PlaceState = {
   access: PlaceAccess;
@@ -15,6 +17,8 @@ export type PlaceState = {
   showViewCountries: ShowAuthor;
   /** Entries only. */
   listing?: EntryListing;
+  /** The page is encrypted: it can only use Password here, and password changes need the current one. */
+  encrypted?: boolean;
 };
 
 /**
@@ -26,6 +30,7 @@ export function PlacePasswordForm({
   id,
   hasOwnPassword,
   container,
+  encrypted,
   onSaved,
 }: {
   kind: "graph" | "entry";
@@ -33,14 +38,20 @@ export function PlacePasswordForm({
   id: string;
   hasOwnPassword: boolean;
   container: { label: string; hasPassword: boolean };
+  /** The page is encrypted: a new password needs 10+ characters, and the current one to switch. */
+  encrypted?: boolean;
   onSaved?: () => void;
 }) {
   const [password, setPassword] = useState("");
   const [pending, start] = useTransition();
+  const passwordPrompt = usePasswordPrompt();
 
   function save(input: { password?: string; clearPassword?: boolean }) {
     start(async () => {
-      const res = kind === "graph" ? await updateGraphPlace(id, input) : await updateEntry(id, input);
+      const res = await passwordPrompt.run((currentPassword) =>
+        kind === "graph" ? updateGraphPlace(id, { ...input, currentPassword }) : updateEntry(id, { ...input, currentPassword }),
+      );
+      if (!res) return;
       if (!res.ok) return void toast.error(res.message);
       toast.success(res.message || "Saved.");
       setPassword("");
@@ -70,7 +81,9 @@ export function PlacePasswordForm({
           {hasOwnPassword ? "Change" : "Set"}
         </Button>
       </div>
+      {passwordPrompt.element}
       <p className="text-xs text-muted-foreground">
+        {encrypted && `At least ${ENCRYPT_PASSWORD_MIN} characters, because this page is encrypted. `}
         {hasOwnPassword ? "This page has its own password. " : `Uses ${container.label}'s password unless you set one here. `}
         {hasOwnPassword && (
           <button

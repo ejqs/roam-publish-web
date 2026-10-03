@@ -18,6 +18,7 @@ import {
   user,
   usernameAlias,
 } from "@/db/schema";
+import { afterReturnToGraph, dropOrphanLockKeys } from "./encryption";
 import { keyedHash } from "./keyed-hash";
 import { keyGraphId } from "./key-metadata";
 
@@ -79,6 +80,7 @@ export async function purgeGraph(tx: Tx, g: { id: string; userId: string }) {
   await deleteGraphKeys(tx, g.id, [g.userId, ...members.map((m) => m.userId)]);
   await tx.delete(invite).where(and(eq(invite.targetType, "graph"), eq(invite.targetId, g.id)));
   await tx.delete(graph).where(eq(graph.id, g.id));
+  await dropOrphanLockKeys(tx);
 }
 
 /**
@@ -87,19 +89,22 @@ export async function purgeGraph(tx: Tx, g: { id: string; userId: string }) {
  */
 export async function purgeCollection(tx: Tx, c: { id: string; slug: string }, opts: { keepSlug: boolean }) {
   // Pages that were only in this collection go back to their graphs, unlisted.
-  await tx.execute(sql`
+  const back = await tx.execute<{ id: string }>(sql`
     update publication set in_graph = true, visibility = 'unlisted'
     where in_graph = false
       and id in (select publication_id from collection_entry where collection_id = ${c.id})
       and not exists (
         select 1 from collection_entry e where e.publication_id = publication.id and e.collection_id <> ${c.id}
       )
+    returning id
   `);
   await tx.delete(collectionEntry).where(eq(collectionEntry.collectionId, c.id));
   await tx.delete(invite).where(and(eq(invite.targetType, "collection"), eq(invite.targetId, c.id)));
   await tx.delete(collection).where(eq(collection.id, c.id));
   // Entry uids stay reserved either way so old links never point at something new.
   if (!opts.keepSlug) await tx.delete(cPath).where(eq(cPath.path, c.slug));
+  await dropOrphanLockKeys(tx);
+  await afterReturnToGraph(tx, back.rows.map((r) => r.id));
 }
 
 /** True when a moderator suspended the graph or removed any page in it. Such graphs can't be deleted alone. */
@@ -197,6 +202,7 @@ export async function deleteAccountData(u: { id: string; email: string }) {
     // What they published into other people's graphs goes too, except removed pages: those stay locked
     // (publishedBy becomes null) so the graph's owner can't republish them.
     await tx.delete(publication).where(and(eq(publication.publishedBy, u.id), isNull(publication.removedAt)));
+    await dropOrphanLockKeys(tx);
     await tx.delete(apikey).where(eq(apikey.referenceId, u.id));
     // Invites to them cascade; ones they sent would otherwise outlive them.
     await tx.delete(invite).where(eq(invite.invitedBy, u.id));

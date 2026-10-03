@@ -200,10 +200,10 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
       className="sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-md border bg-card px-3 py-2 shadow-sm"
     >
       <span className="text-sm font-medium tabular-nums">{n.toLocaleString("en-US")} selected</span>
-      <BulkMenu label="Where it's listed" disabled={pending}>
+      <BulkMenu label="Visibility control" disabled={pending}>
         {(close) => (
           <Section
-            label="Where they're listed"
+            label="Visibility control"
             value={"" as Access}
             options={reachOptions}
             onChoose={(reach) => {
@@ -213,10 +213,10 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
           />
         )}
       </BulkMenu>
-      <BulkMenu label="Who can read" disabled={pending}>
+      <BulkMenu label="Access control" disabled={pending}>
         {(close) => (
           <Section
-            label="Who can read them"
+            label="Access control"
             value={"" as ReadAccess}
             options={readChoices}
             onChoose={(read) => {

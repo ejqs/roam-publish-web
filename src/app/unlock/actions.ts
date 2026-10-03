@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
 import { collection, collectionEntry, graph, passwordUnlock, publication } from "@/db/schema";
+import { rememberKey } from "@/lib/encryption";
 import { type Lock, setUnlocked, verifyPassword } from "@/lib/gates";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { withAction } from "@/lib/telemetry";
@@ -45,6 +46,8 @@ export async function unlock(input: z.input<typeof Input>): Promise<UnlockResult
     if (!row?.passwordHash || !verifyPassword(password, row.passwordHash))
       return { ok: false, message: "That password isn't right." };
     await setUnlocked({ scope, id, version: row.passwordVersion });
+    // Encrypted pages open with the password's key, kept in a cookie of its own.
+    await rememberKey({ scope, id, version: row.passwordVersion }, password);
     // Counted for the page's managers: how many people got in with this password (lib/views-data.ts).
     await db
       .insert(passwordUnlock)

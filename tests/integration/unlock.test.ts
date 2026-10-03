@@ -26,6 +26,15 @@ describe("unlock", () => {
     expect((await unlock({ scope: "graph", id: g.id, password: "wrong" })).ok).toBe(false);
     expect(request.cookies.size).toBe(0);
     expect((await unlock({ scope: "graph", id: g.id, password: "right-password" })).ok).toBe(true);
+    // The second cookie carries the password's key, which opens encrypted pages.
+    expect([...request.cookies.keys()]).toEqual([`rp_unlock_graph_${g.id}`, `rp_key_graph_${g.id}`]);
+  });
+
+  test("a password under 10 characters unlocks, but makes no key for encrypted pages", async () => {
+    const u = await makeUser();
+    const g = await makeGraph(u.id, { passwordHash: hashPassword("short"), indexAccess: "password" });
+    request.cookies.clear();
+    expect((await unlock({ scope: "graph", id: g.id, password: "short" })).ok).toBe(true);
     expect([...request.cookies.keys()]).toEqual([`rp_unlock_graph_${g.id}`]);
   });
 

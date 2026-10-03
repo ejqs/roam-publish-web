@@ -190,6 +190,13 @@
       "when": 1791032118935,
       "tag": "0026_report_ip_hash_keyed",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791035485128,
+      "tag": "0027_encrypted_pages",
+      "breakpoints": true
     }
   ]
 }

@@ -147,7 +147,7 @@ function BylineLine({ byline, className }: { byline: Byline; className?: string 
 }
 
 /** The dashboard list this page sits in: its graph's, or else the first collection the viewer manages it in. */
-function dashboardHref(m: ManageData) {
+export function dashboardHref(m: ManageData) {
   if (m.canManagePage) return `/dashboard/${encodeURIComponent(m.origin.graphName)}#pub-${m.publicationId}`;
   const e = m.entries.find((x) => x.canManage);
   return e ? `/dashboard/collections/${encodeURIComponent(e.collectionSlug)}` : "/dashboard";

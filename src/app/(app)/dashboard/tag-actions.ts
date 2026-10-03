@@ -76,6 +76,8 @@ function revalidateTags() {
 const EXPIRED: TagResult = { ok: false, message: "Your session expired. Please log in again." };
 const TOO_MANY: TagResult = { ok: false, message: "Too many changes. Try again in a few minutes." };
 
+const ENCRYPTED = "Tags are off while this page is encrypted.";
+
 export async function setPageTags(publicationId: string, raw: { add?: string[]; remove?: string[] }): Promise<TagResult> {
   return withAction("dashboard.tags.setPageTags", async () => {
     const uid = await sessionUser();
@@ -91,6 +93,7 @@ export async function setPageTags(publicationId: string, raw: { add?: string[]; 
       where: and(eq(publication.id, publicationId), manageablePublications(uid)),
     });
     if (!pub) return { ok: false, message: "You can't change this page." };
+    if (pub.encrypted) return { ok: false, message: ENCRYPTED };
 
     const next = applyTagEdit(pub, add, remove);
     if (next.full) return { ok: false, message: `A page can have up to ${MAX_TAGS} tags.` };
@@ -144,8 +147,13 @@ export async function bulkSetTags(raw: { kind: "graph" | "collection"; ids: stri
 
     let changed = 0;
     let full = 0;
+    let encrypted = 0;
     const log: Change[] = [];
     for (const pub of rows) {
+      if (pub.encrypted) {
+        encrypted++;
+        continue;
+      }
       const next = applyTagEdit(pub, add, remove);
       if (next.full) full++;
       if (!next.summary.length) continue;
@@ -159,6 +167,7 @@ export async function bulkSetTags(raw: { kind: "graph" | "collection"; ids: stri
     const notes = [
       skipped > 0 && `${pages(skipped)} skipped: you can only change tags on pages you manage.`,
       full > 0 && `${pages(full)} reached the ${MAX_TAGS}-tag limit.`,
+      encrypted > 0 && `${pages(encrypted)} skipped: tags are off while a page is encrypted.`,
     ].filter(Boolean);
     if (changed === 0) return { ok: false, message: notes.join(" ") || "Nothing changed: the pages already had those tags." };
     return { ok: true, message: [`Updated ${pages(changed)}.`, ...notes].join(" ") };

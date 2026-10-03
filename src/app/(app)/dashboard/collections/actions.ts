@@ -14,12 +14,15 @@ import { DISCOVER_TAG } from "@/lib/discover";
 import { purgeCollection } from "@/lib/deletion";
 import { clearGatedCollectionDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
+import { dropLock, KeysError, setLockPassword } from "@/lib/encryption";
 import { hashPassword, Password } from "@/lib/gates";
 import { canReceiveInvite } from "@/lib/graph-access";
 import { rateLimit } from "@/lib/rate-limit";
 import { withAction } from "@/lib/telemetry";
 
-export type CollectionResult = { ok: true; message: string; slug?: string } | { ok: false; message: string };
+export type CollectionResult =
+  | { ok: true; message: string; slug?: string }
+  | { ok: false; message: string; needCurrentPassword?: boolean };
 
 async function userId() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -74,6 +77,10 @@ const Settings = z.object({
   rss: z.boolean(),
   password: z.union([z.literal(""), Password]),
   clearPassword: z.boolean(),
+  /** The password now, when a new one is set and encrypted pages use it. */
+  currentPassword: z.string().max(200).optional(),
+  /** Set the new password without the current one: pages encrypted with it need republishing. */
+  resetEncrypted: z.boolean().optional(),
 });
 export type CollectionSettings = z.input<typeof Settings>;
 
@@ -95,13 +102,20 @@ export async function updateCollection(collectionId: string, input: CollectionSe
       return { ok: false, message: "Some pages still use the collection password. Change them first." };
     // Discover only takes open, indexable collections; a gate turns it off (see clearGatedCollectionDiscover).
     const open = s.indexAccess === "open" && s.indexable;
+    if ((s.password || s.currentPassword) && !rateLimit(`password:user:${uid}`, 30, 15 * 60 * 1000))
+      return { ok: false, message: "Too many changes. Try again in a few minutes." };
+    try {
+    await db.transaction(async (tx) => {
+    const lock = { scope: "collection", id: c.id, version: c.passwordVersion } as const;
+    if (s.password) await setLockPassword(tx, lock, s.password, { currentPassword: s.currentPassword, reset: s.resetEncrypted });
+    else if (s.clearPassword) await dropLock(tx, lock);
     // The default is for pages added from now on: pages that followed the old one keep it.
     if (s.defaultAccess !== c.defaultAccess)
-      await db
+      await tx
         .update(collectionEntry)
         .set({ access: c.defaultAccess })
         .where(and(eq(collectionEntry.collectionId, c.id), eq(collectionEntry.access, "inherit")));
-    await db
+    await tx
       .update(collection)
       .set({
         name: s.name,
@@ -122,6 +136,11 @@ export async function updateCollection(collectionId: string, input: CollectionSe
             : {}),
       })
       .where(eq(collection.id, c.id));
+    });
+    } catch (e) {
+      if (e instanceof KeysError) return { ok: false, message: e.message, needCurrentPassword: e.need === "currentPassword" };
+      throw e;
+    }
     await clearGatedCollectionDiscover(c.id);
     revalidate();
     return { ok: true, message: "Settings saved." };

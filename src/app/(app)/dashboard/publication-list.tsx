@@ -93,6 +93,15 @@ export function PublicationList({
                           Block
                         </Badge>
                       )}
+                      {m?.needsRepublish && (
+                        <Badge
+                          variant="outline"
+                          title="A password it was encrypted with was reset. Republish this page from Roam to make it readable everywhere again."
+                          className="mt-px shrink-0 cursor-help border-amber-500/60 text-amber-700 dark:text-amber-400"
+                        >
+                          Needs republish
+                        </Badge>
+                      )}
                     </div>
                     {p.tags.length > 0 && (
                       <p className="truncate text-xs text-roam-ref">
