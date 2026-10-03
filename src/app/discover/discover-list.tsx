@@ -1,4 +1,4 @@
-import { ArrowBigUp } from "lucide-react";
+import { ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { cn } from "cn";
 import { Badge } from "@/components/ui/badge";
@@ -92,7 +92,7 @@ export function DiscoverList({
                 r.votes > 0 ? "text-foreground" : "text-muted-foreground",
               )}
             >
-              <ArrowBigUp className="size-5" aria-hidden />
+              <ChevronUp className="size-4" aria-hidden />
               <span className="font-medium">{r.votes.toLocaleString("en-US")}</span>
               <span className="sr-only">{r.votes === 1 ? "upvote" : "upvotes"}</span>
             </Link>
