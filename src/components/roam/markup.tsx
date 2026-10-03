@@ -39,15 +39,53 @@ const re =
 // A URL that may contain one level of balanced parentheses, like Wikipedia's `Foo_(bar)`.
 const URL_IN_PARENS = String.raw`((?:[^()\s]|\([^()\s]*\))+)`;
 
+/** A ref to a page that isn't published here: still reads as a ref, but faded and not clickable. */
+function UnpublishedRef({ children }: { children: ReactNode }) {
+  return (
+    <span
+      title="This page isn't published"
+      className="cursor-help text-roam-ref/60 underline decoration-dotted decoration-1 underline-offset-[3px]"
+    >
+      {children}
+    </span>
+  );
+}
+
 function PageRef({ title, ctx, tag, label }: { title: string; ctx: Ctx; tag?: boolean; label?: ReactNode }) {
   const href = ctx.links.get(title.toLowerCase()) ?? (tag ? ctx.links.tagHref?.(title) : undefined);
+  // A nested ref like [[a [[b]] c]]: each inner ref gets its own link, and the text around it
+  // links to the outer page, so no link ends up inside another.
+  if (!label && pageRef("")(title)) return <NestedRef text={tag ? `#${title}` : title} href={href} ctx={ctx} />;
   const text = label ?? (tag ? `#${title}` : title);
   return href ? (
     <Link href={href} className="text-roam-ref hover:underline">
       {text}
     </Link>
   ) : (
-    <span className={tag || label ? "text-roam-ref" : undefined}>{text}</span>
+    <UnpublishedRef>{text}</UnpublishedRef>
+  );
+}
+
+/** A nested ref's title: outer text links to `href`, inner refs link to their own pages. */
+function NestedRef({ text, href, ctx }: { text: string; href?: string; ctx: Ctx }) {
+  const outer = (t: string) =>
+    href ? (
+      <Link href={href} className="text-roam-ref hover:underline">
+        {t}
+      </Link>
+    ) : (
+      <UnpublishedRef>{t}</UnpublishedRef>
+    );
+  const inner = pageRef("")(text);
+  if (!inner) return outer(text);
+  const before = text.slice(0, inner.index);
+  const after = text.slice(inner.index + inner.length);
+  return (
+    <>
+      {before && outer(before)}
+      <PageRef title={inner.groups[1]} ctx={ctx} />
+      {after && <NestedRef text={after} href={href} ctx={ctx} />}
+    </>
   );
 }
 
