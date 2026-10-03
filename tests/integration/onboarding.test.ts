@@ -68,8 +68,8 @@ describe("verifyGraph", () => {
     for (const name of ["dashboard", "Admin", "api"]) expect((await verifyGraph(input(name))).ok).toBe(false);
   });
 
-  // BUG (low): /search and /settings are routes too, so a graph with that name has no reachable front page.
-  test.failing("search and settings are reserved too", async () => {
+  // /search and /settings are routes too, so a graph with that name would have no reachable front page.
+  test("search and settings are reserved too", async () => {
     actAs(await makeUser());
     for (const name of ["search", "settings"]) expect((await verifyGraph(input(name))).ok).toBe(false);
   });

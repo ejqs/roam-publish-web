@@ -39,9 +39,12 @@ describe("embeds", () => {
     expect(html("{{iframe: http://localhost:3000/evil}}")).not.toContain("<iframe");
   });
 
-  // BUG (low): {{iframe}} refuses our own origin, {{pdf}} doesn't, and <object> has no sandbox.
-  test.failing("a PDF from roam.pub itself isn't embedded unsandboxed", () => {
+  test("a PDF from roam.pub itself isn't embedded unsandboxed", () => {
     expect(html("{{pdf: http://localhost:3000/somepage}}")).not.toContain("<object");
+  });
+
+  test("a PDF from elsewhere is embedded", () => {
+    expect(html("{{pdf: https://example.com/a.pdf}}")).toContain('<object data="https://example.com/a.pdf"');
   });
 
   test("links open safely", () => {
