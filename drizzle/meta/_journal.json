@@ -169,6 +169,13 @@
       "when": 1791009908003,
       "tag": "0023_endpoint_metrics",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791011266478,
+      "tag": "0024_endpoint_metric_rejected",
+      "breakpoints": true
     }
   ]
 }
