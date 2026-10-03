@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { backgroundJob } from "@/db/schema";
 import { flushChangeLog } from "./changelog";
 import type { JobDef } from "./jobs";
+import { runAlerts } from "./alerts";
 import { flushMetrics } from "./telemetry-stats";
 import { umamiDisabledReason } from "./umami";
 import { countrySweep, fullSweep, hotSweep, withClient } from "./view-sync";
@@ -42,6 +43,17 @@ export const JOBS: JobDef[] = [
     exclusive: false,
     disabledReason: () => null,
     run: () => flushMetrics(),
+  },
+  {
+    name: "status-alerts",
+    label: "Failure emails",
+    description:
+      "Emails the admins when routes, actions, outside services or jobs start failing, every 6 hours while it lasts, and when it's fixed.",
+    schedule: "Every 5 minutes",
+    intervalMs: 5 * MINUTE,
+    exclusive: true,
+    disabledReason: () => (process.env.ALERTS === "off" ? "ALERTS=off" : null),
+    run: ({ cursor }) => runAlerts(cursor, JOBS),
   },
   {
     name: FULL_SWEEP,

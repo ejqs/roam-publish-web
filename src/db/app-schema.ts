@@ -642,7 +642,8 @@ export const passwordUnlock = pgTable(
 /**
  * Calls to each entry point (route handler, server action), outside service and page error, per
  * minute: written by the metrics-flush job from lib/telemetry.ts, shown on /admin/status, kept two
- * weeks. `hist` counts calls per latency bin (LATENCY_BINS), for percentiles.
+ * weeks. `hist` counts calls per latency bin (LATENCY_BINS), for percentiles; `rejected` counts 4xx
+ * answers, which aren't errors.
  */
 export const endpointMetric = pgTable(
   "endpoint_metric",
@@ -655,6 +656,8 @@ export const endpointMetric = pgTable(
     sumMs: integer("sum_ms").notNull().default(0),
     maxMs: integer("max_ms").notNull().default(0),
     hist: integer("hist").array().notNull(),
+    /** 4xx answers by status, e.g. `{ "409": 3 }`. */
+    rejected: jsonb("rejected").$type<Record<string, number>>().notNull().default({}),
     lastError: text("last_error"),
     lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
   },
