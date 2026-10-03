@@ -22,17 +22,11 @@ const LINKS = [
 function FooterLinks({ className }: { className: string }) {
   return (
     <nav aria-label="Footer" className="flex flex-wrap gap-x-3 gap-y-1">
-      {LINKS.map((l) =>
-        l.external ? (
-          <a key={l.label} href={l.href} target="_blank" rel="noopener" className={className}>
-            {l.label}
-          </a>
-        ) : (
-          <Link key={l.label} href={l.href} className={className}>
-            {l.label}
-          </Link>
-        ),
-      )}
+      {LINKS.map((l) => (
+        <Link key={l.label} href={l.href} className={className}>
+          {l.label}
+        </Link>
+      ))}
       <SourcePopover className={className} links={SOURCE_LINKS} />
     </nav>
   );
