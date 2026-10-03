@@ -40,6 +40,22 @@ const Body = z.object({
 });
 
 const MAX_BYTES = 1_000_000;
+/** Far deeper than any real outline; checked before zod, which recurses once per level. */
+const MAX_DEPTH = 200;
+
+/** Whether a parsed tree nests children or embeds deeper than MAX_DEPTH, checked without recursion. */
+function tooDeep(body: unknown) {
+  const stack: [unknown, number][] = [[(body as { tree?: unknown } | null)?.tree, 1]];
+  while (stack.length) {
+    const [node, depth] = stack.pop()!;
+    if (!node || typeof node !== "object") continue;
+    if (depth > MAX_DEPTH) return true;
+    const { children, embed } = node as { children?: unknown; embed?: unknown };
+    if (Array.isArray(children)) for (const c of children) stack.push([c, depth + 1]);
+    if (embed) stack.push([embed, depth + 1]);
+  }
+  return false;
+}
 
 export const OPTIONS = preflight;
 
@@ -78,13 +94,15 @@ export async function POST(req: Request) {
   if (ctx instanceof Response) return ctx;
 
   const raw = await req.text();
-  if (raw.length > MAX_BYTES) return json(req, { error: "Content too large" }, 413);
+  if (Buffer.byteLength(raw) > MAX_BYTES) return json(req, { error: "Content too large" }, 413);
   let body: unknown;
   try {
     body = JSON.parse(raw);
   } catch {
     return json(req, { error: "Invalid JSON" }, 400);
   }
+  if (tooDeep(body))
+    return json(req, { error: `This page is nested more than ${MAX_DEPTH} levels deep, which can't be published.` }, 400);
   const parsed = Body.safeParse(body);
   if (!parsed.success) return json(req, { error: "Invalid publish payload" }, 400);
   const p = parsed.data;
