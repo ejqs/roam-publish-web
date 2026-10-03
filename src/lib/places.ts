@@ -1,7 +1,15 @@
-import { asc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { asc, eq, inArray, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, collectionEntry, graph, publication } from "@/db/schema";
 import { entryUrl, publicationUrl } from "./publications";
+
+/**
+ * Places (a page in a graph, or an entry in a collection) a reader who isn't a member can open
+ * without a password or signing in, given the place's `access` column and its container's default.
+ * Front pages search, excerpt and count tags only from these; listed protected pages show by title.
+ */
+export const openInContainer = (access: SQLWrapper, defaultAccess: string): SQL =>
+  defaultAccess === "open" ? sql`${access} in ('open', 'inherit')` : sql`${access} = 'open'`;
 
 /**
  * The graph place exists and is readable by anyone; mirrors `effectiveAccess` in gates.ts for

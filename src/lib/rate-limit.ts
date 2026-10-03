@@ -12,10 +12,15 @@ export function rateLimit(key: string, max: number, windowMs: number) {
   return b.count <= max;
 }
 
-export function clientIp(req: Request) {
+/**
+ * The client's address as our proxy saw it, for rate limiting. X-Real-IP is set by the proxy; the
+ * first X-Forwarded-For entry is whatever the client sent, so only the last one (added by the
+ * proxy) is used. Same order as better-auth's ipAddressHeaders in auth.ts.
+ */
+export function clientIp(headers: Headers) {
   return (
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
+    headers.get("x-real-ip")?.trim() ||
+    headers.get("x-forwarded-for")?.split(",").at(-1)?.trim() ||
     "unknown"
   );
 }

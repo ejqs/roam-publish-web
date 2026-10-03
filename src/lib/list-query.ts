@@ -12,12 +12,19 @@ function tsQuery(q: string): SQL | null {
   return words.length ? sql`to_tsquery('simple', ${words.map((w) => `${w}:*`).join(" & ")})` : null;
 }
 
+/**
+ * Where a page's text (not just its title) may be searched and excerpted: pages the reader can open.
+ * Listed protected pages show their titles, so they still match on those, but never on their text.
+ * Undefined means every page in the list.
+ */
+export type BodyVisible = SQL | undefined;
+
 /** Title or text matches the search. Titles also match on any substring, for punctuation and partial words. */
-export function textMatch(q: string): SQL | undefined {
+export function textMatch(q: string, bodyVisible?: BodyVisible): SQL | undefined {
   if (!q) return undefined;
   const ts = tsQuery(q);
   const title = ilike(publication.title, `%${escapeLike(q)}%`);
-  return ts ? or(sql`${publication.search} @@ ${ts}`, title) : title;
+  return ts ? or(and(bodyVisible, sql`${publication.search} @@ ${ts}`), title) : title;
 }
 
 const textArray = (values: string[]) =>
@@ -33,14 +40,19 @@ export const tagsMatch = (tags: string[]): SQL | undefined =>
 /** Has at least one of the tags. */
 export const tagsOverlap = (tags: string[]): SQL => (tags.length ? sql`${publication.tags} && ${textArray(tags)}` : sql`false`);
 
-export const listWhere = (s: { q: string; tags: string[]; kind: string | null }, ...rest: (SQL | undefined)[]) =>
-  and(...rest, textMatch(s.q), tagsMatch(s.tags), s.kind ? sql`${publication.kind} = ${s.kind}` : undefined);
+export const listWhere = (
+  s: { q: string; tags: string[]; kind: string | null },
+  bodyVisible: BodyVisible,
+  ...rest: (SQL | undefined)[]
+) => and(...rest, textMatch(s.q, bodyVisible), tagsMatch(s.tags), s.kind ? sql`${publication.kind} = ${s.kind}` : undefined);
 
 /** Best match first: title hits outrank body hits. */
-export function relevance(q: string) {
+export function relevance(q: string, bodyVisible?: BodyVisible) {
   const ts = tsQuery(q);
   const titleHit = sql`(${publication.title} ilike ${`%${escapeLike(q)}%`})::int`;
-  return ts ? sql`${titleHit} + ts_rank(${publication.search}, ${ts})` : titleHit;
+  if (!ts) return titleHit;
+  const rank = sql`ts_rank(${publication.search}, ${ts})`;
+  return sql`${titleHit} + ${bodyVisible ? sql`case when ${bodyVisible} then ${rank} else 0 end` : rank}`;
 }
 
 // Roam text never holds these control characters, so they mark the hits unambiguously.
@@ -48,11 +60,12 @@ export const HIT_START = "\u0001";
 export const HIT_END = "\u0002";
 
 /** A short excerpt around the first hit in the text, hits wrapped in HIT_START/HIT_END. */
-export function snippet(q: string) {
+export function snippet(q: string, bodyVisible?: BodyVisible) {
   const ts = tsQuery(q);
   if (!ts) return sql<string | null>`null`;
   const opts = `StartSel=${HIT_START}, StopSel=${HIT_END}, MaxWords=24, MinWords=10, MaxFragments=1, FragmentDelimiter=" … "`;
-  return sql<string | null>`case when to_tsvector('simple', ${publication.searchText}) @@ ${ts}
+  const hit = sql`to_tsvector('simple', ${publication.searchText}) @@ ${ts}`;
+  return sql<string | null>`case when ${bodyVisible ? and(bodyVisible, hit) : hit}
     then ts_headline('simple', ${publication.searchText}, ${ts}, ${opts}) end`;
 }
 
