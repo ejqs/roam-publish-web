@@ -56,8 +56,6 @@ const LABEL_W = 180;
  */
 export const CARD_CACHE = "public, max-age=86400";
 
-const initial = (s: string) => (Array.from(s.trim())[0] ?? "?").toUpperCase();
-
 export async function renderCard(card: PreviewCard, cacheControl: string) {
   return new ImageResponse(card.locked ? <LockedCard card={card} /> : <OpenCard card={card} />, {
     width: 1200,
@@ -77,23 +75,7 @@ function Frame({ children }: { children: React.ReactNode }) {
 
 function ContainerLine({ name }: { name: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 26 }}>
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 2,
-          background: PRIMARY,
-          color: "#ffffff",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 21,
-          fontWeight: 700,
-        }}
-      >
-        {initial(name)}
-      </div>
+    <div style={{ display: "flex", alignItems: "center", fontSize: 26 }}>
       <div style={{ display: "flex", fontWeight: 700, maxWidth: 560, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
         {name}
       </div>
