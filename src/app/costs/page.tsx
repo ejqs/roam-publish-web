@@ -20,6 +20,7 @@ const outline = [
   ]),
   block("**Analytics: [Umami](https://umami.is)**", [
     block("Privacy-friendly traffic stats, so I can tell what's being used. No ads and no tracking across other sites."),
+    block("20 USD a month."),
   ]),
   block("**Why the asterisk**", [
     block("I pay for all of this myself, and for now it's free to you."),
