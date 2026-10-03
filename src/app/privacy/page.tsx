@@ -22,7 +22,7 @@ const outline = [
     ),
     block("It's run from the Philippines, so the Philippine Data Privacy Act of 2012 applies, along with the privacy laws where you live."),
     block(
-      "The operator can access everything stored on the service, and only uses it to run, support and moderate it.",
+      "The operator can access everything stored on the service, and only uses it to run, support and moderate it. The exception is the content of encrypted pages, which is stored so it can't be read without one of the page's passwords. It still passes through the server readable while it's published or read: see [[Encrypted pages]].",
     ),
     block("Questions, or to ask about your data: ejqs [at] ejqs [dot] net."),
   ]),
@@ -46,6 +46,9 @@ const outline = [
       "Your graphs: their names, and the time zone the extension sends. The codes that prove you own a graph are stored hashed and expire.",
     ),
     block("What you publish: the page or block text and structure the extension sends, its title, tags, byline and settings."),
+    block(
+      "For encrypted pages, the text is stored encrypted instead, with no search text or tags. Each password that opens them gets a key pair, whose private key is stored encrypted with the password. The title stays readable.",
+    ),
     block(
       "Your API keys are stored hashed. If you opt in to the change log, your Roam append-only token is stored encrypted. It's never shown again and is only ever sent to Roam.",
     ),
