@@ -54,7 +54,7 @@ export function ViewCount({ v }: { v: ViewFooter }) {
       {v.hidden ? (
         <p className="flex gap-2 text-foreground">
           <EyeOff className="mt-px size-3.5 shrink-0" aria-hidden />
-          <span>Only people who manage this page see this. View counts are hidden from visitors.</span>
+          <span>This count is private: only you see it. Visitors don&apos;t.</span>
         </p>
       ) : (
         vague && <p className="text-foreground">Fewer than {MIN_SHOWN_VIEWS} views so far.</p>
@@ -82,7 +82,7 @@ function ViewsOff({ v }: { v: ViewFooter }) {
         </>
       }
     >
-      <p className="text-foreground">Views aren&apos;t counted or shown on this page. Only people who manage it see this, to turn them back on.</p>
+      <p className="text-foreground">Views aren&apos;t counted or shown on this page. Only you see this, so you can turn them back on.</p>
       {v.controls && (
         <>
           <div className="h-px bg-border" />
