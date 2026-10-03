@@ -16,6 +16,7 @@
   --color-link: var(--link);
   --color-roam-ref: var(--roam-ref);
   --color-roam-bullet: var(--roam-bullet);
+  --color-roam-thread: var(--roam-thread);
   --color-roam-highlight: var(--roam-highlight);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -80,7 +81,8 @@
   --ring: #4c90f0;
   --link: #106ba3;
   --roam-ref: #106ba3;
-  --roam-bullet: #5c7080;
+  --roam-bullet: #394b59;
+  --roam-thread: #c2ccd5;
   --roam-highlight: #fff3a3;
   --chart-1: #2d72d2;
   --chart-2: #238551;
@@ -123,6 +125,7 @@
   --link: #8abbff;
   --roam-ref: #8abbff;
   --roam-bullet: #8f99a8;
+  --roam-thread: #4f5866;
   --roam-highlight: #5c4a00;
   --chart-1: #4c90f0;
   --chart-2: #32a467;
