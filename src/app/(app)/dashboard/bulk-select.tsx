@@ -183,6 +183,16 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
       ? readChoices.find((o) => o.value === staged.read)
       : undefined;
 
+  // The client doesn't know which selected pages are on Discover, so the warning for moving off it is generic.
+  const discoverWarning =
+    staged?.reach === "discover"
+      ? `They'll appear publicly on roam.pub/discover.`
+      : staged?.reach
+        ? `Any of them on roam.pub/discover will be taken off it.`
+        : staged?.read && staged.read !== "open"
+          ? `Any of them on roam.pub/discover will be taken off it and listed instead, since Discover only shows pages anyone can read.`
+          : null;
+
   return (
     <div
       role="toolbar"
@@ -255,6 +265,9 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
                   {staged?.reach ? `Sets where ${n === 1 ? "it's" : "they're"} listed` : `Sets who can read ${n === 1 ? "it" : "them"}`}{" "}
                   to <span className="font-medium text-foreground">{stagedOption.label}</span>. {stagedOption.description}
                 </>
+              )}
+              {discoverWarning && (
+                <span className="mt-2 block rounded-sm bg-muted px-2 py-1.5 text-foreground">{discoverWarning}</span>
               )}
             </DialogDescription>
           </DialogHeader>
