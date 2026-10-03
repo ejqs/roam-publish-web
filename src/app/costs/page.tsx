@@ -25,7 +25,9 @@ const outline = [
   block("**Why the asterisk**", [
     block("I pay for all of this myself, and for now it's free to you."),
     block("If Roam Research's revenue sharing and/or donations can cover these costs, it will stay free."),
-    block("If in a few months hosting this site proves financially burdensome, I may introduce a very small fee, just enough to sustain the hosting and development of the site."),
+    block("I plan to cover these costs myself for at least the first 6 months."),
+    block("If the site becomes a financial strain after that, I may introduce a small fee, just enough to keep the hosting and development going."),
+    block("Before any change, I'll give at least 2 months' notice so there's time to share feedback, suggest alternatives, or find other ways to support the site."),
     block("If it's useful to you, [buy me a coffee](https://buymeacoffee.com/ejqs) and it goes toward the bills above."),
   ]),
 ];
