@@ -3,7 +3,8 @@ import { db } from "@/db";
 import { backgroundJob } from "@/db/schema";
 import { flushChangeLog } from "./changelog";
 import type { JobDef } from "./jobs";
-import { runAlerts } from "./alerts";
+import { jobsWarmedUp, runAlerts } from "./alerts";
+import { runStatusBanner } from "./status-banner";
 import { flushMetrics } from "./telemetry-stats";
 import { umamiDisabledReason } from "./umami";
 import { countrySweep, fullSweep, hotSweep, withClient } from "./view-sync";
@@ -54,6 +55,17 @@ export const JOBS: JobDef[] = [
     exclusive: true,
     disabledReason: () => (process.env.ALERTS === "off" ? "ALERTS=off" : null),
     run: ({ cursor }) => runAlerts(cursor, JOBS),
+  },
+  {
+    name: "status-banner",
+    label: "Status banner",
+    description:
+      "Puts up the site-wide banner when people would notice a problem (publishing, pages, sign-in, dashboard, change log, emails) and lets it lapse a few minutes after it's over.",
+    schedule: "Every minute",
+    intervalMs: MINUTE,
+    exclusive: true,
+    disabledReason: () => (process.env.STATUS_BANNER === "off" ? "STATUS_BANNER=off" : null),
+    run: ({ cursor }) => runStatusBanner(cursor, JOBS, new Date(), { checkJobs: jobsWarmedUp() }),
   },
   {
     name: FULL_SWEEP,

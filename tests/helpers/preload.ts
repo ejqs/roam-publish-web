@@ -15,6 +15,9 @@ process.env.CHANGELOG_WORKER = "off";
 process.env.JOBS = "off";
 process.env.UMAMI_API_URL = "http://umami.test";
 process.env.UMAMI_API_KEY = "test-umami-key";
+// What's new never reaches GitHub from a test; tests that need it fake fetch.
+process.env.EXTENSION_CHANGELOG_URL = "http://github.test/CHANGELOG.md";
+process.env.EXTENSION_COMMITS_URL = "http://github.test/commits";
 delete process.env.RESEND_API_KEY;
 
 const { request } = await import("./request");

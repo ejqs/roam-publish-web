@@ -311,7 +311,7 @@ export const moderationAction = pgTable(
     id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
     adminId: text("admin_id").references(() => user.id, { onDelete: "set null" }),
     targetType: text("target_type", {
-      enum: ["publication", "graph", "user", "report", "collection"],
+      enum: ["publication", "graph", "user", "report", "collection", "announcement"],
     }).notNull(),
     targetId: text("target_id").notNull(),
     action: text("action", {
@@ -319,6 +319,7 @@ export const moderationAction = pgTable(
         "remove", "restore", "suspend", "unsuspend", "ban", "unban", "dismiss",
         "rename_username", "clear_username", "release_username", "clear_bio", "clear_description",
         "delete_account", "delete_graph", "lift_block",
+        "announce", "end_announcement", "mute", "unmute",
       ],
     }).notNull(),
     reason: text("reason").notNull().default(""),
@@ -662,4 +663,36 @@ export const endpointMetric = pgTable(
     lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
   },
   (t) => [primaryKey({ columns: [t.name, t.minute] }), index("endpoint_metric_minute_idx").on(t.minute)],
+);
+
+export const ANNOUNCEMENT_TONES = ["warning", "critical"] as const;
+export type AnnouncementTone = (typeof ANNOUNCEMENT_TONES)[number];
+export const ANNOUNCEMENT_AUDIENCES = ["everyone", "signed-in"] as const;
+export type AnnouncementAudience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
+
+/**
+ * The site-wide banner, for urgent things only. Admins post `manual` ones; the status-banner job keeps
+ * one `auto` row per kind of problem (`key`), pushing `endsAt` forward while the problem lasts, so it
+ * goes away on its own when the problem does, or when the job stops running.
+ */
+export const announcement = pgTable(
+  "announcement",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    source: text("source", { enum: ["manual", "auto"] }).notNull(),
+    /** Auto rows only: which problem this is, e.g. `publishing`. */
+    key: text("key"),
+    tone: text("tone", { enum: ANNOUNCEMENT_TONES }).notNull(),
+    message: text("message").notNull(),
+    linkUrl: text("link_url"),
+    linkText: text("link_text"),
+    audience: text("audience", { enum: ANNOUNCEMENT_AUDIENCES }).notNull(),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
+    endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+    /** Hidden until then; an admin's call that an auto banner isn't helping. */
+    mutedUntil: timestamp("muted_until", { withTimezone: true }),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("announcement_key_idx").on(t.key), index("announcement_ends_idx").on(t.endsAt)],
 );

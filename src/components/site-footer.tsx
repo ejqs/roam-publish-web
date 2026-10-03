@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cn } from "cn";
 import { SourcePopover } from "./source-popover";
+import { WhatsNewLink } from "./whats-new-link";
 
 export const SOURCE_URL = "https://github.com/ejqs/roam-publish-web";
 export const EXTENSION_SOURCE_URL = "https://github.com/ejqs/roam-publish";
@@ -19,15 +20,17 @@ const LINKS = [
   { label: "Terms", href: "/terms" },
 ];
 
-function FooterLinks({ className }: { className: string }) {
+/** `fade` dims each link at rest; What's new skips it while there's something unseen. */
+function FooterLinks({ className, fade = "" }: { className: string; fade?: string }) {
   return (
     <nav aria-label="Footer" className="flex flex-wrap gap-x-3 gap-y-1">
       {LINKS.map((l) => (
-        <Link key={l.label} href={l.href} className={className}>
+        <Link key={l.label} href={l.href} className={cn(className, fade)}>
           {l.label}
         </Link>
       ))}
-      <SourcePopover className={className} links={SOURCE_LINKS} />
+      <WhatsNewLink className={className} quietClassName={fade} />
+      <SourcePopover className={cn(className, fade)} links={SOURCE_LINKS} />
     </nav>
   );
 }
@@ -39,7 +42,7 @@ const ejqs = (className: string) => (
 );
 
 /**
- * The disclaimer on the left, About, Privacy, Terms and a Source code popup (web, extension, docs) on the right. `full` is the home page's
+ * The disclaimer on the left, About, Privacy, Terms, What's new and a Source code popup (web, extension, docs) on the right. `full` is the home page's
  * footer. Everywhere else gets the quiet one: no border, small muted text, and the background of
  * whatever it sits under (pass `className="bg-card"` on card pages).
  */
@@ -52,13 +55,15 @@ export function SiteFooter({
 }) {
   if (variant === "subtle") {
     const link = "underline-offset-2 hover:text-foreground hover:underline";
+    // Faded per item rather than as a whole, so What's new can stay at full strength with its dot.
+    const fade = "opacity-40 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100";
     return (
       <footer className={className}>
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-2 px-4 py-6 text-xs text-muted-foreground opacity-40 transition-opacity focus-within:opacity-100 hover:opacity-100 sm:flex-row sm:justify-between">
-          <p className="text-center sm:text-left">
+        <div className="group mx-auto flex max-w-5xl flex-col items-center gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:justify-between">
+          <p className={cn("text-center sm:text-left", fade)}>
             Third-party service by {ejqs(link)} · Not affiliated with Roam Research.
           </p>
-          <FooterLinks className={link} />
+          <FooterLinks className={link} fade={fade} />
         </div>
       </footer>
     );
