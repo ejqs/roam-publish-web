@@ -35,7 +35,7 @@ const outline = [
     block("Your account: email address, name, and a hashed password. Login sessions record the IP address and browser they came from."),
     block("What you publish: the page or block text and structure the extension sends, its title, tags, byline and settings."),
     block(
-      "Your API keys are stored hashed. A Roam append-only token you choose to keep is stored encrypted and is never shown again or sent anywhere but Roam.",
+      "Your API keys are stored hashed. If you opt in to the change log, your Roam append-only token is stored encrypted. It's never shown again and is only ever sent to Roam.",
     ),
     block(
       "Views and upvotes: when a signed-in person who has a graph opens or upvotes a page, that's recorded against their account (one per page), to count views and rank Discover. Anonymous visits aren't recorded this way.",
