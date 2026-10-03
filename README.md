@@ -31,11 +31,11 @@ before each test, so never point it at a database you care about. Next's request
 cache revalidation) are stubbed in `tests/helpers/preload.ts`; Roam's Append API and email are never called.
 
 A `test.failing` is a known bug: it passes while the bug is there, and fails once it's fixed, so swap it for `test`.
-CI runs typecheck, lint, the tests and a production build on every PR and on pushes to `develop` and `main`.
+CI runs typecheck, lint and the tests on every PR.
 
 ## Branch workflow
 
-1. Push changes to `develop` first and wait for CI (typecheck, lint, tests, build) to pass.
+1. Push changes to `develop` first. Railway's `develop` environment builds and deploys it; wait for that deploy to succeed.
 2. Only then open a PR from `develop` into `main`.
 3. Repeat for every later change; `develop` is always the staging branch for `main`.
 
