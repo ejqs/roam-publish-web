@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Setting it up · Roam Publish" };
 const links = new PageLinks([...siteLinks, ["sign up", "/signup"]]);
 
 const outline = [
-  block("You'll need an active [[Roam Research]] account."),
+  block("You'll need an active [Roam Research](https://roamresearch.com) account."),
   block("[[Sign up]] for Roam Publish."),
   block(
     "Connect your personal graph with a temporary append-only token. It adds one block to your [[Daily Notes]] to prove the graph is yours.",
