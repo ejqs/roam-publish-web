@@ -7,6 +7,7 @@ export const ISSUES_URL = `${SOURCE_URL}/issues`;
 
 const LINKS = [
   { label: "About & contact", href: "/#about" },
+  { label: "Costs", href: "/costs" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
   { label: "Web source", href: SOURCE_URL, external: true },
