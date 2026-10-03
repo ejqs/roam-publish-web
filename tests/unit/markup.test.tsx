@@ -52,3 +52,32 @@ describe("embeds", () => {
     expect(out).toContain('rel="noopener noreferrer nofollow"');
   });
 });
+
+describe("nested page refs", () => {
+  const render = (text: string, links: [string, string][]) =>
+    renderToStaticMarkup(<RoamText text={text} links={new PageLinks(links)} />);
+
+  test("the inner ref links even when the outer page isn't published", () => {
+    const out = render("[[Outer [[Inner]] title]]", [["inner", "/g/inner"]]);
+    expect(out).toContain('<a class="text-roam-ref hover:underline" href="/g/inner">Inner</a>');
+    expect(out).not.toContain("[[");
+  });
+
+  test("outer and inner each link to their own page, never one inside the other", () => {
+    const out = render("[[Outer [[Inner]] title]]", [
+      ["outer [[inner]] title", "/g/outer"],
+      ["inner", "/g/inner"],
+    ]);
+    expect(out).toContain('href="/g/outer">Outer </a>');
+    expect(out).toContain('href="/g/inner">Inner</a>');
+    expect(out).toContain('href="/g/outer"> title</a>');
+    expect(out).not.toMatch(/<a[^>]*>[^<]*<a/);
+  });
+
+  test("tags and several inner refs", () => {
+    const out = render("#[[[[A]] and [[B]]]]", [["a", "/g/a"], ["b", "/g/b"]]);
+    expect(out).toContain('href="/g/a">A</a>');
+    expect(out).toContain('href="/g/b">B</a>');
+    expect(out).toContain(">#</span>");
+  });
+});
