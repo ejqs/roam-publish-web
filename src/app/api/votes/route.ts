@@ -1,5 +1,5 @@
 import { getSessionCookie } from "better-auth/cookies";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { graph, publication, publicationVote, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
@@ -21,10 +21,11 @@ async function viewerId(req: Request) {
   return session?.user.id ?? null;
 }
 
-/** Count and the reader's own state for a page listed on Discover; null when it isn't listed. */
-async function voteState(id: string, viewer: string | null): Promise<VoteState | null> {
-  const [row] = await db
+/** Count and the reader's own state for each page listed on Discover; unlisted ids are left out. */
+async function voteStates(ids: string[], viewer: string | null): Promise<Map<string, VoteState>> {
+  const rows = await db
     .select({
+      id: publication.id,
       count: sql<number>`(select count(*) from ${publicationVote} where ${publicationVote.publicationId} = ${publication.id})`.mapWith(Number),
       voted: viewer
         ? sql<boolean>`exists (select 1 from ${publicationVote} where ${publicationVote.publicationId} = ${publication.id} and ${publicationVote.userId} = ${viewer})`
@@ -37,15 +38,35 @@ async function voteState(id: string, viewer: string | null): Promise<VoteState |
     .from(publication)
     .innerJoin(graph, eq(graph.id, publication.graphId))
     .innerJoin(user, eq(user.id, graph.userId))
-    .where(and(eq(publication.id, id), listedPublication));
-  if (!row) return null;
-  const blocker: VoteBlocker = !viewer ? "signin" : row.own ? "owner" : !row.hasGraph ? "nograph" : null;
-  return { count: row.count, voted: row.voted, blocker };
+    .where(and(inArray(publication.id, ids), listedPublication));
+  return new Map(
+    rows.map((row) => {
+      const blocker: VoteBlocker = !viewer ? "signin" : row.own ? "owner" : !row.hasGraph ? "nograph" : null;
+      return [row.id, { count: row.count, voted: row.voted, blocker }];
+    }),
+  );
 }
 
-/** The upvote count and whether this reader voted or can vote. Signed-out readers only get the count. */
+async function voteState(id: string, viewer: string | null) {
+  return (await voteStates([id], viewer)).get(id) ?? null;
+}
+
+/** Most ids one request takes: a Discover page's worth, with room. */
+const MAX_IDS = 50;
+
+/**
+ * The upvote count and whether this reader voted or can vote. Signed-out readers only get the count.
+ * `?id=` answers for one page; `?ids=a,b,c` answers for a Discover list as `{ [id]: VoteState }`.
+ */
 export async function GET(req: Request) {
-  const id = new URL(req.url).searchParams.get("id") ?? "";
+  const params = new URL(req.url).searchParams;
+  const many = params.get("ids");
+  if (many !== null) {
+    const ids = [...new Set(many.split(",").filter(Boolean))];
+    if (ids.length === 0 || ids.length > MAX_IDS || !ids.every((id) => ID.test(id))) return notFound();
+    return json(Object.fromEntries(await voteStates(ids, await viewerId(req))));
+  }
+  const id = params.get("id") ?? "";
   if (!ID.test(id)) return notFound();
   const state = await voteState(id, await viewerId(req));
   return state ? json(state) : notFound();
