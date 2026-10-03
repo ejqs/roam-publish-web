@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
-import { backgroundJob, type JobResult, user } from "@/db/schema";
+import { announcement, backgroundJob, type JobResult, user } from "@/db/schema";
 import { sendEmail } from "./email";
 import { type JobDef, jobStatus } from "./jobs";
 import {
@@ -30,6 +30,8 @@ const MIN_ERRORS = 3;
  */
 export const JOB_WARMUP_MS = 3 * 60_000;
 const processStarted = Date.now();
+/** Whether this process has been up long enough for job heartbeats to mean something. */
+export const jobsWarmedUp = () => Date.now() - processStarted >= JOB_WARMUP_MS;
 const MIN_SLOW_CALLS = 10;
 
 export type Problem = { key: string; text: string };
@@ -85,7 +87,7 @@ export async function runAlerts(
   cursor: Record<string, unknown>,
   jobs: JobDef[],
   now = new Date(),
-  { checkJobs = Date.now() - processStarted >= JOB_WARMUP_MS }: { checkJobs?: boolean } = {},
+  { checkJobs = jobsWarmedUp() }: { checkJobs?: boolean } = {},
 ): Promise<JobResult | null> {
   const [stats, rows] = await Promise.all([
     metricStats(new Date(now.getTime() - ALERT_WINDOW_MS), now),
@@ -124,6 +126,11 @@ export async function runAlerts(
   }
 
   const ongoing = problems.filter((p) => open[p.key]);
+  // What users are being told about it (lib/status-banner.ts), so the admin knows without looking.
+  const banners = await db
+    .select({ tone: announcement.tone, message: announcement.message, mutedUntil: announcement.mutedUntil })
+    .from(announcement)
+    .where(and(eq(announcement.source, "auto"), gt(announcement.endsAt, now)));
   const subject = problems.length
     ? `[Roam Publish] ${problems.length} problem${problems.length === 1 ? "" : "s"}: ${problems[0].text.split(":")[0]}${problems.length > 1 ? " and more" : ""}`
     : "[Roam Publish] All clear";
@@ -132,6 +139,10 @@ export async function runAlerts(
     section("New problems:", started.map((p) => p.text)) +
     section("Still going:", ongoing.map((p) => `${p.text} (since ${next[p.key].since})`)) +
     section("Fixed:", ended) +
+    section(
+      "Banner on the site:",
+      banners.map((b) => `${b.tone}: ${b.message}${b.mutedUntil && b.mutedUntil > now ? " (muted)" : ""}`),
+    ) +
     `Details: ${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/status\n` +
     `Checked the last ${ALERT_WINDOW_MS / 60_000} minutes. Reminders every ${REMIND_MS / 3_600_000} hours while a problem lasts.`;
 

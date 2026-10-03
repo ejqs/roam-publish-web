@@ -7,11 +7,12 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SignOutButton } from "./sign-out-button";
 import { ThemeToggle } from "./theme-toggle";
+import { UnseenDot } from "./whats-new-anchor";
 
 const item = buttonVariants({ variant: "ghost", className: "w-full justify-start" });
 
-/** The signed-in header links that don't fit on a phone: Discover, Admin, theme and Log out. */
-export function MobileMenu({ admin }: { admin: boolean }) {
+/** The signed-in header links that don't fit on a phone: Discover, Admin, What's new, theme and Log out. */
+export function MobileMenu({ admin, whatsNewDot = false }: { admin: boolean; whatsNewDot?: boolean }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   return (
@@ -28,6 +29,10 @@ export function MobileMenu({ admin }: { admin: boolean }) {
             Admin
           </Link>
         )}
+        <Link href="/updates" className={item} onClick={close}>
+          What&apos;s new
+          {whatsNewDot && <UnseenDot />}
+        </Link>
         <ThemeToggle withLabel className="w-full justify-start" />
         <SignOutButton className="w-full justify-start" />
       </PopoverContent>

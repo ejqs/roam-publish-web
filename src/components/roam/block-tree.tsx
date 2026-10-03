@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Node } from "@/db/app-schema";
 import { cn } from "@/lib/utils";
 import { blockComponent, isOnlyComponent, type PageLinks, RoamText } from "./markup";
+import { bulletClass, childrenClass, rowClass } from "./outline";
 
 type ViewType = Node["viewType"];
 
@@ -28,7 +29,7 @@ function Marker({ node, viewType, n }: { node: Node; viewType: ViewType; n: numb
       <span
         aria-hidden
         className={cn(
-          "absolute left-0 w-6 pr-1.5 text-right leading-[1.6] text-roam-bullet tabular-nums",
+          "absolute left-0 w-[1.875em] pr-[0.375em] text-right leading-[1.6] text-roam-bullet tabular-nums",
           node.heading === 1 ? "top-[6px]" : node.heading === 2 ? "top-[4px]" : node.heading === 3 ? "top-[3px]" : "top-0.5",
         )}
       >
@@ -36,19 +37,18 @@ function Marker({ node, viewType, n }: { node: Node; viewType: ViewType; n: numb
       </span>
     );
   }
-  // Body text: centred on the first line (2px padding + half of a 1.6 line, less half the dot), so it holds at any font size.
   return (
     <span
       aria-hidden
       className={cn(
-        "absolute left-2 size-[5px] rounded-full bg-roam-bullet",
+        bulletClass,
         node.heading === 1
-          ? "top-[16px]"
+          ? "top-[15.5px]"
           : node.heading === 2
-            ? "top-[13px]"
+            ? "top-[12.5px]"
             : node.heading === 3
-              ? "top-[11px]"
-              : "top-[calc(0.8em_-_0.5px)]",
+              ? "top-[10.5px]"
+              : undefined,
       )}
     />
   );
@@ -160,7 +160,7 @@ function Block({
   // Like Roam, a block that is only a table, board or embed shows it in place of its text.
   const showText = !(isOnlyComponent(node.string) && (special || embed));
   return (
-    <li className="relative pl-6">
+    <li className={rowClass}>
       <Marker node={node} viewType={viewType} n={n} />
       {showText && (
         <div className={cn("py-0.5 leading-[1.6]", textClass(node))}>
@@ -204,7 +204,7 @@ export function BlockList({
   const List = viewType === "numbered" ? "ol" : "ul";
   return (
     <List
-      className={cn("flex flex-col", nested && "ml-2", nested && viewType !== "document" && "border-l border-border/70")}
+      className={cn("flex flex-col", nested && childrenClass, nested && viewType === "document" && "border-transparent")}
     >
       {nodes.map((n, i) => (
         <Block key={n.uid} node={n} links={links} viewType={viewType} n={i + 1} aside={asides?.[n.uid]} asides={asides} />
