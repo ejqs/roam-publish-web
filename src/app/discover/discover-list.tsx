@@ -1,11 +1,10 @@
+import { Dot, RssIcon } from "lucide-react";
 import Link from "next/link";
 import { cn } from "cn";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { ListUpvote, ListVotesHint, ListVotesProvider } from "@/components/upvote-button";
 import type { DiscoverRow } from "@/lib/discover";
 import { plainText } from "@/lib/slug";
-import { CountHelp } from "./count-help";
 import { type DiscoverSort, listHref, PAGE_SIZE } from "./sort";
 
 const SORT_LABELS: [DiscoverSort, string][] = [
@@ -31,15 +30,25 @@ function ago(iso: string, now: number) {
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
-/** Sort tabs for Discover, with what Trending and Top count. */
-export function DiscoverSortTabs({ sort }: { sort: DiscoverSort }) {
+const SORT_CAPTIONS: Record<DiscoverSort, string> = {
+  recent: "Newest first",
+  trending: "Most read in the last 7 days",
+  top: "Most upvoted of all time",
+};
+
+/** Sort tabs for Discover, what the current one ranks by, and the feed. */
+export function DiscoverSortTabs({ sort, feedHref }: { sort: DiscoverSort; feedHref: string }) {
   const segment = (on: boolean) =>
-    cn(buttonVariants({ variant: "ghost", size: "sm" }), "rounded-none first:rounded-l-sm last:rounded-r-sm", on && "bg-muted font-medium");
+    cn(
+      buttonVariants({ variant: "ghost", size: "sm" }),
+      "rounded-none first:rounded-l-sm last:rounded-r-sm max-sm:h-11 max-sm:flex-1",
+      on && "bg-muted font-medium",
+    );
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
       <nav
         aria-label="Sort"
-        className="inline-flex rounded-sm shadow-[inset_0_0_0_1px_rgba(17,20,24,0.2),0_1px_2px_rgba(17,20,24,0.1)]"
+        className="flex rounded-sm shadow-[inset_0_0_0_1px_rgba(17,20,24,0.2),0_1px_2px_rgba(17,20,24,0.1)] max-sm:flex-1"
       >
         {SORT_LABELS.map(([value, label]) => (
           <Link key={value} href={listHref(value, 1)} aria-current={value === sort ? "true" : undefined} className={segment(value === sort)}>
@@ -47,21 +56,37 @@ export function DiscoverSortTabs({ sort }: { sort: DiscoverSort }) {
           </Link>
         ))}
       </nav>
-      <CountHelp label="How pages are ranked">
-        <p>
-          <span className="font-medium">Trending</span> ranks views from the last 7 days.{" "}
-          <span className="font-medium">Top</span> ranks all-time upvotes.
-        </p>
-        <p className="mt-2 text-muted-foreground">
-          Only signed-in users with a verified graph count. Each reader counts once per page, and upvotes from the page
-          itself.
-        </p>
-      </CountHelp>
+      <span className="text-xs text-muted-foreground max-sm:order-last max-sm:w-full">{SORT_CAPTIONS[sort]}</span>
+      <a
+        href={feedHref}
+        title="RSS feed"
+        className={buttonVariants({ variant: "ghost", size: "sm", className: "ml-auto text-xs text-muted-foreground max-sm:size-11" })}
+      >
+        <RssIcon className="size-3.5" />
+        <span className="max-sm:sr-only">RSS</span>
+      </a>
     </div>
   );
 }
 
-/** Discover as a ranked list, like a link aggregator: rank, score, title, then where it's from and when. */
+/** How Trending and Top rank, for the sidebar. */
+export function RankingNote({ sort }: { sort: DiscoverSort }) {
+  if (sort === "recent") return null;
+  return (
+    <div className="flex flex-col gap-2 rounded-sm bg-card p-4 shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)]">
+      <h2 className="text-sm font-semibold">How {sort === "trending" ? "Trending" : "Top"} works</h2>
+      <p className="text-sm text-muted-foreground">
+        {sort === "trending" ? "Ranks views from the last 7 days." : "Ranks all-time upvotes."} Only signed-in readers with
+        a verified graph count, once per page, and never on their own pages.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Discover as a list: title, the start of the page, then where it's from, when, and its tags. Ranked
+ * sorts add the rank; Trending adds the views it ranks by.
+ */
 export function DiscoverList({
   rows,
   sort,
@@ -76,58 +101,68 @@ export function DiscoverList({
   // eslint-disable-next-line react-hooks/purity -- server component; "ago" is fixed at render time.
   const now = Date.now();
   const offset = (page - 1) * PAGE_SIZE;
+  const ranked = sort !== "recent";
   return (
     <ListVotesProvider ids={rows.map((r) => r.id)}>
       <div className="flex flex-col gap-4">
         <ListVotesHint />
         <ol className="flex flex-col divide-y border-y">
           {rows.map((r, i) => (
-            <li key={r.href} className="flex items-start gap-2 py-3 sm:gap-3">
-              <span className="w-6 shrink-0 pt-2 text-right text-sm text-muted-foreground tabular-nums sm:w-8">
-                {offset + i + 1}
-              </span>
-              <ListUpvote publicationId={r.id} initialCount={r.votes} />
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <Link
-                  href={r.href}
-                  className="text-[15px] leading-snug font-medium break-words text-foreground hover:underline visited:text-muted-foreground"
-                >
-                  {plainText(r.title) || "Untitled"}
+            <li key={r.href} className="flex items-start gap-3 py-4 sm:gap-4">
+              {ranked && (
+                <span className="w-5 shrink-0 pt-px text-right text-base font-semibold text-muted-foreground tabular-nums sm:w-6">
+                  {offset + i + 1}
+                </span>
+              )}
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <Link
+                    href={r.href}
+                    className="text-base leading-snug font-semibold break-words text-foreground hover:underline visited:text-muted-foreground"
+                  >
+                    {plainText(r.title) || "Untitled"}
+                  </Link>
                   {r.kind === "block" && (
-                    <Badge variant="secondary" className="ml-1.5 h-[18px] px-1.5 align-[1px]">
+                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <Dot className="size-3" strokeWidth={6} aria-hidden />
                       Block
-                    </Badge>
+                    </span>
                   )}
-                </Link>
-                <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-                  <span>
-                    from{" "}
-                    <Link href={r.source.href} className="text-link hover:underline">
-                      {r.source.label}
-                    </Link>
-                  </span>
+                </div>
+                {r.excerpt && <p className="line-clamp-2 text-sm leading-5 break-words text-muted-foreground">{r.excerpt}</p>}
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <Link href={r.source.href} className="inline-flex items-center gap-1.5 font-medium text-foreground hover:underline">
+                    <span
+                      aria-hidden
+                      className="flex size-4 items-center justify-center rounded-sm bg-muted text-[10px] font-semibold text-muted-foreground uppercase"
+                    >
+                      {r.source.label.slice(0, 1)}
+                    </span>
+                    {r.source.label}
+                  </Link>
+                  {sort === "trending" && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span className="font-medium text-foreground">{plural(r.views, "view", "views")} this week</span>
+                    </>
+                  )}
                   <span aria-hidden>·</span>
                   <time dateTime={r.createdAt} title={dateFmt.format(new Date(r.createdAt))}>
                     {ago(r.createdAt, now)}
                   </time>
-                  {r.views > 0 && (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span>{plural(r.views, "view", "views")} this week</span>
-                    </>
+                  {r.tags.slice(0, MAX_TAGS).map((t) => (
+                    <Link key={t} href={`/search?tag=${encodeURIComponent(t)}`} className="text-roam-ref hover:underline">
+                      #{t}
+                    </Link>
+                  ))}
+                  {r.tags.length > MAX_TAGS && (
+                    <Link href={r.href} className="hover:underline">
+                      +{r.tags.length - MAX_TAGS} more
+                    </Link>
                   )}
                 </p>
-                {r.tags.length > 0 && (
-                  <p className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs">
-                    {r.tags.slice(0, MAX_TAGS).map((t) => (
-                      <Link key={t} href={`/search?tag=${encodeURIComponent(t)}`} className="text-roam-ref hover:underline">
-                        #{t}
-                      </Link>
-                    ))}
-                    {r.tags.length > MAX_TAGS && <span className="text-muted-foreground">+{r.tags.length - MAX_TAGS}</span>}
-                  </p>
-                )}
               </div>
+              <ListUpvote publicationId={r.id} initialCount={r.votes} />
             </li>
           ))}
         </ol>
