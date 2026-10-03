@@ -38,6 +38,8 @@ mock.module("next/cache", () => ({
   revalidatePath: () => {},
   revalidateTag: () => {},
   updateTag: () => {},
+  // No incremental cache outside Next: run the function every time.
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
 }));
 
 // Keep test output readable: the dev email fallback logs every email.
