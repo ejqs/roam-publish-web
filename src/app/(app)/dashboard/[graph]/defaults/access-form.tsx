@@ -5,14 +5,14 @@ import { toast } from "sonner";
 import { ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
 import { ContainerViewsFields } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import type { Access, ViewsMode } from "@/db/schema";
 import { updateGraphAccess } from "../../actions";
 
-/** Access, bylines, view counts, and where new pages from the extension go. */
+/** Defaults for every page in the graph: access, bylines, view counts, and where new pages go. */
 export function GraphAccessForm({
   graphId,
   graphName,
@@ -72,10 +72,6 @@ export function GraphAccessForm({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Access and publishing</CardTitle>
-        <CardDescription>Defaults for everything in {graphName}. Pages can override them.</CardDescription>
-      </CardHeader>
       <CardContent>
         <FieldGroup>
           <ContainerAccessFields

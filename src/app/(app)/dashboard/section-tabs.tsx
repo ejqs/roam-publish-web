@@ -7,7 +7,7 @@ export type SectionTab = { href: string; label: string; count?: number };
 /** Underlined links between a page's sections. `current` is the href of the one showing. */
 export function SectionTabs({ label, tabs, current }: { label: string; tabs: SectionTab[]; current: string }) {
   return (
-    <nav aria-label={label} className="flex gap-5 overflow-x-auto border-b text-sm">
+    <nav aria-label={label} className="flex gap-5 overflow-x-auto overflow-y-hidden border-b text-sm">
       {tabs.map((t) => {
         const active = t.href === current;
         return (
@@ -73,11 +73,12 @@ export function ResourceHeader({
   );
 }
 
-/** Pages, Members and, for owners, Settings under one graph or collection path. */
-export function resourceTabs(base: string, isOwner: boolean): SectionTab[] {
+/** Pages, Members and, for owners, Settings (and Defaults, for graphs) under one graph or collection path. */
+export function resourceTabs(base: string, isOwner: boolean, withDefaults = false): SectionTab[] {
   return [
     { href: base, label: "Pages" },
     { href: `${base}/members`, label: "Members" },
     ...(isOwner ? [{ href: `${base}/settings`, label: "Settings" }] : []),
+    ...(isOwner && withDefaults ? [{ href: `${base}/defaults`, label: "Defaults" }] : []),
   ];
 }

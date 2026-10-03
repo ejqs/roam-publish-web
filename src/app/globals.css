@@ -154,6 +154,8 @@
   }
   html {
     @apply font-sans;
+    /* Reserve the scrollbar's width so centered content doesn't shift between short and long pages. */
+    scrollbar-gutter: stable;
   }
 }
 /* Shiki code blocks: light colors are inline, dark ones come from its CSS variables. */

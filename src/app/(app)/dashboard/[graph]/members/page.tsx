@@ -50,7 +50,7 @@ export default async function GraphMembersPage(props: PageProps<"/dashboard/[gra
       <ResourceHeader
         name={g.name}
         caption={isOwner ? "Invite the people you share this Roam graph with." : "People who publish from this graph."}
-        tabs={resourceTabs(graphPagesPath(g.name), isOwner)}
+        tabs={resourceTabs(graphPagesPath(g.name), isOwner, true)}
         current={`${graphPagesPath(g.name)}/members`}
       />
       <MembersPanel

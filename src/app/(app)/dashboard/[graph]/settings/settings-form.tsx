@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,12 +22,15 @@ export function GraphSettingsForm({
   graphId,
   graphName,
   indexOpen,
+  defaultsHref,
   initial,
 }: {
   graphId: string;
   graphName: string;
   /** Anyone can open the front page; feeds only list open graphs. */
   indexOpen: boolean;
+  /** The Defaults tab, where who can open the front page is set. */
+  defaultsHref: string;
   initial: GraphSettings;
 }) {
   const [settings, setSettings] = useState(initial);
@@ -78,7 +82,7 @@ export function GraphSettingsForm({
           <SettingSwitch
             id="frontPage"
             label="Front page"
-            description={`Show an index of your public pages at roam.pub/${graphName}.`}
+            description={`An index of your public pages at roam.pub/${graphName}.`}
             checked={settings.frontPage}
             onChange={set("frontPage")}
           />
@@ -86,7 +90,7 @@ export function GraphSettingsForm({
           <SettingSwitch
             id="indexable"
             label="Search engines"
-            description="Allow search engines to index your front page and listed pages. Pages that aren't listed are never indexed."
+            description="Let search engines index your front page and listed pages. Unlisted pages are never indexed."
             checked={settings.indexable}
             onChange={set("indexable")}
           />
@@ -99,7 +103,7 @@ export function GraphSettingsForm({
                 ? "Turn on the front page to list this graph's pages on Discover."
                 : !settings.indexable
                   ? "Turn on search engines to list this graph's pages on Discover."
-                  : "Pages you publish from now on start out listed on roam.pub/discover once public. Existing pages keep their own setting; change those on the dashboard."
+                  : "New public pages start out on roam.pub/discover. Existing pages keep their own setting."
             }
             checked={settings.featured && settings.frontPage}
             disabled={!settings.frontPage || !settings.indexable}
@@ -113,18 +117,29 @@ export function GraphSettingsForm({
               !settings.frontPage
                 ? "Turn on the front page to offer an RSS feed."
                 : !indexOpen
-                  ? "The feed only works while anyone can open the front page. Change who can open it below."
-                  : `Offer a feed of the front page at roam.pub/${graphName}/feed.xml. Only pages open to everyone are included.`
+                  ? (
+                      <>
+                        The feed only works while anyone can open the front page. Change that in{" "}
+                        <Link href={defaultsHref} className="underline">
+                          Defaults
+                        </Link>
+                        .
+                      </>
+                    )
+                  : `A feed at roam.pub/${graphName}/feed.xml with pages open to everyone.`
             }
             checked={settings.rss && settings.frontPage}
             disabled={!settings.frontPage}
             onChange={set("rss")}
           />
           <FieldSeparator />
+          <details>
+            <summary className="cursor-pointer text-sm font-medium select-none">Breadcrumbs</summary>
+            <FieldGroup className="mt-4">
           <SettingSwitch
             id="showOwner"
             label="Link to your profile"
-            description="Show your @username in the breadcrumbs on the front page and every published page. Only applies while your profile is public."
+            description="Show your @username in breadcrumbs. Only while your profile is public."
             checked={settings.showOwner}
             onChange={set("showOwner")}
           />
@@ -132,10 +147,12 @@ export function GraphSettingsForm({
           <SettingSwitch
             id="hideUnlistedBreadcrumbs"
             label="Hide breadcrumbs on pages that aren't listed"
-            description="Pages that aren't listed won't link back to this graph or your profile, so a shared link stays on its own page."
+            description="Unlisted pages won't link back to this graph or your profile."
             checked={settings.hideUnlistedBreadcrumbs}
             onChange={set("hideUnlistedBreadcrumbs")}
           />
+            </FieldGroup>
+          </details>
         </FieldGroup>
       </CardContent>
       <CardFooter className="justify-end">
@@ -157,7 +174,7 @@ function SettingSwitch({
 }: {
   id: string;
   label: string;
-  description: string;
+  description: React.ReactNode;
   checked: boolean;
   disabled?: boolean;
   onChange: (v: boolean) => void;
