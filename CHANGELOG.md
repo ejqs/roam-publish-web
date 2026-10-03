@@ -38,8 +38,9 @@ bullet with each pull request that changes something they'd notice; leave out te
 - Footer: source code for the website, the extension and the docs in one popup.
 
 ### Security
-- A page that uses Password everywhere it's published can be encrypted with its passwords (**Manage → Encryption**):
-  roam.pub stores no readable copy of it, and only readers with a password can open it.
+- A page that uses Password everywhere it's published can be encrypted with its passwords (**Manage → Encryption**),
+  so the database holds no readable copy. It isn't end-to-end: roam.pub decrypts it to show it to readers.
+  [How encrypted pages work](/privacy/encryption).
 - Published pages can still be embedded in Roam, Notion or a blog; account pages can't be framed.
 - Front-page search no longer reveals text from protected pages.
 - IP addresses used for rate limits are cleared from memory once the limit ends, and the hashes of reporters' IP
