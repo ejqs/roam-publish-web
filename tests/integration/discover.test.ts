@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from "bun:test";
 import { db } from "@/db";
 import { publicationView, publicationVote } from "@/db/schema";
-import { discoverCollections, discoverPublications } from "@/lib/discover";
+import { discoverCollections, discoverPublications, discoverTags, excerpt, ownListedCount } from "@/lib/discover";
 import { resetDb } from "../helpers/db";
 import { makeGraph, makePublication, makeUser } from "../helpers/factories";
 
@@ -23,4 +23,43 @@ for (const sort of ["recent", "trending", "top"] as const)
 
 test("the collections list runs", async () => {
   expect(await discoverCollections()).toEqual(expect.any(Array));
+});
+
+test("rows carry the start of the page's text, without a repeated title", async () => {
+  const owner = await makeUser();
+  const g = await makeGraph(owner.id);
+  await makePublication(g.id, owner.id, {
+    visibility: "public",
+    discoverable: true,
+    title: "Weekly review",
+    searchText: "Weekly review\nWhat went well\nWhat to change",
+  });
+  const { rows } = await discoverPublications("recent", 10, 0);
+  expect(rows[0].excerpt).toBe("What went well What to change");
+});
+
+test("long excerpts are cut with an ellipsis", () => {
+  const out = excerpt("word ".repeat(100), "Title");
+  expect(out.length).toBeLessThanOrEqual(241);
+  expect(out.endsWith("…")).toBe(true);
+});
+
+test("tags are counted over listed pages only, most used first", async () => {
+  const owner = await makeUser();
+  const g = await makeGraph(owner.id);
+  const listed = { visibility: "public", discoverable: true } as const;
+  await makePublication(g.id, owner.id, { ...listed, tags: ["a", "b"] });
+  await makePublication(g.id, owner.id, { ...listed, tags: ["b"] });
+  await makePublication(g.id, owner.id, { tags: ["hidden"] });
+  expect(await discoverTags()).toEqual(["b", "a"]);
+});
+
+test("own listed count covers the owner's graphs, not other people's", async () => {
+  const owner = await makeUser();
+  const other = await makeUser();
+  const g = await makeGraph(owner.id);
+  await makePublication(g.id, owner.id, { visibility: "public", discoverable: true });
+  await makePublication(g.id, owner.id);
+  expect(await ownListedCount(owner.id)).toBe(1);
+  expect(await ownListedCount(other.id)).toBe(0);
 });

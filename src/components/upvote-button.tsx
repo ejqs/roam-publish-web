@@ -154,15 +154,24 @@ export function ListVotesHint() {
         to upvote pages.
       </p>
     );
+  if (states && Object.values(states).some((s) => s.blocker === "owner"))
+    return (
+      <p className="text-xs text-muted-foreground">
+        You can&apos;t upvote your own pages, so their votes stay hidden until someone else upvotes them.
+      </p>
+    );
   return null;
 }
 
-/** The score tile beside a Discover row: a button when the reader can upvote, a bare count when not. */
+/**
+ * The score tile beside a Discover row: a button when the reader can upvote, a bare count when not,
+ * and nothing when there's no count to show and no vote to cast.
+ */
 export function ListUpvote({ publicationId, initialCount }: { publicationId: string; initialCount: number }) {
   const loaded = useContext(ListVotes)?.[publicationId] ?? null;
   const { state, toggle } = useVote(publicationId, loaded);
   const count = state?.count ?? initialCount;
-  const tile = "flex w-11 shrink-0 flex-col items-center rounded-sm py-1 text-xs tabular-nums";
+  const tile = "flex size-11 shrink-0 flex-col items-center justify-center rounded-sm text-xs tabular-nums";
   const inner = (voted: boolean) => (
     <>
       <Chevron voted={voted} className="size-4" />
@@ -171,12 +180,14 @@ export function ListUpvote({ publicationId, initialCount }: { publicationId: str
     </>
   );
 
-  if (!state || state.blocker)
+  if (!state || state.blocker) {
+    if (count === 0) return null;
     return (
       <span className={cn(tile, "font-medium text-muted-foreground")} title={state?.blocker ? TITLES[state.blocker] : undefined}>
         {inner(false)}
       </span>
     );
+  }
 
   return (
     <button
