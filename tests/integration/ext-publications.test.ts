@@ -109,14 +109,25 @@ describe("publish", () => {
     expect((await publish(ownerKey, { rootUid: "x" })).status).toBe(400);
   });
 
+  test("counts the 1 MB limit in bytes, not characters", async () => {
+    const p = payload({ text: "é".repeat(99_000) });
+    const big = { ...p, pad: "é".repeat(600_000) }; // 600k characters, 1.2 MB
+    expect((await publish(ownerKey, big)).status).toBe(413);
+  });
+
+  test("an ordinary nested outline still publishes", async () => {
+    let tree = { uid: "leaf", string: "x", children: [] as unknown[] };
+    for (let i = 0; i < 50; i++) tree = { uid: `n${i}`, string: "", children: [tree] };
+    expect((await publish(ownerKey, payload({ tree: tree as never }))).status).toBe(200);
+  });
+
   test("rejects payloads over 1 MB", async () => {
     const p = payload({ text: "x".repeat(99_000) });
     const big = { ...p, pad: "y".repeat(1_000_001) };
     expect((await publish(ownerKey, big)).status).toBe(413);
   });
 
-  // BUG (medium): zod recurses per level and overflows the stack, so this is a 500.
-  test.failing("a deeply nested tree is rejected, not a server error", async () => {
+  test("a deeply nested tree is rejected, not a server error", async () => {
     const depth = 20_000;
     const tree = '{"uid":"n","string":"","children":['.repeat(depth) + '{"uid":"leaf","string":"x","children":[]}' + "]}".repeat(depth);
     const body = `{"rootUid":"deep","kind":"page","title":"Deep","contentHash":"${"0".repeat(64)}","tree":${tree}}`;
