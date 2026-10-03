@@ -15,8 +15,8 @@ describe("safeNext", () => {
     });
 
   // Browsers drop tabs and newlines from URLs, so "/\t/evil.example" becomes "//evil.example".
-  for (const sneaky of ["/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "/\t\\evil.example"])
-    test.failing(`never leaves the site for ${JSON.stringify(sneaky)} (BUG: open redirect)`, () => {
+  for (const sneaky of ["/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "/\t\\evil.example", "/ /evil.example", "/%09/evil.example"])
+    test(`never leaves the site for ${JSON.stringify(sneaky)}`, () => {
       expect(lands(safeNext(sneaky))).toBe("https://roam.pub");
     });
 });
