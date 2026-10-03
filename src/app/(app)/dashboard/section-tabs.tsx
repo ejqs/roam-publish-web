@@ -73,12 +73,12 @@ export function ResourceHeader({
   );
 }
 
-/** Pages, Members and, for owners, Settings (and Defaults, for graphs) under one graph or collection path. */
+/** Pages, Members and, for owners, Sharing (graphs only) and Settings under one graph or collection path. */
 export function resourceTabs(base: string, isOwner: boolean, withDefaults = false): SectionTab[] {
   return [
     { href: base, label: "Pages" },
     { href: `${base}/members`, label: "Members" },
+    ...(isOwner && withDefaults ? [{ href: `${base}/sharing`, label: "Sharing" }] : []),
     ...(isOwner ? [{ href: `${base}/settings`, label: "Settings" }] : []),
-    ...(isOwner && withDefaults ? [{ href: `${base}/defaults`, label: "Defaults" }] : []),
   ];
 }

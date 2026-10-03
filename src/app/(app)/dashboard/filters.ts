@@ -5,7 +5,7 @@ import { collectionEntry, publication } from "@/db/schema";
 export const ACCESS = ["unlisted", "public", "discover", "removed"] as const;
 export type AccessFilter = (typeof ACCESS)[number];
 export const ACCESS_LABELS: Record<AccessFilter, string> = {
-  unlisted: "Not listed",
+  unlisted: "Unlisted",
   public: "Listed",
   discover: "Discoverable",
   removed: "Removed",
@@ -157,11 +157,11 @@ export function discoverBlocked(g: {
   return g.suspendedAt
     ? "This graph is suspended."
     : g.indexAccess !== "open"
-      ? "This graph's front page is protected, so its pages can't go on Discover."
+      ? "This graph's front page is protected, so its pages can't be Discoverable."
       : !g.frontPage
-      ? "Turn on this graph's front page in Settings to use Discover."
+      ? "Turn on this graph's front page in Sharing to make pages Discoverable."
       : !g.indexable
-        ? "Turn on search engines in Settings to use Discover."
+        ? "Turn on search engines in Sharing to make pages Discoverable."
         : undefined;
 }
 
@@ -174,7 +174,7 @@ export type EntrySort = (typeof ENTRY_SORTS)[number];
 
 export const COLLECTION_LIST: ListConfig<EntryFilter, EntrySort> = {
   filters: ENTRY_FILTERS,
-  filterLabels: { unlisted: "Not listed", listed: "Listed", discover: "Discoverable", removed: "Removed" },
+  filterLabels: { unlisted: "Unlisted", listed: "Listed", discover: "Discoverable", removed: "Removed" },
   sorts: ENTRY_SORTS,
   sortLabels: { order: "Order", added: "Added", updated: "Updated", title: "Title" },
   // The owner's order is what visitors see, so it's the default here.

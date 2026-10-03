@@ -1,11 +1,23 @@
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { collection, collectionEntry, graph, publication, type ViewsMode } from "@/db/schema";
+import { collection, collectionEntry, type EntryListing, graph, publication, type ViewsMode } from "@/db/schema";
 import { discoverBlocked } from "@/app/(app)/dashboard/filters";
 import { canManageEntry, collectionsOf } from "./collections";
 import { canManage, graphsOf } from "./graph-access";
 import { entryPath, publicationPath } from "./publications";
 import type { PlaceState } from "@/components/manage/place-access-form";
+
+/** What a graph or collection gives a page that doesn't choose for itself, or starts it with. */
+export type ContainerDefaults = {
+  label: string;
+  defaultAccess: "open" | "password" | "members";
+  /** Where its new pages are listed: a graph's always start unlisted. */
+  defaultListing: EntryListing;
+  hasPassword: boolean;
+  showAuthors: boolean;
+  views: ViewsMode;
+  showViewCountries: boolean;
+};
 
 /** Everything the Manage dialog needs for one page, as plain data for a client component. */
 export type ManageData = {
@@ -29,14 +41,7 @@ export type ManageData = {
     /** Why the graph can't list pages on Discover right now, if it can't. */
     discoverBlocked?: string;
     state: PlaceState;
-    container: {
-      label: string;
-      defaultAccess: "open" | "password" | "members";
-      hasPassword: boolean;
-      showAuthors: boolean;
-      views: ViewsMode;
-      showViewCountries: boolean;
-    };
+    container: ContainerDefaults;
   };
   entries: {
     entryId: string;
@@ -45,15 +50,7 @@ export type ManageData = {
     collectionSlug: string;
     canManage: boolean;
     state: PlaceState;
-    container: {
-      label: string;
-      defaultAccess: "open" | "password" | "members";
-      hasPassword: boolean;
-      showAuthors: boolean;
-      views: ViewsMode;
-      showViewCountries: boolean;
-      discoverBlocked?: string;
-    };
+    container: ContainerDefaults & { discoverBlocked?: string };
   }[];
   /** Collections the viewer belongs to that don't have this page yet. */
   addable: { id: string; name: string }[];
@@ -110,6 +107,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
         container: {
           label: c.name,
           defaultAccess: c.defaultAccess,
+          // Mirrors addEntry in lib/collections.ts.
+          defaultListing: (c.featured && c.indexAccess === "open" && c.defaultAccess === "open" ? "discover" : "listed") as EntryListing,
           hasPassword: !!c.passwordHash,
           showAuthors: c.showAuthors,
           views: c.views,
@@ -117,9 +116,9 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           discoverBlocked: c.suspendedAt
             ? "This collection is suspended."
             : c.indexAccess !== "open"
-              ? "The collection's page is protected, so it can't list pages on Discover."
+              ? "The collection's page is protected, so its pages can't be Discoverable."
               : !c.indexable
-                ? "Turn on search engines for the collection to use Discover."
+                ? "Turn on search engines for the collection to make pages Discoverable."
                 : undefined,
         },
       }));
@@ -151,6 +150,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
         container: {
           label: g.name,
           defaultAccess: g.defaultAccess,
+          defaultListing: "unlisted",
           hasPassword: !!g.passwordHash,
           showAuthors: g.showAuthors,
           views: g.views,

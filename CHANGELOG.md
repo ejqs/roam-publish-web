@@ -21,6 +21,15 @@ bullet with each pull request that changes something they'd notice; leave out te
 - Graph settings are split: access defaults for new pages have their own **Defaults** tab.
 - The access settings are now called **Access control** (who can open a page) and **Visibility control** (where it's
   listed).
+- A page's **Manage** dialog lists each place it's published as one row, with an icon for a graph or a collection, what
+  it uses there, and what the graph or collection starts pages as. Open a row to change it.
+- Access control and Visibility control mark the graph's or collection's default choice.
+- Choosing a password and encrypting the page now sit under **Password**, in the place you're changing.
+- When **Discoverable** can't be chosen, the reason is always shown under it.
+- Pages say **Unlisted** instead of "Not listed", and the dashboard menu shows both settings, as in
+  "Anyone · Listed".
+- The graph's **Defaults** tab is now **Sharing**, and holds the front page, search engines, Discoverable, RSS and
+  breadcrumb settings that used to be under Settings.
 
 ### Published pages
 - Published pages show their view count, synced from our analytics. Members-only pages don't.

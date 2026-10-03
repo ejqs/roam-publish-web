@@ -35,21 +35,7 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
         current={`${graphPagesPath(g.name)}/settings`}
       />
       <div className="flex w-full max-w-2xl flex-col gap-6">
-        <GraphSettingsForm
-          graphId={g.id}
-          graphName={g.name}
-          indexOpen={g.indexAccess === "open"}
-          defaultsHref={`${graphPagesPath(g.name)}/defaults`}
-          initial={{
-            frontPage: g.frontPage,
-            indexable: g.indexable,
-            featured: g.featured,
-            showOwner: g.showOwner,
-            hideUnlistedBreadcrumbs: g.hideUnlistedBreadcrumbs,
-            rss: g.rss,
-            description: g.description,
-          }}
-        />
+        <GraphSettingsForm graphId={g.id} initial={{ description: g.description }} />
         <ChangeLogForm
           graphId={g.id}
           status={g.appendTokenStatus === "invalid" ? "invalid" : g.appendTokenEnc ? "ok" : null}

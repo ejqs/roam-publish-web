@@ -48,14 +48,23 @@ function spotsOf(data: ManageData): Spot[] {
   ];
 }
 
-const ACCESS_WORDS = { open: "Open", members: "Members only", password: "Password" } as const;
+const ACCESS_WORDS = { open: "Anyone", members: "Members", password: "Password" } as const;
 
 /**
  * Turns encryption on or off for a page, in the Manage dialog. Encrypting needs Password
  * everywhere the page is published, then a confirmation, then (once per password set before
  * encryption existed) that password. Only for people who manage the page itself.
  */
-export function EncryptionSection({ data, onChanged }: { data: ManageData; onChanged: () => void }) {
+export function EncryptionSection({
+  data,
+  onChanged,
+  compact,
+}: {
+  data: ManageData;
+  onChanged: () => void;
+  /** Inside a place's password panel: no heading, and the republish warning is shown by the dialog. */
+  compact?: boolean;
+}) {
   const [pending, start] = useTransition();
   const [confirming, setConfirming] = useState<"on" | "off" | null>(null);
   const [need, setNeed] = useState<{ lock: string; label: string }[] | null>(null);
@@ -120,8 +129,8 @@ export function EncryptionSection({ data, onChanged }: { data: ManageData; onCha
   if (!data.encrypted && !usesPassword) return null;
 
   return (
-    <section className="flex flex-col gap-2.5 border-t pt-3">
-      <h3 className="font-medium">Encryption</h3>
+    <section className={compact ? "flex flex-col gap-2.5" : "flex flex-col gap-2.5 border-t pt-3"}>
+      {!compact && <h3 className="font-medium">Encryption</h3>}
       <div className="flex items-start gap-3">
         {data.encrypted ? (
           <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-success" />
@@ -130,7 +139,7 @@ export function EncryptionSection({ data, onChanged }: { data: ManageData; onCha
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor={`encrypt-${data.publicationId}`} className="font-medium">
-            Encrypt with password
+            {compact ? "Encrypt the page" : "Encrypt with password"}
           </label>
           <span className="text-xs text-muted-foreground">
             {data.encrypted
@@ -146,7 +155,7 @@ export function EncryptionSection({ data, onChanged }: { data: ManageData; onCha
         />
       </div>
 
-      {data.needsRepublish && (
+      {data.needsRepublish && !compact && (
         <p className="flex gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <RefreshCwIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <span>Needs republish. A password it was encrypted with was reset: republish this page from Roam to make it readable everywhere again.</span>

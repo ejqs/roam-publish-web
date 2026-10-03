@@ -181,16 +181,22 @@ const GraphSettings = z.object({
 });
 export type GraphSettings = z.input<typeof GraphSettings>;
 
-export async function updateGraphSettings(graphId: string, input: GraphSettings): Promise<FormState> {
+/** Saves the settings given; the Settings and Sharing tabs each send their own. */
+export async function updateGraphSettings(graphId: string, input: Partial<GraphSettings>): Promise<FormState> {
   return withAction("dashboard.updateGraphSettings", async () => {
     const session = await getSession();
     if (!session) return { ok: false, message: "Your session expired. Please log in again." };
-    const parsed = GraphSettings.safeParse(input);
+    const parsed = GraphSettings.partial().safeParse(input);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
       return { ok: false, message: issue.path[0] === "description" ? issue.message : "Invalid settings." };
     }
-    const s = parsed.data;
+    const current = await db.query.graph.findFirst({
+      where: and(eq(graph.id, graphId), eq(graph.userId, session.user.id)),
+      columns: { frontPage: true, featured: true, rss: true },
+    });
+    if (!current) return { ok: false, message: "Graph not found." };
+    const s = { ...current, ...parsed.data };
 
     const updated = await db
       .update(graph)
