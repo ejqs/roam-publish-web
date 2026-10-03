@@ -9,7 +9,7 @@ import { auth } from "@/lib/auth";
 import { sha256 } from "@/lib/content-hash";
 import { loadCollection } from "@/lib/collections";
 import { loadGraph } from "@/lib/graphs";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { reportReasons } from "@/lib/report-reasons";
 
 export type ReportState = { ok: boolean; message: string } | null;
@@ -60,7 +60,7 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
     return { ok: false, message: "Invalid report." };
 
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
+  const ip = clientIp(h);
   if (!rateLimit(`report:ip:${ip}`, 5, 15 * 60 * 1000))
     return { ok: false, message: "Too many reports. Try again later." };
 

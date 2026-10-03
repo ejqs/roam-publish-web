@@ -34,12 +34,13 @@ describe("unlock", () => {
     expect(r.message).toContain("Too many");
   });
 
-  // BUG (medium, depends on the proxy): the limit keys on the first X-Forwarded-For entry, which the
-  // client writes. If Railway passes it through, a new fake address per try means no limit at all.
-  test.failing("a client-chosen X-Forwarded-For doesn't reset the limit", async () => {
+  // The first X-Forwarded-For entry is written by the client; a new fake one per try must not help.
+  for (const realIp of [true, false])
+  test(`a client-chosen X-Forwarded-For doesn't reset the limit (${realIp ? "with" : "without"} X-Real-IP)`, async () => {
     const g = await protectedGraph();
+    if (!realIp) request.headers.delete("x-real-ip");
     for (let i = 0; i < 20; i++) {
-      request.headers.set("x-forwarded-for", `10.0.0.${i}, 203.0.113.7`);
+      request.headers.set("x-forwarded-for", `10.0.0.${i}, 203.0.113.${realIp ? 7 : 8}`);
       await unlock({ scope: "graph", id: g.id, password: `guess${i}` });
     }
     const r = await unlock({ scope: "graph", id: g.id, password: "right-password" });
