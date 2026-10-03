@@ -32,10 +32,13 @@ describe("/admin/status", () => {
     actAs(admin);
     const now = Date.now();
     record("GET /api/search", "route", 42, undefined, new Date(now - 5 * 60_000));
+    record("GET /api/search", "route", 3, undefined, new Date(now - 5 * 60_000), 401);
     await flushMetrics(new Date(now));
     // An unknown window falls back to the last 24 hours.
     const page = await AdminStatusPage(props("toString"));
     expect(textOf(page)).toContain("GET /api/search");
+    // The route's row carries its refused calls (MetricTable isn't rendered here, so read its props).
+    expect(textOf(page)).toMatch(/GET \/api\/search route 2 0 0 .* 401 1 0\.5/);
     const current = findElements(page, Link).filter((l) => l.props["aria-current"] === "page");
     expect(current.map((l) => l.props.href)).toEqual(["/admin/status"]);
   });

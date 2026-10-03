@@ -42,6 +42,10 @@ async function writeBuckets(rows: Bucket[]) {
         maxMs: sql`greatest(${e}.max_ms, excluded.max_ms)`,
         hist: sql`(select array_agg(coalesce(a, 0) + coalesce(b, 0) order by i)
           from unnest(${e}.hist, excluded.hist) with ordinality as t(a, b, i))`,
+        rejected: sql`(select coalesce(jsonb_object_agg(k, n), '{}'::jsonb) from (
+          select k, sum(v::int) as n from (
+            select * from jsonb_each_text(${e}.rejected) union all select * from jsonb_each_text(excluded.rejected)
+          ) as t(k, v) group by k) as s)`,
         lastError: sql`case when excluded.last_error_at > ${e}.last_error_at or ${e}.last_error_at is null
           then excluded.last_error else ${e}.last_error end`,
         lastErrorAt: sql`greatest(${e}.last_error_at, excluded.last_error_at)`,
@@ -72,6 +76,9 @@ export type MetricStats = {
   p50: number | null;
   p95: number | null;
   maxMs: number;
+  /** 4xx answers by status, most first. */
+  rejected: { status: number; n: number }[];
+  rejectedRate: number;
   lastError: string | null;
   lastErrorAt: Date | null;
 };
@@ -79,7 +86,7 @@ export type MetricStats = {
 /** Per-name totals for minutes from `since` on, slowest-to-fix first: error rate, then p95. */
 export async function metricStats(since: Date, until = new Date()): Promise<MetricStats[]> {
   const window = and(gte(endpointMetric.minute, since), lt(endpointMetric.minute, until));
-  const [totals, bins] = await Promise.all([
+  const [totals, bins, refused] = await Promise.all([
     db
       .select({
         name: endpointMetric.name,
@@ -99,7 +106,18 @@ export async function metricStats(since: Date, until = new Date()): Promise<Metr
       from ${endpointMetric}, unnest(${endpointMetric.hist}) with ordinality as u(h, i)
       where ${window}
       group by 1, 2`),
+    db.execute<{ name: string; status: string; n: number }>(sql`
+      select ${endpointMetric.name} as name, r.key as status, sum(r.value::int)::int as n
+      from ${endpointMetric}, jsonb_each_text(${endpointMetric.rejected}) as r
+      where ${window}
+      group by 1, 2`),
   ]);
+  const rejectedBy = new Map<string, { status: number; n: number }[]>();
+  for (const r of refused.rows) {
+    const list = rejectedBy.get(r.name) ?? [];
+    list.push({ status: Number(r.status), n: r.n });
+    rejectedBy.set(r.name, list);
+  }
   const hists = new Map<string, number[]>();
   for (const r of bins.rows) {
     const h = hists.get(r.name) ?? LATENCY_BINS.map(() => 0);
@@ -109,6 +127,8 @@ export async function metricStats(since: Date, until = new Date()): Promise<Metr
   return totals
     .map((t) => {
       const hist = hists.get(t.name) ?? [];
+      const rejected = (rejectedBy.get(t.name) ?? []).sort((a, b) => b.n - a.n || a.status - b.status);
+      const rejectedTotal = rejected.reduce((a, r) => a + r.n, 0);
       return {
         name: t.name,
         kind: t.kind,
@@ -119,6 +139,8 @@ export async function metricStats(since: Date, until = new Date()): Promise<Metr
         p50: percentile(hist, 0.5, t.maxMs),
         p95: percentile(hist, 0.95, t.maxMs),
         maxMs: t.maxMs,
+        rejected,
+        rejectedRate: t.count ? rejectedTotal / t.count : 0,
         lastError: t.lastError,
         lastErrorAt: t.lastErrorAt ? new Date(t.lastErrorAt) : null,
       };
@@ -129,6 +151,11 @@ export async function metricStats(since: Date, until = new Date()): Promise<Metr
 /** Thresholds past which /admin/status flags a row. */
 export const SLOW_P95_MS = { route: 2000, action: 2000, page: 2000, dep: 5000 } as const;
 export const ERROR_RATE_FLAG = 0.02;
+/** Most calls refused, over enough calls that it isn't one person with a bad key: likely our bug. */
+export const REJECTED_RATE_FLAG = 0.25;
+export const REJECTED_MIN_CALLS = 20;
 
 export const isUnhealthy = (s: MetricStats) =>
-  (s.errors > 0 && s.errorRate > ERROR_RATE_FLAG) || (s.p95 ?? 0) > SLOW_P95_MS[s.kind];
+  (s.errors > 0 && s.errorRate > ERROR_RATE_FLAG) ||
+  (s.p95 ?? 0) > SLOW_P95_MS[s.kind] ||
+  (s.count >= REJECTED_MIN_CALLS && s.rejectedRate > REJECTED_RATE_FLAG);

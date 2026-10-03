@@ -1,0 +1,1 @@
+ALTER TABLE "endpoint_metric" ADD COLUMN "rejected" jsonb DEFAULT '{}'::jsonb NOT NULL;
