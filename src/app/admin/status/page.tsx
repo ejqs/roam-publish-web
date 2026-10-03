@@ -19,9 +19,17 @@ const WINDOWS = { "1h": HOUR, "24h": 24 * HOUR, "7d": 7 * 24 * HOUR } as const;
 type Window = keyof typeof WINDOWS;
 
 const SECTIONS: { kind: MetricKind; title: string; note: string }[] = [
-  { kind: "route", title: "API routes", note: "Route handlers. 5xx responses and thrown errors count as errors." },
+  {
+    kind: "route",
+    title: "API routes",
+    note: "Route handlers. 5xx responses and thrown errors count as errors; 4xx are counted as rejected.",
+  },
   { kind: "action", title: "Server actions", note: "Website forms and buttons. Only thrown errors count; a refused input doesn't." },
-  { kind: "dep", title: "Outside services", note: "Calls to Roam's Append API, Umami and Resend." },
+  {
+    kind: "dep",
+    title: "Outside services",
+    note: "Calls to Roam's Append API, Umami and Resend. Roam refusing a token or graph counts as rejected.",
+  },
   { kind: "page", title: "Page errors", note: "Errors while rendering a page. Page timings are on Railway's HTTP metrics." },
 ];
 
@@ -66,6 +74,7 @@ function MetricTable({ rows, kind }: { rows: MetricStats[]; kind: MetricKind }) 
           {timed && (
             <>
               <TableHead className="text-right">Errors</TableHead>
+              <TableHead className="text-right">Rejected</TableHead>
               <TableHead className="text-right">p50</TableHead>
               <TableHead className="text-right">p95</TableHead>
               <TableHead className="text-right">Max</TableHead>
@@ -92,6 +101,9 @@ function MetricTable({ rows, kind }: { rows: MetricStats[]; kind: MetricKind }) 
               <>
                 <TableCell data-label="Errors" className="text-right tabular-nums">
                   {s.errors ? `${n(s.errors)} (${pct(s.errorRate)})` : "—"}
+                </TableCell>
+                <TableCell data-label="Rejected" className="text-right tabular-nums">
+                  {s.rejected.length ? s.rejected.map((r) => `${r.status} ×${n(r.n)}`).join(" · ") : "—"}
                 </TableCell>
                 <TableCell data-label="p50" className="text-right tabular-nums text-muted-foreground">
                   {ms(s.p50)}

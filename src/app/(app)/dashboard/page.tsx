@@ -1,4 +1,5 @@
 import { count, eq, inArray } from "drizzle-orm";
+import { PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -20,11 +21,12 @@ import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { AttentionBanners, attentionItems } from "./attention-banners";
 import { ChangeLogIssues } from "./change-log-issues";
+import { DashboardShell } from "./dashboard-shell";
 import { missingChangeLogBlocks } from "@/lib/changelog";
 import { AddCollectionDialog } from "./collections/create-form";
-import { ACCESS, ACCESS_LABELS, type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
+import { type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
 import { ProfileCard } from "./profile-card";
-import { type ResourceItem, ResourceList } from "./resource-list";
+import { LevelLegend, type ResourceItem, ResourceList } from "./resource-list";
 
 const EMPTY: AccessCounts = { unlisted: 0, public: 0, discover: 0, removed: 0 };
 
@@ -70,26 +72,32 @@ export default async function DashboardPage() {
       <ChangeLogIssues issues={changeLogIssues} />
     </>
   );
-  const nav = (
-    <div className="flex flex-wrap gap-2">
-      <Link href="/dashboard/keys" className={buttonVariants({ variant: "outline", size: "sm" })}>
-        API keys
-      </Link>
-      <Link href="/dashboard/invites" className={buttonVariants({ variant: "outline", size: "sm" })}>
-        Invites{invites.length > 0 && ` (${invites.length})`}
-      </Link>
-      <Link href="/settings" className={buttonVariants({ variant: "ghost", size: "sm" })}>
-        Settings
-      </Link>
-    </div>
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const sum = (k: "total" | "removed" | "discover") =>
+    [...counts.values()].reduce((n, c) => n + c[k], 0);
+  const published = sum("total") - sum("removed");
+  const stat = (n: number, label: string) => (
+    <span>
+      <strong className="font-semibold text-foreground tabular-nums">{n.toLocaleString("en-US")}</strong> {label}
+    </span>
   );
+  const stats =
+    graphs.length > 0 ? (
+      <>
+        {stat(published, published === 1 ? "page published" : "pages published")}
+        {sum("discover") > 0 && stat(sum("discover"), "on Discover")}
+        {stat(graphs.length, graphs.length === 1 ? "graph" : "graphs")}
+        {collections.length > 0 && stat(collections.length, collections.length === 1 ? "collection" : "collections")}
+      </>
+    ) : undefined;
   const profileCard = (
     <ProfileCard
       username={me?.username ?? null}
       isPublic={me?.isPublic ?? false}
       bio={me?.bio ?? ""}
       hasGraph={owned.some((g) => !g.suspendedAt)}
-      appUrl={process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}
+      appUrl={appUrl}
+      stats={stats}
     />
   );
 
@@ -102,20 +110,15 @@ export default async function DashboardPage() {
       anchor: `collection-${c.id}`,
       name: c.name,
       manageHref,
-      badges: (
-        <>
-          {c.role === "member" && <Badge variant="outline">Member</Badge>}
-          {c.suspendedAt && <Badge variant="destructive">Suspended</Badge>}
-        </>
-      ),
-      counts: {
-        pages: { n: total, href: manageHref },
-        unlisted: { n: n.unlisted },
-        listed: { n: n.listed },
-        discover: { n: n.discover },
-      },
-      viewHref: collectionPath(c.slug),
-      viewLabel: "View collection",
+      role: c.role === "owner" ? "Owner" : "Member",
+      badges: c.suspendedAt ? <Badge variant="destructive">Suspended</Badge> : undefined,
+      total,
+      segments: [
+        { level: "unlisted", n: n.unlisted, href: `${manageHref}?access=unlisted` },
+        { level: "listed", n: n.listed, href: `${manageHref}?access=listed` },
+        { level: "discover", n: n.discover, href: `${manageHref}?access=discover` },
+      ],
+      view: { href: collectionPath(c.slug), url: `${appUrl}${collectionPath(c.slug)}`, label: "View collection" },
       membersHref: `${manageHref}/members`,
       settingsHref: c.role === "owner" ? `${manageHref}/settings` : undefined,
       canManage: total > 0,
@@ -127,17 +130,17 @@ export default async function DashboardPage() {
         ) : undefined,
     };
   });
-  const collectionCards = <ResourceList
+  const collectionCards = (
+    <ResourceList
       title="Collections"
       nameLabel="Collection"
-      columns={[
-        { key: "pages", label: "Pages" },
-        { key: "unlisted", label: "Not listed" },
-        { key: "listed", label: "Listed" },
-        { key: "discover", label: "Discoverable" },
-      ]}
+      description={
+        <p className="text-xs text-muted-foreground">Hand-picked sets of pages from any of your graphs.</p>
+      }
+      action={eligible && <AddCollectionDialog variant="default" />}
       items={collectionItems}
-    />;
+    />
+  );
 
   const graphItems: ResourceItem[] = graphs.map((g) => {
     const c = counts.get(g.id) ?? { ...EMPTY, total: 0 };
@@ -149,22 +152,23 @@ export default async function DashboardPage() {
       anchor: `graph-${g.id}`,
       name: g.name,
       manageHref: pagesHref,
-      badges: g.role === "member" ? <Badge variant="outline">Member</Badge> : undefined,
-      counts: Object.fromEntries([
-        ["total", { n: c.total, href: pagesHref }],
-        ...ACCESS.map((a) => [
-          a,
-          {
-            n: c[a],
-            href: `${pagesHref}?access=${a}`,
-            tone: a === "removed" ? "destructive" : undefined,
-            title: a === "discover" && paused ? `Discover is paused: ${paused}` : undefined,
-            suffix: a === "discover" && paused ? " (paused)" : undefined,
-          },
-        ]),
-      ]),
-      viewHref: g.frontPage ? graphPath(g.name) : undefined,
-      viewLabel: "View front page",
+      role: g.role === "owner" ? "Owner" : "Member",
+      total: c.total,
+      segments: [
+        { level: "unlisted", n: c.unlisted, href: `${pagesHref}?access=unlisted` },
+        { level: "listed", n: c.public, href: `${pagesHref}?access=public` },
+        {
+          level: "discover",
+          n: c.discover,
+          href: `${pagesHref}?access=discover`,
+          title: paused ? `Discover is paused: ${paused}` : undefined,
+          suffix: paused ? " (paused)" : undefined,
+        },
+        { level: "removed", n: c.removed, href: `${pagesHref}?access=removed` },
+      ],
+      view: g.frontPage
+        ? { href: graphPath(g.name), url: `${appUrl}${graphPath(g.name)}`, label: "Front page" }
+        : undefined,
       membersHref: `${base}/members`,
       settingsHref: g.role === "owner" ? `${base}/settings` : undefined,
       canManage: c.total > 0,
@@ -192,9 +196,11 @@ export default async function DashboardPage() {
     };
   });
 
+  const anyRemoved = graphs.some((g) => (counts.get(g.id)?.removed ?? 0) > 0);
+
   if (graphs.length === 0) {
     return (
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
+      <DashboardShell current="/dashboard" userId={session.user.id} inviteCount={invites.length}>
         {banners}
         <Empty className="border">
           <EmptyHeader>
@@ -209,39 +215,29 @@ export default async function DashboardPage() {
             </Link>
           </EmptyContent>
         </Empty>
-        {nav}
         {profileCard}
         {collectionCards}
-      </div>
+      </DashboardShell>
     );
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <div className="flex flex-wrap justify-end gap-2">
-          {eligible && <AddCollectionDialog />}
-          <Link href="/onboarding" className={buttonVariants({ variant: "outline" })}>
-            Connect another graph
-          </Link>
-        </div>
-      </div>
-      {nav}
+    <DashboardShell current="/dashboard" userId={session.user.id} inviteCount={invites.length}>
       {banners}
       {profileCard}
       <ResourceList
         title="Graphs"
         nameLabel="Graph"
-        columns={[
-          { key: "total", label: "Published" },
-          ...ACCESS.filter((a) => a !== "removed" || graphs.some((g) => (counts.get(g.id)?.removed ?? 0) > 0)).map(
-            (a) => ({ key: a, label: ACCESS_LABELS[a] }),
-          ),
-        ]}
+        description={<LevelLegend levels={anyRemoved ? ["unlisted", "listed", "discover", "removed"] : undefined} />}
+        action={
+          <Link href="/onboarding" className={buttonVariants({ variant: "outline" })}>
+            <PlusIcon />
+            Connect graph
+          </Link>
+        }
         items={graphItems}
       />
       {collectionCards}
-    </div>
+    </DashboardShell>
   );
 }
