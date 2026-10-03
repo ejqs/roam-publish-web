@@ -426,14 +426,14 @@ export function DisplaySection({ s, defaultOpen = false }: { s: PlaceSettings; d
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen(!open)}
-        className="-mx-1 flex min-h-7 items-center gap-2 rounded-sm px-1 text-left outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="-mx-1 flex min-h-7 items-start gap-2 rounded-sm px-1 py-1 text-left outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        <ChevronRightIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
+        <ChevronRightIcon className={cn("mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
         <span className="font-medium">Display</span>
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{displaySummary(s)}</span>
+        <span className="min-w-0 flex-1 pt-0.5 text-xs text-muted-foreground">{displaySummary(s)}</span>
       </button>
       {open && (
-        <div id={id} className="pl-6">
+        <div id={id}>
           <DisplayFields s={s} />
         </div>
       )}
