@@ -216,11 +216,14 @@ export function AccessFields({
   s,
   compact,
   passwordPanel,
+  visibilityPanel,
 }: {
   s: PlaceSettings;
   compact?: boolean;
   /** Shown under Access control while this place uses Password: which password, and encryption. */
   passwordPanel?: React.ReactNode;
+  /** Shown under Visibility control while this place is Listed or Discoverable: site search. */
+  visibilityPanel?: React.ReactNode;
 }) {
   const id = useId();
   const { container, target } = s;
@@ -302,6 +305,7 @@ export function AccessFields({
             {s.note}
           </p>
         )}
+        {s.reach !== "unlisted" && visibilityPanel}
       </div>
     </div>
   );
@@ -505,11 +509,15 @@ export function DisplaySection({ s, defaultOpen = false }: { s: PlaceSettings; d
 }
 
 /** The settings for one place, inline in the Manage dialog. */
-export function PlaceSettingsFields({ passwordPanel, ...props }: PlaceSettingsProps & { passwordPanel?: React.ReactNode }) {
+export function PlaceSettingsFields({
+  passwordPanel,
+  visibilityPanel,
+  ...props
+}: PlaceSettingsProps & { passwordPanel?: React.ReactNode; visibilityPanel?: React.ReactNode }) {
   const s = usePlaceSettings(props);
   return (
     <div className="flex flex-col gap-4">
-      <AccessFields s={s} passwordPanel={passwordPanel} />
+      <AccessFields s={s} passwordPanel={passwordPanel} visibilityPanel={visibilityPanel} />
       <div className="h-px bg-border" />
       <DisplaySection s={s} />
       <p aria-live="polite" className="-mt-2 h-4 text-right text-xs text-muted-foreground">

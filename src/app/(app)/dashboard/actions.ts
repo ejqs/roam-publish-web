@@ -5,7 +5,7 @@ import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { ACCESS, graph, graphDefaultCollection, moderationAction, profile, publication, usernameAlias, VIEWS_MODE } from "@/db/schema";
+import { ACCESS, collectionEntry, graph, graphDefaultCollection, moderationAction, profile, publication, usernameAlias, VIEWS_MODE } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { logChange, logChanges } from "@/lib/changelog";
 import { DISCOVER_TAG } from "@/lib/discover";
@@ -93,6 +93,9 @@ export async function setPageSearchable(publicationId: string, searchable: boole
   return withAction("dashboard.setPageSearchable", async () => {
     const session = await getSession();
     if (!session) return { ok: false, message: "Your session expired. Please log in again." };
+    // Discoverable pages are always searchable, so the switch is locked on.
+    if (!searchable && (await onDiscoverAnywhere(publicationId)))
+      return { ok: false, message: "Discoverable pages are always searchable. Make it Listed first." };
     const [changed] = await db
       .update(publication)
       .set({ searchable: !!searchable })
@@ -110,6 +113,20 @@ export async function setPageSearchable(publicationId: string, searchable: boole
     revalidatePath("/c/[id]", "layout");
     return { ok: true, message: searchable ? "Shown in roam.pub search." : "Hidden from roam.pub search." };
   });
+}
+
+/** Discoverable in its graph or in one of its collections. */
+async function onDiscoverAnywhere(publicationId: string) {
+  const pub = await db.query.publication.findFirst({
+    where: eq(publication.id, publicationId),
+    columns: { inGraph: true, visibility: true, discoverable: true },
+  });
+  if (pub?.inGraph && pub.visibility === "public" && pub.discoverable) return true;
+  const entry = await db.query.collectionEntry.findFirst({
+    where: and(eq(collectionEntry.publicationId, publicationId), eq(collectionEntry.listing, "discover")),
+    columns: { id: true },
+  });
+  return !!entry;
 }
 
 const NEEDS_GRAPH = "Connect a Roam graph first.";

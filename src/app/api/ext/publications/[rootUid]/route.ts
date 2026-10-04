@@ -72,7 +72,7 @@ export const PATCH = withRoute("PATCH /api/ext/publications/[rootUid]", async (
     if (listingChanges(pub, listing)) changed = LISTING_LOG[listing];
   } else {
     const { visibility } = parsed.data;
-    set = { visibility };
+    set = { visibility, searchable: visibility === "public" };
     if (visibility !== pub.visibility) changed = `Made ${visibility}`;
   }
   const [after] = await db.update(publication).set(set).where(eq(publication.id, pub.id)).returning();

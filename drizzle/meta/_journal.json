@@ -225,6 +225,13 @@
       "when": 1791107817879,
       "tag": "0031_page_searchable",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791108792897,
+      "tag": "0032_unlisted_not_searchable",
+      "breakpoints": true
     }
   ]
 }

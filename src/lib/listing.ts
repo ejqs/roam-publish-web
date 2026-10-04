@@ -14,13 +14,19 @@ export function listingOf(pub: { visibility: string; discoverable: boolean }): E
   return pub.visibility === "unlisted" ? "unlisted" : pub.discoverable ? "discover" : "listed";
 }
 
+/**
+ * What choosing a listing does to the page's "Show in roam.pub search" switch: Unlisted turns it
+ * off, Listed and Discoverable turn it on (Discoverable pages are always searchable).
+ */
+export const SEARCHABLE_FOR: Record<EntryListing, boolean> = { unlisted: false, listed: true, discover: true };
+
 /** The columns to set for a listing. */
 export function listingSet(listing: EntryListing) {
   return listing === "discover"
-    ? { visibility: "public" as const, discoverable: true }
+    ? { visibility: "public" as const, discoverable: true, searchable: true }
     : listing === "listed"
-      ? { visibility: "public" as const, discoverable: false }
-      : { visibility: "unlisted" as const };
+      ? { visibility: "public" as const, discoverable: false, searchable: true }
+      : { visibility: "unlisted" as const, searchable: false };
 }
 
 /** Whether setting `listing` changes what readers see; unlisting ignores the Discover flag. */

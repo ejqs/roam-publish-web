@@ -1,9 +1,9 @@
 "use client";
 
-import { BookIcon, ChevronDownIcon, ChevronRightIcon, FolderIcon, PlusIcon, RefreshCwIcon, Settings2Icon, XIcon } from "lucide-react";
+import { BookIcon, ChevronDownIcon, ChevronRightIcon, FolderIcon, PlusIcon, RefreshCwIcon, SearchIcon, Settings2Icon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { setPageSearchable, unpublish } from "@/app/(app)/dashboard/actions";
 import { addToCollection, removeEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
@@ -18,6 +18,7 @@ import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
 import { AccessIcon } from "@/components/privacy-icon";
+import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import type { Access as ReadAccess, EntryListing } from "@/db/schema";
 import { notSearchable } from "./labels";
 import { EncryptionSection } from "./encryption-section";
@@ -66,7 +67,22 @@ export function ManageDialog({
   // One place open at a time, starting with the first.
   const [openPlace, setOpenPlace] = useState<string | null>(g.inGraph ? "graph" : (data.entries[0]?.entryId ?? null));
   const toggle = (id: string) => setOpenPlace((cur) => (cur === id ? null : id));
+  // Discoverable pages are always searchable, so the search switch is locked on.
+  const onDiscover =
+    (g.inGraph && gListing === "discover") ||
+    data.entries.some((e) => e.state.listing === "discover" && effective(e.state, e.container.defaultAccess) === "open");
   const encryptionPanel = data.canManagePage ? <EncryptionSection data={data} onChanged={refresh} compact /> : null;
+  // Page-wide, so every place shows the same switch under its Visibility control.
+  const searchPanel = data.canManagePage ? (
+    <PasswordPanel>
+      <SearchToggle
+        searchable={data.searchable}
+        locked={onDiscover}
+        disabled={pending}
+        onChange={(searchable) => run(() => setPageSearchable(data.publicationId, searchable))}
+      />
+    </PasswordPanel>
+  ) : null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -149,6 +165,7 @@ export function ManageDialog({
                   discoverBlocked={g.discoverBlocked}
                   place={g}
                   searchable={data.searchable}
+                  visibilityPanel={searchPanel}
                   passwordPanel={
                     <PasswordPanel>
                       <PlacePasswordForm
@@ -205,6 +222,7 @@ export function ManageDialog({
                       discoverBlocked={e.container.discoverBlocked}
                       place={e}
                       searchable={data.searchable}
+                      visibilityPanel={searchPanel}
                       passwordPanel={
                         <PasswordPanel>
                           <PlacePasswordForm
@@ -234,26 +252,6 @@ export function ManageDialog({
             />
           )}
         </section>
-
-        {data.canManagePage && (
-          <section className="flex items-start justify-between gap-3">
-            <div className="flex flex-col gap-0.5">
-              <h3 className="font-medium">
-                <label htmlFor="manage-searchable">Show in roam.pub search</label>
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Off keeps this page out of roam.pub/search wherever it&apos;s Listed. It stays listed there, and
-                Discoverable places are always searchable.
-              </p>
-            </div>
-            <Switch
-              id="manage-searchable"
-              checked={data.searchable}
-              disabled={pending}
-              onCheckedChange={(searchable) => run(() => setPageSearchable(data.publicationId, searchable))}
-            />
-          </section>
-        )}
 
         {data.canManagePage && (
           <div className="flex justify-end border-t pt-3">
@@ -386,6 +384,44 @@ function AccessWords({
 /** Under Access control while a place uses Password: which password, then encryption. */
 function PasswordPanel({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-col gap-3 rounded-sm bg-muted/50 p-3 [&>*+*]:border-t [&>*+*]:pt-3">{children}</div>;
+}
+
+/** "Show in roam.pub search", under Visibility control. Discoverable pages are always searchable, so it's locked on. */
+function SearchToggle({
+  searchable,
+  locked,
+  disabled,
+  onChange,
+}: {
+  searchable: boolean;
+  locked: boolean;
+  disabled: boolean;
+  onChange: (searchable: boolean) => void;
+}) {
+  const id = useId();
+  const on = searchable || locked;
+  return (
+    <div className="flex items-start gap-3">
+      {on ? (
+        <SearchIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      ) : (
+        <PRIVACY_ICONS.unsearchable className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      )}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <label htmlFor={id} className="font-medium">
+          Show in roam.pub search
+        </label>
+        <span className="text-xs text-muted-foreground">
+          {locked
+            ? "Discoverable pages are always searchable."
+            : on
+              ? "People can find this page from roam.pub/search where it's Listed."
+              : "Kept out of roam.pub/search. It's still Listed."}
+        </span>
+      </div>
+      <Switch id={id} checked={on} disabled={disabled || locked} onCheckedChange={onChange} />
+    </div>
+  );
 }
 
 /** A place this viewer can't change: who can read it there, explained. */

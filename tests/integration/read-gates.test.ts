@@ -6,6 +6,8 @@ import { PageList } from "@/components/page-list";
 import { db } from "@/db";
 import { collectionEntry, publication } from "@/db/schema";
 import { searchPages } from "@/lib/site-search";
+import { setAccess, setPageSearchable } from "@/app/(app)/dashboard/actions";
+import { eq } from "drizzle-orm";
 import { resetDb } from "../helpers/db";
 import { actAs, makeCollection, makeGraph, makePublication, makeUser } from "../helpers/factories";
 import { findElements, renderNested, textOf } from "../helpers/render";
@@ -204,6 +206,20 @@ describe("site search", () => {
     expect((await find()).total).toBe(0);
     await db.update(publication).set({ discoverable: true });
     expect((await find()).total).toBe(1);
+  });
+
+  test("choosing a listing moves the search switch, and Discoverable locks it on", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    const pub = await makePublication(g.id, owner.id, { visibility: "public" });
+    actAs(owner);
+    await setAccess(pub.id, "unlisted");
+    expect((await db.query.publication.findFirst({ where: eq(publication.id, pub.id) }))!.searchable).toBe(false);
+    await setAccess(pub.id, "public");
+    expect((await db.query.publication.findFirst({ where: eq(publication.id, pub.id) }))!.searchable).toBe(true);
+    await setAccess(pub.id, "discover");
+    expect((await setPageSearchable(pub.id, false)).ok).toBe(false);
+    expect((await db.query.publication.findFirst({ where: eq(publication.id, pub.id) }))!.searchable).toBe(true);
   });
 
   test("links to the collection when only the collection lets the page be searched", async () => {
