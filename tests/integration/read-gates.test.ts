@@ -149,4 +149,63 @@ describe("site search", () => {
     const { total } = await searchPages({ q: SECRET, tags: [], sort: "best", page: 1 });
     expect(total).toBe(1);
   });
+
+  const find = () => searchPages({ q: SECRET, tags: [], sort: "best", page: 1 });
+
+  test("leaves out a graph's Listed pages when it turns them off, but not Discoverable ones", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id, { searchListed: false });
+    const listed = secretTree("listed1");
+    await makePublication(g.id, owner.id, { rootUid: listed.uid, tree: listed, ...indexFields(listed), visibility: "public" });
+    expect((await find()).total).toBe(0);
+    const disc = secretTree("disc1");
+    await makePublication(g.id, owner.id, {
+      rootUid: disc.uid,
+      tree: disc,
+      ...indexFields(disc),
+      visibility: "public",
+      discoverable: true,
+    });
+    expect((await find()).total).toBe(1);
+  });
+
+  test("leaves out a collection's Listed pages when it turns them off, but not pages on Discover", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id, { searchListed: false });
+    const c = await makeCollection(owner.id, { searchListed: false });
+    const tree = secretTree("coll1");
+    const pub = await makePublication(g.id, owner.id, { rootUid: tree.uid, tree, ...indexFields(tree), visibility: "public" });
+    await db.insert(collectionEntry).values({
+      collectionId: c.id,
+      publicationId: pub.id,
+      entryUid: "entryuid02",
+      listing: "listed",
+      originGraphName: g.name,
+      originRootUid: pub.rootUid,
+    });
+    expect((await find()).total).toBe(0);
+    await db.update(collectionEntry).set({ listing: "discover" });
+    const { total, rows } = await find();
+    expect(total).toBe(1);
+    expect(rows[0].source.label).toBe(c.name);
+  });
+
+  test("links to the collection when only the collection lets the page be searched", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id, { searchListed: false });
+    const c = await makeCollection(owner.id);
+    const tree = secretTree("coll2");
+    const pub = await makePublication(g.id, owner.id, { rootUid: tree.uid, tree, ...indexFields(tree), visibility: "public" });
+    await db.insert(collectionEntry).values({
+      collectionId: c.id,
+      publicationId: pub.id,
+      entryUid: "entryuid03",
+      listing: "listed",
+      originGraphName: g.name,
+      originRootUid: pub.rootUid,
+    });
+    const { rows } = await find();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].source.label).toBe(c.name);
+  });
 });

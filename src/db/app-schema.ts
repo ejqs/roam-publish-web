@@ -45,6 +45,8 @@ export const graph = pgTable("graph", {
   frontPage: boolean("front_page").notNull().default(true),
   /** Lets search engines index the front page and public publications. */
   indexable: boolean("indexable").notNull().default(true),
+  /** Listed pages show up in roam.pub site search; Discoverable pages always do. */
+  searchListed: boolean("search_listed").notNull().default(true),
   /**
    * Starting value of publication.discoverable for newly published pages. Changing it never
    * touches pages that already exist.
@@ -390,6 +392,8 @@ export const collection = pgTable("collection", {
   showViewCountries: boolean("show_view_countries").notNull().default(true),
   /** Lets search engines index the front page and its open, listed pages. */
   indexable: boolean("indexable").notNull().default(true),
+  /** Listed pages show up in roam.pub site search; pages on Discover always do. */
+  searchListed: boolean("search_listed").notNull().default(true),
   /** Starting listing of new pages: on Discover instead of only listed here. */
   featured: boolean("featured").notNull().default(false),
   /** The collection itself is listed on /discover. */

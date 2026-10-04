@@ -160,6 +160,7 @@ export async function updateBio(_prev: FormState, formData: FormData): Promise<F
 const GraphSettings = z.object({
   frontPage: z.boolean(),
   indexable: z.boolean(),
+  searchListed: z.boolean(),
   featured: z.boolean(),
   showOwner: z.boolean(),
   hideUnlistedBreadcrumbs: z.boolean(),
