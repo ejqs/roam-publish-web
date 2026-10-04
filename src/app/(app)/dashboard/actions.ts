@@ -17,6 +17,7 @@ import { graphUnderModeration, purgeGraph } from "@/lib/deletion";
 import { dropLock, dropOrphanLockKeys, KeysError, setLockPassword } from "@/lib/encryption";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
+import { LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
 import { hasVerifiedGraph } from "@/lib/profiles";
 import { rateLimit } from "@/lib/rate-limit";
 import { Username, usernameTakenByOther } from "@/lib/usernames";
@@ -47,52 +48,38 @@ export async function unpublish(publicationId: string) {
 
 /**
  * Who can find a page: link only, the graph's front page, or also Discover. Unlisting leaves the
- * Discover flag alone (it has no effect while unlisted), so the extension's "make public" can still
- * restore what was seeded at publish time.
+ * Discover flag alone (it has no effect while unlisted).
  */
 export type Access = "unlisted" | "public" | "discover";
 
 export type FormState = { ok: boolean; message: string; needCurrentPassword?: boolean } | null;
 
-const ACCESS_LOG: Record<Access, string> = {
-  unlisted: "Made unlisted",
-  public: "Made public",
-  discover: "Made public and listed on Discover",
-};
+const LISTING_OF_ACCESS = { unlisted: "unlisted", public: "listed", discover: "discover" } as const;
 
 export async function setAccess(publicationId: string, access: Access): Promise<FormState> {
   return withAction("dashboard.setAccess", async () => {
     const session = await getSession();
     if (!session) return { ok: false, message: "Your session expired. Please log in again." };
-    if (access === "discover") {
+    const listing = LISTING_OF_ACCESS[access];
+    const [row] = await db
+      .select({ pub: publication, g: graph })
+      .from(publication)
+      .innerJoin(graph, eq(graph.id, publication.graphId))
+      .where(eq(publication.id, publicationId))
+      .limit(1);
+    if (!row) return { ok: false, message: "You can't change this page." };
+    if (listing === "discover") {
       // Password-protected and members-only pages never go on Discover.
-      const [row] = await db
-        .select({ pub: publication, g: graph })
-        .from(publication)
-        .innerJoin(graph, eq(graph.id, publication.graphId))
-        .where(eq(publication.id, publicationId))
-        .limit(1);
-      const effective = row && (row.pub.access === "inherit" ? row.g.defaultAccess : row.pub.access);
-      if (!row || effective !== "open" || row.g.indexAccess !== "open" || !row.pub.inGraph)
-        return { ok: false, message: "Only open pages in an open graph can be listed on Discover." };
+      const blocked = pageDiscoverBlocked(row.g, row.pub);
+      if (blocked) return { ok: false, message: blocked };
     }
-    const set =
-      access === "discover"
-        ? { visibility: "public" as const, discoverable: true }
-        : access === "public"
-          ? { visibility: "public" as const, discoverable: false }
-          : { visibility: "unlisted" as const };
-    const before = await db.query.publication.findFirst({ where: eq(publication.id, publicationId) });
     const [changed] = await db
       .update(publication)
-      .set(set)
+      .set(listingSet(listing))
       .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)))
       .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
     if (!changed) return { ok: false, message: "You can't change this page." };
-    // Only real changes are logged; unlisting leaves the Discover flag alone.
-    const same =
-      before?.visibility === set.visibility && (set.visibility === "unlisted" || before.discoverable === set.discoverable);
-    if (changed && !same) logChange(changed, "listing", ACCESS_LOG[access]);
+    if (listingChanges(row.pub, listing)) logChange(changed, "listing", LISTING_LOG[listing]);
     revalidatePath("/dashboard", "layout");
     revalidatePath("/[graph]", "page");
     revalidatePath("/");
