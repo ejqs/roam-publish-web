@@ -29,7 +29,7 @@ export function WhatsNewAnchor({
   dot: boolean;
   plant: string | null;
   className?: string;
-  /** The site's version, shown after the label as one link ("What's new · v0.5.0"). */
+  /** The site's version. The link shows just this until something is unseen, then "What's new · v0.5.0". */
   version?: string;
 }) {
   // On /updates itself, that visit is what clears the dot.
@@ -37,11 +37,23 @@ export function WhatsNewAnchor({
   useEffect(() => {
     if (plant) writeSeenCookie(plant);
   }, [plant]);
+  const unseen = dot && !here;
+  // With a version, the link is just "v0.5.0" until there's something new, then "What's new · v0.5.0".
+  const label = version && !unseen;
   return (
-    <Link href="/updates" className={cn("inline-flex items-center gap-1", className)}>
-      What&apos;s new
-      {version && <span className="tabular-nums"> · v{version}</span>}
-      {dot && !here && <UnseenDot />}
+    <Link
+      href="/updates"
+      title={label ? "What's new" : undefined}
+      className={cn("inline-flex items-center gap-1", version && "tabular-nums", className)}
+    >
+      {!label && <>What&apos;s new</>}
+      {version && (
+        <span>
+          {!label && " · "}v{version}
+          {label && <span className="sr-only"> (what&apos;s new)</span>}
+        </span>
+      )}
+      {unseen && <UnseenDot />}
     </Link>
   );
 }
