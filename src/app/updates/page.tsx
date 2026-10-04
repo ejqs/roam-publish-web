@@ -5,9 +5,22 @@ import { cn } from "cn";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { UnseenDot } from "@/components/whats-new-anchor";
-import { type Entry, newSince, parseSeen, SEEN_COOKIE, seenValue, type Source, SOURCE_LABEL, whatsNew } from "@/lib/whats-new";
+import {
+  type Entry,
+  type Kind,
+  KIND_LABEL,
+  KINDS,
+  newSince,
+  parseSeen,
+  SEEN_COOKIE,
+  seenValue,
+  type Source,
+  SOURCE_LABEL,
+  whatsNew,
+} from "@/lib/whats-new";
 import { ChangeText } from "./change-text";
 import { MarkSeen } from "./mark-seen";
+import { ReleaseTime } from "./release-time";
 
 export const metadata: Metadata = {
   title: "What's new · Roam Publish",
@@ -21,30 +34,68 @@ const FILTERS: { value: Source | null; label: string }[] = [
   { value: "ext", label: "Extension" },
 ];
 
-const dayFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const KIND_FILTERS: { value: Kind | null; label: string }[] = [{ value: null, label: "All" }, ...KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))];
+
+const KIND_CHIP: Record<Kind, string> = {
+  new: "text-chart-2",
+  improved: "text-link",
+  fixed: "text-chart-3",
+};
 
 const CHIP: Record<Source, string> = {
   web: "bg-primary/10 text-link",
   ext: "bg-chart-5/15 text-chart-5",
 };
 
-function byDay(entries: Entry[]) {
-  const days: { date: Date; entries: Entry[] }[] = [];
+/** One group per release: the entries that went live together. */
+function byRelease(entries: Entry[]) {
+  const groups: { at: Date; entries: Entry[] }[] = [];
   for (const e of entries) {
-    const last = days.at(-1);
-    if (last && last.date.getTime() === e.date.getTime()) last.entries.push(e);
-    else days.push({ date: e.date, entries: [e] });
+    const last = groups.at(-1);
+    if (last && last.at.getTime() === e.stampedAt.getTime()) last.entries.push(e);
+    else groups.push({ at: e.stampedAt, entries: [e] });
   }
-  return days;
+  return groups;
+}
+
+/** The query string for a filter combination. */
+function filterHref(source: Source | null, kind: Kind | null) {
+  const q = new URLSearchParams();
+  if (source) q.set("source", source);
+  if (kind) q.set("kind", kind);
+  const s = q.toString();
+  return s ? `/updates?${s}` : "/updates";
+}
+
+function FilterNav({ label, items }: { label: string; items: { key: string; label: string; href: string; active: boolean }[] }) {
+  return (
+    <nav aria-label={label} className="flex rounded-sm border text-sm">
+      {items.map((f, i) => (
+        <Link
+          key={f.key}
+          href={f.href}
+          aria-current={f.active ? "page" : undefined}
+          className={cn(
+            "px-3 py-1",
+            i > 0 && "border-l",
+            f.active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {f.label}
+        </Link>
+      ))}
+    </nav>
+  );
 }
 
 export default async function UpdatesPage(props: PageProps<"/updates">) {
   const sp = await props.searchParams;
   const source = sp.source === "web" || sp.source === "ext" ? sp.source : null;
+  const kind = KINDS.find((k) => k === sp.kind) ?? null;
   const [all, jar] = await Promise.all([whatsNew(), cookies()]);
   const fresh = newSince(all, parseSeen(jar.get(SEEN_COOKIE)?.value));
-  const entries = source ? all.filter((e) => e.source === source) : all;
-  const days = byDay(entries);
+  const entries = all.filter((e) => (!source || e.source === source) && (!kind || e.kind === kind));
+  const days = byRelease(entries);
   const firstOld = days.findIndex((d) => !d.entries.some((e) => fresh.has(e.id)));
 
   return (
@@ -63,25 +114,16 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
                 </a>
               </p>
             </div>
-            <nav aria-label="Filter by source" className="flex rounded-sm border text-sm">
-              {FILTERS.map((f, i) => {
-                const active = f.value === source;
-                return (
-                  <Link
-                    key={f.label}
-                    href={f.value ? `/updates?source=${f.value}` : "/updates"}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "px-3 py-1",
-                      i > 0 && "border-l",
-                      active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {f.label}
-                  </Link>
-                );
-              })}
-            </nav>
+            <div className="flex flex-wrap gap-2">
+              <FilterNav
+                label="Filter by kind"
+                items={KIND_FILTERS.map((f) => ({ key: f.label, label: f.label, href: filterHref(source, f.value), active: f.value === kind }))}
+              />
+              <FilterNav
+                label="Filter by source"
+                items={FILTERS.map((f) => ({ key: f.label, label: f.label, href: filterHref(f.value, kind), active: f.value === source }))}
+              />
+            </div>
           </div>
 
           {fresh.size > 0 && firstOld !== 0 && days.length > 0 && (
@@ -94,20 +136,21 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
 
           <div className="flex flex-col">
             {days.map((d, i) => {
-              const versions = [...new Set(d.entries.map((e) => e.version).filter(Boolean))];
+              const versions = [...new Set(d.entries.filter((e) => e.version).map((e) => `${SOURCE_LABEL[e.source]} ${e.version}`))];
               return (
                 <section
-                  key={d.date.toISOString()}
+                  key={d.at.toISOString()}
                   className={cn(
                     "grid gap-x-5 gap-y-2 py-5 sm:grid-cols-[7rem_1fr]",
                     i > 0 && (i === firstOld && fresh.size > 0 ? "border-t border-primary/35" : "border-t"),
                   )}
                 >
                   <div className="flex gap-3 text-sm text-muted-foreground tabular-nums sm:flex-col sm:gap-1">
-                    <time dateTime={d.date.toISOString().slice(0, 10)}>{dayFmt.format(d.date)}</time>
+                    {/* Backfilled entries are stamped with their section's day, so there's no time to show. */}
+                    <ReleaseTime iso={d.at.toISOString()} withTime={d.entries.some((e) => e.stampedAt.getTime() !== e.date.getTime())} />
                     {versions.map((v) => (
                       <span key={v} className="font-mono text-xs text-foreground">
-                        {v === "Unreleased" ? "Extension, unreleased" : `Extension ${v}`}
+                        {v}
                       </span>
                     ))}
                   </div>
@@ -118,6 +161,7 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
                           {SOURCE_LABEL[e.source]}
                         </span>
                         <p className="min-w-0 break-words">
+                          {e.kind && <span className={cn("mr-1.5 text-xs font-semibold tracking-wide uppercase", KIND_CHIP[e.kind])}>{KIND_LABEL[e.kind]}</span>}
                           {e.area && <span className="text-muted-foreground">{e.area}: </span>}
                           <ChangeText text={e.text} />
                           {fresh.has(e.id) && <UnseenDot className="ml-1.5 align-middle" />}

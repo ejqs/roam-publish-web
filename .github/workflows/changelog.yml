@@ -1,6 +1,6 @@
 name: Changelog
 
-# A pull request into main that changes the app must add to CHANGELOG.md, which /updates shows. Label
+# A pull request into main that changes the app must add a new version to CHANGELOG.md, which /updates shows. Label
 # it `no-changelog` when nothing in it is something the site's users would notice.
 on:
   pull_request:
@@ -28,9 +28,15 @@ jobs:
             echo "No app changes, nothing to log."
             exit 0
           fi
-          if grep -qx 'CHANGELOG.md' <<<"$changed"; then
-            echo "CHANGELOG.md updated."
-            exit 0
+          if ! grep -qx 'CHANGELOG.md' <<<"$changed"; then
+            echo "::error file=CHANGELOG.md::This PR changes the app but not CHANGELOG.md. Add a bullet under the next version for each change users would notice (it shows on /updates), or label the PR no-changelog if there's none."
+            exit 1
           fi
-          echo "::error file=CHANGELOG.md::This PR changes the app but not CHANGELOG.md. Add a bullet under today's date for each change users would notice (it shows on /updates), or label the PR no-changelog if there's none."
-          exit 1
+          # Each release into main is a new version (the unit tests check the bump fits its changes).
+          top() { git show "$1:CHANGELOG.md" | grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' | cut -c4- || true; }
+          old=$(top "$BASE"); new=$(top "$HEAD")
+          if [ -n "$old" ] && { [ "$old" = "$new" ] || [ "$(printf '%s\n%s\n' "$old" "$new" | sort -V | tail -1)" != "$new" ]; }; then
+            echo "::error file=CHANGELOG.md::main is at $old, and this PR's top release is ${new:-missing}. Add your bullets under a new ## x.y.z (YYYY-MM-DD) above it, and set package.json's version to match."
+            exit 1
+          fi
+          echo "CHANGELOG.md updated: ${old:-none} → $new."

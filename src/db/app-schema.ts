@@ -757,3 +757,13 @@ export const announcement = pgTable(
   },
   (t) => [uniqueIndex("announcement_key_idx").on(t.key), index("announcement_ends_idx").on(t.endsAt)],
 );
+
+/**
+ * When each What's new entry (lib/whats-new.ts) first went live: a website entry when the deploy carrying it
+ * booted, an extension entry when Roam Depot started serving it. `id` is the entry's id.
+ */
+export const whatsNewStamp = pgTable("whats_new_stamp", {
+  id: text("id").primaryKey(),
+  source: text("source", { enum: ["web", "ext"] }).notNull(),
+  firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull(),
+});

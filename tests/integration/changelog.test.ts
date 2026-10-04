@@ -35,7 +35,9 @@ const queued = () => db.select().from(changelogEntry);
 
 /** Runs the background sender as if `minutes` had passed, with the block confirmed meanwhile. */
 async function flushAfter(minutes: number) {
-  const at = new Date(Date.now() + minutes * 60_000);
+  // A second past it: a batch's entries are stamped a millisecond apart from when it was logged, so on a fast
+  // database the last one can still be "in the future" when this runs, and the page wouldn't count as quiet yet.
+  const at = new Date(Date.now() + minutes * 60_000 + 1_000);
   await db.update(shortlink).set({ anchorConfirmedAt: at });
   await flushChangeLog(at);
 }

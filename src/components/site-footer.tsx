@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "cn";
+import { SITE_VERSION } from "@/lib/version";
 import { SourcePopover } from "./source-popover";
 import { WhatsNewLink } from "./whats-new-link";
 
@@ -31,6 +32,9 @@ function FooterLinks({ className, fade = "" }: { className: string; fade?: strin
       ))}
       <WhatsNewLink className={className} quietClassName={fade} />
       <SourcePopover className={cn(className, fade)} links={SOURCE_LINKS} />
+      <Link href="/updates?source=web" title="The website's version" className={cn(className, fade, "tabular-nums")}>
+        v{SITE_VERSION}
+      </Link>
     </nav>
   );
 }
