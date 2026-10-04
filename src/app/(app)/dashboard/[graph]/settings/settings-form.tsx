@@ -58,7 +58,7 @@ export function GraphSettingsForm({ graphId, initial }: { graphId: string; initi
 
 type Listing = Omit<GraphSettings, "description">;
 
-/** On the Sharing tab: the front page, search engines, Discoverable, RSS and breadcrumbs. */
+/** On the Sharing tab: the front page, search engines, site search, Discoverable, RSS and breadcrumbs. */
 export function GraphListingForm({
   graphId,
   graphName,
@@ -111,6 +111,14 @@ export function GraphListingForm({
             description="Let search engines index your front page and listed pages. Unlisted pages are never indexed."
             checked={settings.indexable}
             onChange={set("indexable")}
+          />
+          <FieldSeparator />
+          <SettingSwitch
+            id="searchListed"
+            label="Listed pages in site search"
+            description="Find your listed pages from roam.pub/search. Discoverable pages are always searchable."
+            checked={settings.searchListed}
+            onChange={set("searchListed")}
           />
           <FieldSeparator />
           <SettingSwitch

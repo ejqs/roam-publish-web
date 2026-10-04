@@ -103,7 +103,8 @@ export default async function SearchPage(props: PageProps<"/search">) {
             </Empty>
           ) : !searching ? (
             <p className="text-sm text-muted-foreground">
-              Search titles and text of pages listed on public graphs and collections. Add a #tag to narrow it down.
+              Search titles and text of pages on Discover, and of pages listed on public graphs and collections that
+              allow it. Add a #tag to narrow it down.
             </p>
           ) : !allowed ? (
             <Empty className="border">

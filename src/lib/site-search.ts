@@ -8,7 +8,8 @@ import { collectionPath, entryPath, graphPath, publicationPath } from "@/lib/pub
 
 /**
  * Search across the site. Only what anyone can already find by browsing shows up: open pages listed
- * on an open, indexable graph front page or collection. Protected and unlisted pages never do.
+ * on an open, indexable graph front page or collection. Protected and unlisted pages never do, and
+ * Listed (not Discoverable) pages only while their graph or collection allows it (`searchListed`).
  */
 
 export const SEARCH_PAGE_SIZE = 20;
@@ -23,7 +24,10 @@ const inOpenGraph = and(
   graphPlaceOpen,
 ) as SQL;
 
-const entryOpenWhere = sql`e.listing <> 'unlisted'
+/** `inOpenGraph`, and Discoverable or in a graph that lets Listed pages be searched. */
+const inSearchGraph = and(inOpenGraph, or(eq(publication.discoverable, true), eq(graph.searchListed, true))) as SQL;
+
+const entryOpenWhere = sql`e.listing <> 'unlisted' and (e.listing = 'discover' or c.search_listed)
   and (e.access = 'open' or (e.access = 'inherit' and c.default_access = 'open'))
   and c.index_access = 'open' and c.indexable and c.suspended_at is null
   and coalesce(o.banned, false) = false`;
@@ -31,7 +35,7 @@ const entryFrom = sql`from collection_entry e join collection c on c.id = e.coll
 const inOpenCollection = sql`exists (select 1 ${entryFrom} where e.publication_id = ${publication.id} and ${entryOpenWhere})`;
 
 /** Needs `graph` and `user` joined. */
-export const searchablePublication = and(liveGraph, livePublication, or(inOpenGraph, inOpenCollection)) as SQL;
+export const searchablePublication = and(liveGraph, livePublication, or(inSearchGraph, inOpenCollection)) as SQL;
 
 export type SearchSort = "best" | "recent";
 
@@ -60,7 +64,7 @@ export async function searchPages(opts: { q: string; tags: string[]; sort: Searc
       tags: publication.tags,
       updatedAt: publication.updatedAt,
       graphName: graph.name,
-      inGraph: sql<boolean>`${inOpenGraph}`,
+      inGraph: sql<boolean>`${inSearchGraph}`,
       entryUid: pick("e.entry_uid"),
       collectionName: pick("c.name"),
       collectionSlug: pick("c.slug"),

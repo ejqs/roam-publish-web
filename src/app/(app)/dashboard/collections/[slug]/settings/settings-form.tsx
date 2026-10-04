@@ -24,6 +24,7 @@ type Initial = {
   views: ViewsMode;
   showViewCountries: boolean;
   indexable: boolean;
+  searchListed: boolean;
   featured: boolean;
   discoverable: boolean;
   rss: boolean;
@@ -118,6 +119,14 @@ export function CollectionSettingsForm({
             description="Let search engines index the collection page and its open, listed pages."
             checked={s.indexable}
             onChange={set("indexable")}
+          />
+          <FieldSeparator />
+          <Toggle
+            id="c-search-listed"
+            label="Listed pages in site search"
+            description="Find this collection's listed pages from roam.pub/search. Pages on Discover are always searchable."
+            checked={s.searchListed}
+            onChange={set("searchListed")}
           />
           <FieldSeparator />
           <Toggle
