@@ -1,13 +1,14 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { useRef } from "react";
+import { type ComponentProps, type ComponentType, useRef } from "react";
 import { cn } from "cn";
 
 export type Segment<T extends string> = {
   value: T;
   label: string;
-  icon?: LucideIcon;
+  /** A Lucide icon, or one of our own SVG icons drawn the same way. */
+  icon?: LucideIcon | ComponentType<ComponentProps<"svg">>;
   /** Why it can't be chosen right now; shown as its tooltip. */
   disabled?: string;
 };
