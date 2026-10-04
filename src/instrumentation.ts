@@ -3,6 +3,8 @@ import type { Instrumentation } from "next";
 export async function register() {
   // Background jobs (change log sender, Umami view sync, metrics flush) need Node and a long-running server.
   if (process.env.NEXT_RUNTIME === "nodejs") await import("./lib/job-worker").then((m) => m.startJobWorker());
+  // Stamps this deploy's new What's new entries with when it went live, not when someone first opens a page.
+  if (process.env.NEXT_RUNTIME === "nodejs") void import("./lib/whats-new").then((m) => m.loadWeb());
 }
 
 /**

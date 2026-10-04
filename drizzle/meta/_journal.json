@@ -239,6 +239,13 @@
       "when": 1791109511665,
       "tag": "0033_views_per_hour",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791127368024,
+      "tag": "0034_whats_new_stamp",
+      "breakpoints": true
     }
   ]
 }
