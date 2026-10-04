@@ -20,7 +20,18 @@ export function UnseenDot({ className }: { className?: string }) {
  * A "What's new" link, with the dot when there's something unseen. `plant` is set on a first visit:
  * it records what's there now, so the dot shows when something new lands and not for the backlog.
  */
-export function WhatsNewAnchor({ dot, plant, className }: { dot: boolean; plant: string | null; className?: string }) {
+export function WhatsNewAnchor({
+  dot,
+  plant,
+  className,
+  version,
+}: {
+  dot: boolean;
+  plant: string | null;
+  className?: string;
+  /** The site's version, shown after the label as one link ("What's new · v0.5.0"). */
+  version?: string;
+}) {
   // On /updates itself, that visit is what clears the dot.
   const here = usePathname() === "/updates";
   useEffect(() => {
@@ -29,6 +40,7 @@ export function WhatsNewAnchor({ dot, plant, className }: { dot: boolean; plant:
   return (
     <Link href="/updates" className={cn("inline-flex items-center gap-1", className)}>
       What&apos;s new
+      {version && <span className="tabular-nums"> · v{version}</span>}
       {dot && !here && <UnseenDot />}
     </Link>
   );

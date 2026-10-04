@@ -30,11 +30,8 @@ function FooterLinks({ className, fade = "" }: { className: string; fade?: strin
           {l.label}
         </Link>
       ))}
-      <WhatsNewLink className={className} quietClassName={fade} />
+      <WhatsNewLink className={className} quietClassName={fade} version={SITE_VERSION} />
       <SourcePopover className={cn(className, fade)} links={SOURCE_LINKS} />
-      <Link href="/updates?source=web" title="The website's version" className={cn(className, fade, "tabular-nums")}>
-        v{SITE_VERSION}
-      </Link>
     </nav>
   );
 }
