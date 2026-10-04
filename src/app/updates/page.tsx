@@ -136,7 +136,7 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
 
           <div className="flex flex-col">
             {days.map((d, i) => {
-              const versions = [...new Set(d.entries.map((e) => e.version).filter(Boolean))];
+              const versions = [...new Set(d.entries.filter((e) => e.version).map((e) => `${SOURCE_LABEL[e.source]} ${e.version}`))];
               return (
                 <section
                   key={d.at.toISOString()}
@@ -150,7 +150,7 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
                     <ReleaseTime iso={d.at.toISOString()} withTime={d.entries.some((e) => e.stampedAt.getTime() !== e.date.getTime())} />
                     {versions.map((v) => (
                       <span key={v} className="font-mono text-xs text-foreground">
-                        Extension {v}
+                        {v}
                       </span>
                     ))}
                   </div>

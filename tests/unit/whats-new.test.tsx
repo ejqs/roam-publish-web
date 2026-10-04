@@ -9,7 +9,9 @@ import {
   parseSeen,
   plainChange,
   seenValue,
+  semver,
 } from "@/lib/whats-new";
+import { SITE_VERSION } from "@/lib/version";
 import { findElements, textOf } from "../helpers/render";
 
 spyOn(console, "error").mockImplementation(() => {});
@@ -21,7 +23,7 @@ describe("parseChangelog", () => {
   test("the website's file: one entry per bullet, dated by its section", () => {
     const entries = parseChangelog(WEB, "web");
     expect(entries.length).toBeGreaterThan(10);
-    expect(entries.every((e) => e.source === "web" && e.version === null && e.area && e.text)).toBe(true);
+    expect(entries.every((e) => e.source === "web" && e.version && e.area && e.text)).toBe(true);
     // Every bullet says what kind of change it is (CLAUDE.md); the kind isn't left in the text.
     expect(entries.filter((e) => !e.kind).map((e) => e.text)).toEqual([]);
     expect(entries.some((e) => /^(New|Improved|Fixed):/.test(e.text))).toBe(false);
@@ -58,6 +60,35 @@ describe("parseChangelog", () => {
       [null, "Plain"],
       [null, "Newer: not a kind"],
     ]);
+  });
+});
+
+describe("the website's versions", () => {
+  const releases = [...WEB.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
+  const entries = parseChangelog(WEB, "web");
+
+  test("every release is `x.y.z (YYYY-MM-DD)`, newest first, and the top one is package.json's", () => {
+    expect(releases.filter((h) => !/^\d+\.\d+\.\d+ \(\d{4}-\d{2}-\d{2}\)$/.test(h))).toEqual([]);
+    const versions = releases.map((h) => h.split(" ")[0]);
+    expect(versions[0]).toBe(SITE_VERSION);
+    const dates = releases.map((h) => h.slice(-11, -1));
+    expect([...dates].sort().reverse()).toEqual(dates);
+  });
+
+  test("each release bumps the one before it: minor or major with a New change, else at least the patch", () => {
+    const versions = releases.map((h) => semver(h.split(" ")[0])!);
+    const problems: string[] = [];
+    for (let i = 0; i < versions.length - 1; i++) {
+      const [ma, mi, pa] = versions[i];
+      const [pma, pmi, ppa] = versions[i + 1];
+      const name = releases[i];
+      const hasNew = entries.some((x) => x.version === name.split(" ")[0] && x.kind === "new");
+      const major = ma === pma + 1 && mi === 0 && pa === 0;
+      const minor = ma === pma && mi === pmi + 1 && pa === 0;
+      const patch = ma === pma && mi === pmi && pa === ppa + 1;
+      if (!(major || minor || (patch && !hasNew))) problems.push(`${name} after ${releases[i + 1]}${hasNew ? " (has New: needs minor or major)" : ""}`);
+    }
+    expect(problems).toEqual([]);
   });
 });
 

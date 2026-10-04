@@ -1,11 +1,20 @@
 # Changelog
 
-User-facing changes to roam.pub, newest first. Dates are when the change landed on `main`. The site shows this
-file, with the extension's, at `/updates`: one bullet is one entry, written for the people who use the site. Add a
-bullet with each pull request that changes something they'd notice; leave out tests, refactors and internal tooling.
-Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
+User-facing changes to roam.pub, newest first. Each release is a [semantic version](https://semver.org) dated the day
+it landed on `main`. The site shows this file, with the extension's, at `/updates`: one bullet is one entry, written
+for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
+tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
-## 2026-10-04
+## 0.5.0 (2026-10-04)
+
+### Site
+- New: The website has version numbers, like the extension. What's new shows which version each change came in,
+  and the footer shows the current one.
+- New: What's new tags each change as **New**, **Improved** or **Fixed**, and you can show just one kind.
+- Improved: What's new shows when each change went live, and marks only what's new since your last visit instead of
+  everything from that day. Extension changes appear once Roam Depot serves them, not before.
+
+## 0.4.0 (2026-10-04)
 
 ### Dashboard
 - Improved: Password protection shows as a lock everywhere, and an encrypted page shows the lock with an **E** beside
@@ -55,11 +64,8 @@ Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
 ### Site
 - New: You can now reach us at support@roam.pub.
-- New: What's new tags each change as **New**, **Improved** or **Fixed**, and you can show just one kind.
-- Improved: What's new shows when each change went live, and marks only what's new since your last visit instead of
-  everything from that day. Extension changes appear once Roam Depot serves them, not before.
 
-## 2026-10-03
+## 0.3.0 (2026-10-03)
 
 ### Announcements
 - New: **What's new** at `/updates` lists changes to the website and the Roam extension in one timeline, with an RSS
@@ -113,7 +119,7 @@ Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 - Improved: IP addresses used for rate limits are cleared from memory once the limit ends, and the hashes of
   reporters' IP addresses (and emails, after an account is deleted) can no longer be reversed.
 
-## 2026-10-02
+## 0.2.0 (2026-10-02)
 
 ### Publishing
 - New: Permanent status links and a change log written back into Roam under each published page. Owners can pause it
@@ -134,7 +140,7 @@ Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 ### Site
 - New: Light, dark and system themes from the top-right corner.
 
-## 2026-10-01
+## 0.1.0 (2026-10-01)
 
 ### Published pages
 - New: Tables, boards and embeds drawn in place like in Roam, with inline math, PDFs and iframes.

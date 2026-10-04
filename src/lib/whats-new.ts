@@ -8,7 +8,7 @@ import { timed } from "./telemetry";
 
 /**
  * What's new (/updates): the website's CHANGELOG.md and the extension's, as one timeline. Both files
- * use the same shape: `## 2026-10-03` or `## 0.1.0 (2026-10-02)` or `## Unreleased`, then `### Area`,
+ * use the same shape: `## 0.1.0 (2026-10-02)` (or `## Unreleased` in the extension's), then `### Area`,
  * then one bullet per change, which starts with its kind (`New:`, `Improved:` or `Fixed:`). Not to be confused
  * with lib/changelog.ts, the change log written into Roam.
  *
@@ -32,7 +32,7 @@ export type Entry = {
   date: Date;
   /** When it went live; its section's day until a stamp says otherwise. */
   stampedAt: Date;
-  /** The extension's version heading ("0.1.0", "Unreleased"); null for the website. */
+  /** Its release's version ("0.1.0", or "Unreleased" in the extension's file); null under a bare date. */
   version: string | null;
   /** From the bullet's `New:` / `Improved:` / `Fixed:`; null without one. */
   kind: Kind | null;
@@ -93,7 +93,7 @@ export function parseChangelog(md: string, source: Source, unreleasedDate: Date 
         const d = DATE.exec(head);
         date = d ? new Date(`${d[1]}T00:00:00Z`) : null;
         const v = /^v?(\d+\.\d+\.\d+\S*)/.exec(head);
-        version = source === "ext" ? (v?.[1] ?? null) : null;
+        version = v?.[1] ?? null;
       }
       continue;
     }
@@ -280,4 +280,10 @@ export async function whatsNewDot(cookieValue: string | undefined): Promise<{ do
   } catch {
     return { dot: false, plant: null };
   }
+}
+
+/** A semantic version as numbers, or null if it isn't one. */
+export function semver(v: string): [number, number, number] | null {
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(v);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
 }
