@@ -134,7 +134,8 @@ export function ChangeLogForm({
               <FieldContent>
                 <FieldLabel htmlFor="change-log-merge">Merge quick changes</FieldLabel>
                 <FieldDescription>
-                  A setting changed back and forth within a short time is logged once, with where it ended up.
+                  Changes to a setting made within 5 minutes of each other are logged once, with where it ended
+                  up. Entries then reach Roam about 5 minutes after the last change instead of 30 seconds.
                 </FieldDescription>
               </FieldContent>
               <Switch

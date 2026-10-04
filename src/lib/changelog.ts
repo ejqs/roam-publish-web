@@ -145,6 +145,13 @@ const QUIET_MS = 30_000;
 /** …but never hold an entry longer than this. */
 const MAX_WAIT_MS = 3 * 60_000;
 /**
+ * With "Merge quick changes" on, a page waits this long for its next change instead, so changes
+ * made within 5 minutes of each other go out (and merge) together…
+ */
+export const MERGE_QUIET_MS = 5 * 60_000;
+/** …held at most this long, so a page edited non-stop still gets its entries. */
+const MERGE_MAX_WAIT_MS = 15 * 60_000;
+/**
  * Roam's Append API writes to the daily note when the target block doesn't exist, so entries only
  * go to blocks the extension saw within this window (it checks every few minutes while Roam is
  * open). Until then they wait, and are dropped after QUEUE_MAX_AGE_MS.
@@ -156,7 +163,7 @@ const BACKOFF_MAX_MS = 30 * 60_000;
 
 /**
  * Sends queued entries: per graph, the page waiting longest, once it's quiet (or has waited
- * MAX_WAIT_MS), as one Append API call. Entries are claimed atomically ("pending" → "sending"), so
+ * MAX_WAIT_MS; MERGE_QUIET_MS and MERGE_MAX_WAIT_MS when merging), as one Append API call. Entries are claimed atomically ("pending" → "sending"), so
  * overlapping runs or replicas never send the same entry twice.
  */
 export async function flushChangeLog(now = new Date()) {
@@ -177,9 +184,11 @@ export async function flushChangeLog(now = new Date()) {
       and g.append_token_status is distinct from 'invalid'
       and not g.change_log_paused
       and (g.append_next_at is null or g.append_next_at <= ${now})
-    group by s.id, s.graph_id
-    having max(e.created_at) <= ${new Date(now.getTime() - QUIET_MS)}
-        or min(e.created_at) <= ${new Date(now.getTime() - MAX_WAIT_MS)}
+    group by s.id, s.graph_id, g.change_log_merge
+    having max(e.created_at) <= case when g.change_log_merge
+          then ${new Date(now.getTime() - MERGE_QUIET_MS)}::timestamptz else ${new Date(now.getTime() - QUIET_MS)}::timestamptz end
+        or min(e.created_at) <= case when g.change_log_merge
+          then ${new Date(now.getTime() - MERGE_MAX_WAIT_MS)}::timestamptz else ${new Date(now.getTime() - MAX_WAIT_MS)}::timestamptz end
     order by s.graph_id, min(e.created_at)
   `);
   for (const { shortlink_id, graph_id } of ready.rows) await sendPage(shortlink_id, graph_id, now);
@@ -211,7 +220,8 @@ function topicOf(part: string) {
 }
 
 /**
- * What each entry of one send adds to Roam, in order, or null when nothing is left of it: for each
+ * What each entry of one send adds to Roam, in order, or null when nothing is left of it. A send
+ * holds changes made within MERGE_QUIET_MS of each other (see flushChangeLog). For each
  * setting only the last change is kept (in the entry it happened in), and dropped too when Roam's
  * change log already shows that value. `shown` is what was sent to Roam before, newest first.
  */
