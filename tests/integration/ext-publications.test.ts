@@ -115,6 +115,19 @@ describe("publish", () => {
     expect((await publish(ownerKey, big)).status).toBe(413);
   });
 
+  test("a block with several embeds keeps all of them", async () => {
+    const e = (uid: string) => ({ uid, string: uid, children: [] });
+    const tree = {
+      uid: "root",
+      string: "",
+      children: [{ uid: "b", string: "{{embed: ((e1))}} {{embed: ((e2))}}", embed: e("e1"), moreEmbeds: [e("e2")], children: [] }],
+    };
+    const p = payload({ rootUid: "root", tree });
+    expect((await publish(ownerKey, p)).status).toBe(200);
+    const [row] = await db.select().from(publication).where(eq(publication.rootUid, "root"));
+    expect(row.tree.children[0].moreEmbeds?.map((n) => n.uid)).toEqual(["e2"]);
+  });
+
   test("an ordinary nested outline still publishes", async () => {
     let tree = { uid: "leaf", string: "x", children: [] as unknown[] };
     for (let i = 0; i < 50; i++) tree = { uid: `n${i}`, string: "", children: [tree] };

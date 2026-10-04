@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { Node } from "@/db/app-schema";
 import { cn } from "@/lib/utils";
-import { blockComponent, isOnlyComponent, type PageLinks, RoamText } from "./markup";
+import { blockComponent, isOnlyComponent, isOnlyComponents, type PageLinks, RoamText } from "./markup";
 import { bulletClass, childrenClass, rowClass } from "./outline";
 
 type ViewType = Node["viewType"];
@@ -156,9 +156,13 @@ function Block({
     ) : kind === "kanban" ? (
       <Kanban columns={node.children} links={links} />
     ) : null;
-  const embed = node.embed && <Embed node={node.embed} links={links} />;
-  // Like Roam, a block that is only a table, board or embed shows it in place of its text.
-  const showText = !(isOnlyComponent(node.string) && (special || embed));
+  const embeds = [node.embed, ...(node.moreEmbeds ?? [])].filter((e): e is Node => !!e);
+  const embed = embeds.length > 0 && embeds.map((e, i) => <Embed key={`${e.uid}-${i}`} node={e} links={links} />);
+  // Like Roam, a block that is only a table, board or embed(s) shows it in place of its text.
+  const showText = !(
+    (isOnlyComponent(node.string) && (special || embed)) ||
+    (embeds.length > 1 && isOnlyComponents(node.string))
+  );
   return (
     <li className={rowClass}>
       <Marker node={node} viewType={viewType} n={n} />

@@ -11,7 +11,7 @@ import { changeLogStatusOf, logChange, validTimeZone } from "@/lib/changelog";
 import { addEntry } from "@/lib/collections";
 import { notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
 import { defaultCollectionsFor, primaryUrls } from "@/lib/places";
-import { ensureShortlink, setAnchor, shortlinkIds, shortUrl, withoutShortlinks } from "@/lib/shortlinks";
+import { ensureShortlink, setAnchor, shortlinkSet, shortUrl, withoutShortlinks } from "@/lib/shortlinks";
 import { plainText } from "@/lib/slug";
 import { withRoute } from "@/lib/telemetry";
 
@@ -23,6 +23,7 @@ const NodeSchema: z.ZodType<Node> = z.lazy(() =>
     viewType: z.enum(["bullet", "numbered", "document"]).optional(),
     align: z.enum(["left", "center", "right", "justify"]).optional(),
     embed: NodeSchema.optional(),
+    moreEmbeds: z.array(NodeSchema).max(50).optional(),
     title: z.string().max(1000).optional(),
     children: z.array(NodeSchema),
   }),
@@ -53,9 +54,10 @@ function tooDeep(body: unknown) {
     const [node, depth] = stack.pop()!;
     if (!node || typeof node !== "object") continue;
     if (depth > MAX_DEPTH) return true;
-    const { children, embed } = node as { children?: unknown; embed?: unknown };
+    const { children, embed, moreEmbeds } = node as { children?: unknown; embed?: unknown; moreEmbeds?: unknown };
     if (Array.isArray(children)) for (const c of children) stack.push([c, depth + 1]);
     if (embed) stack.push([embed, depth + 1]);
+    if (Array.isArray(moreEmbeds)) for (const e of moreEmbeds) stack.push([e, depth + 1]);
   }
   return false;
 }
@@ -136,7 +138,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
       .where(and(eq(graph.id, ctx.graphId), ctx.role === "owner" ? undefined : sql`${graph.timeZone} is null`));
   const page = { graphId: ctx.graphId, rootUid: p.rootUid };
   // The hash covers what the extension sent; shortlink blocks in it are never stored or shown.
-  const tree = withoutShortlinks(p.tree, await shortlinkIds(ctx.graphId));
+  const tree = withoutShortlinks(p.tree, await shortlinkSet(ctx.graphId));
   const short = shortUrl(link.id);
 
   if (existing) {
