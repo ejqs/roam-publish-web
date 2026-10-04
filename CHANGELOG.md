@@ -7,8 +7,8 @@ bullet with each pull request that changes something they'd notice; leave out te
 ## 2026-10-04
 
 ### Dashboard
-- A page's **Manage** dialog lists each place it's published as one row, with an icon for a graph or a collection, what
-  it uses there, and what the graph or collection starts pages as. Open a row to change it.
+- A page's **Manage** dialog lists each place it's published as one row, with an icon for a graph or a collection and
+  what the page uses there. Open a row to change it.
 - Access control and Visibility control mark the graph's or collection's default choice.
 - Choosing a password and encrypting the page now sit under **Password**, in the place you're changing.
 - When **Discoverable** can't be chosen, the reason is always shown under it.
