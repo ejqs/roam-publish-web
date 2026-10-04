@@ -61,7 +61,9 @@ export function SiteFooter({
       <footer className={className}>
         <div className="group mx-auto flex max-w-5xl flex-col items-center gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:justify-between">
           <p className={cn("text-center sm:text-left", fade)}>
-            Third-party service by {ejqs(link)} · Not affiliated with Roam Research.
+            Third-party service by {ejqs(link)}
+            <br />
+            Not affiliated with Roam Research.
           </p>
           <FooterLinks className={link} fade={fade} />
         </div>
