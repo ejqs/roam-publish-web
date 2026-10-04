@@ -12,6 +12,44 @@ const PAGE_SIZE = 500;
 /** Stops a runaway pager: 100 pages is 50,000 paths. */
 const MAX_PAGES = 100;
 
+/** Umami Cloud's limit per API key: 50 calls every 15 seconds, or 12,000 an hour. */
+export const UMAMI_LIMIT = { calls: 50, windowMs: 15_000 };
+/** The share of that limit the sync uses by default, leaving room for anything else on the key. */
+export const UMAMI_HEADROOM = 0.8;
+
+const WINDOWS_PER_HOUR = (60 * 60_000) / UMAMI_LIMIT.windowMs;
+
+/** Calls the sync may make in any 15 seconds: UMAMI_CALLS_PER_HOUR spread evenly, or 80% of the limit (40). */
+export function umamiCallsPerWindow() {
+  const n = Number(process.env.UMAMI_CALLS_PER_HOUR);
+  if (Number.isInteger(n) && n > 0) return Math.max(1, Math.floor(n / WINDOWS_PER_HOUR));
+  return Math.floor(UMAMI_LIMIT.calls * UMAMI_HEADROOM);
+}
+
+/** Calls the sync may make in an hour (9,600 by default). */
+export const umamiCallsPerHour = () => umamiCallsPerWindow() * WINDOWS_PER_HOUR;
+
+/** How long to wait before another call, given when recent calls went out, to stay within `limit` per window. */
+export function throttleDelay(sent: number[], now: number, limit: number, windowMs = UMAMI_LIMIT.windowMs) {
+  const recent = sent.filter((t) => t > now - windowMs);
+  if (recent.length < limit) return 0;
+  return recent[recent.length - limit] + windowMs - now;
+}
+
+/** When this process's recent calls went out, across every client, so jobs share the window. */
+const sent: number[] = [];
+
+async function throttle() {
+  for (;;) {
+    const now = Date.now();
+    while (sent.length && sent[0] <= now - UMAMI_LIMIT.windowMs) sent.shift();
+    const wait = throttleDelay(sent, now, umamiCallsPerWindow());
+    if (wait <= 0) break;
+    await new Promise((r) => setTimeout(r, wait));
+  }
+  sent.push(Date.now());
+}
+
 /** Why the sync can't run here, or null when it can. */
 export function umamiDisabledReason(): string | null {
   if (process.env.UMAMI_SYNC === "off") return "UMAMI_SYNC=off";
@@ -51,6 +89,7 @@ export class UmamiClient {
       offset: String(offset),
       ...filters,
     });
+    await throttle();
     this.calls++;
     const res = await timed(
       "umami",

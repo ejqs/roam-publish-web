@@ -6,7 +6,7 @@ import type { JobDef } from "./jobs";
 import { jobsWarmedUp, runAlerts } from "./alerts";
 import { runStatusBanner } from "./status-banner";
 import { flushMetrics } from "./telemetry-stats";
-import { umamiDisabledReason } from "./umami";
+import { umamiCallsPerHour, umamiDisabledReason } from "./umami";
 import { countrySweep, fullSweep, hotSweep, hotSweepInterval, withClient } from "./view-sync";
 
 const MINUTE = 60_000;
@@ -16,12 +16,6 @@ const HOUR = 60 * MINUTE;
 const countryBudget = () => {
   const n = Number(process.env.UMAMI_COUNTRY_CALLS);
   return Number.isInteger(n) && n > 0 ? n : 10;
-};
-
-/** Umami calls the sync may spend an hour. Umami Cloud allows 50 every 15 seconds per key; this leaves room for others. */
-const umamiCallsPerHour = () => {
-  const n = Number(process.env.UMAMI_CALLS_PER_HOUR);
-  return Number.isInteger(n) && n > 0 ? n : 1000;
 };
 
 const date = (v: unknown) => (typeof v === "string" ? new Date(v) : null);
