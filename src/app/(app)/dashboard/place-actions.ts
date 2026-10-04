@@ -35,6 +35,7 @@ import {
 } from "@/lib/encryption";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
+import { SEARCHABLE_FOR } from "@/lib/listing";
 import { collectionUrl, entryUrl } from "@/lib/publications";
 import { rateLimit } from "@/lib/rate-limit";
 import { withAction } from "@/lib/telemetry";
@@ -273,6 +274,11 @@ export async function updateEntry(
         await ownPasswordKeys(tx, ownLock, input);
         await syncPublicationKeys(tx, entry.publicationId, { contentKey: ck });
         if (input.clearPassword) await dropLock(tx, ownLock);
+        if (input.listing && input.listing !== entry.listing)
+          await tx
+            .update(publication)
+            .set({ searchable: SEARCHABLE_FOR[input.listing] })
+            .where(eq(publication.id, entry.publicationId));
       });
       return { ok: true, message: "" };
     });
@@ -546,11 +552,11 @@ export async function bulkUpdatePublications(raw: BulkInput): Promise<PlaceResul
         else if (read === "password" && !pub.passwordHash && !g.passwordHash) noPassword++;
         else set.access = access = read;
       }
-      if (reach === "unlisted") set.visibility = "unlisted";
-      else if (reach === "public") Object.assign(set, { visibility: "public", discoverable: false });
+      if (reach === "unlisted") Object.assign(set, { visibility: "unlisted", searchable: false });
+      else if (reach === "public") Object.assign(set, { visibility: "public", discoverable: false, searchable: true });
       else if (reach === "discover") {
         const ok = access === "open" && g.indexAccess === "open" && pub.inGraph;
-        Object.assign(set, { visibility: "public", discoverable: ok });
+        Object.assign(set, { visibility: "public", discoverable: ok, searchable: true });
         if (!ok) notDiscover++;
       }
       if (Object.keys(set).length === 0) continue;
@@ -655,6 +661,8 @@ export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
       }
       if (Object.keys(set).length === 0) continue;
       await db.update(collectionEntry).set(set).where(eq(collectionEntry.id, entry.id));
+      if (set.listing && set.listing !== entry.listing)
+        await db.update(publication).set({ searchable: SEARCHABLE_FOR[set.listing] }).where(eq(publication.id, entry.publicationId));
       changed++;
       if (set.access && set.access !== entry.access)
         note("access", `Access in ${collectionLink(c)}: ${ACCESS_LABELS[set.access as (typeof ACCESS)[number]]}`, entry.publicationId);

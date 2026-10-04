@@ -23,6 +23,8 @@ bullet with each pull request that changes something they'd notice; leave out te
 - Turn off **Show in roam.pub search** in a page's Manage dialog to keep just that page out of search. Where it's
   Listed it then shows as **Listed (Not Searchable)**, and readers see a **Not Searchable** badge by its title.
   Discoverable pages are always searchable.
+- **Show in roam.pub search** now sits under Visibility control in each place of a page's Manage dialog, and follows
+  the listing you choose: Unlisted turns it off, Listed turns it on, and Discoverable keeps it on and locked.
 - The graph setting **New pages are Discoverable when listed** is gone. New pages start unlisted, and you choose
   **Listed** or **Discoverable** for each page when you list it, so the setting never took effect.
 
