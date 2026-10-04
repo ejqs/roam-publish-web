@@ -13,6 +13,8 @@ export type JobDef = {
   /** Plain-words schedule for the admin page. */
   schedule: string;
   intervalMs: number;
+  /** Paces the job after a successful run, from what the run saved in its cursor; at most intervalMs. */
+  nextIntervalMs?: (cursor: Record<string, unknown>) => number;
   /**
    * Exclusive jobs claim their row first, so only one process runs them at a time and "Run now"
    * works. A non-exclusive job guards itself (the change log claims entries) and runs every tick.
@@ -105,7 +107,7 @@ export async function runJob(job: JobDef, now = new Date()): Promise<boolean> {
         cursor,
         consecutiveFailures: 0,
         runCount: sql`${backgroundJob.runCount} + 1`,
-        nextDueAt: new Date(finishedAt.getTime() + job.intervalMs),
+        nextDueAt: new Date(finishedAt.getTime() + Math.min(job.intervalMs, job.nextIntervalMs?.(cursor) ?? job.intervalMs)),
         lockedUntil: null,
       })
       .where(eq(backgroundJob.name, job.name));
