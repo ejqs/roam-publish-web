@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import type { ContainerDefaults, ManageData } from "@/lib/manage-data";
+import type { ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
 import { AccessIcon } from "@/components/privacy-icon";
@@ -123,7 +123,6 @@ export function ManageDialog({
               name={data.origin.graphName}
               path={g.inGraph ? g.path : undefined}
               empty={`Not shown in ${data.origin.graphName}`}
-              defaults={g.container}
               access={gAccess}
               listing={gListing}
               encrypted={data.encrypted}
@@ -174,7 +173,6 @@ export function ManageDialog({
                   kind="collection"
                   name={e.collectionName}
                   path={e.path}
-                  defaults={e.container}
                   access={access}
                   listing={listing}
                   encrypted={data.encrypted}
@@ -261,14 +259,13 @@ export function ManageDialog({
 
 /**
  * One place a page appears, as a row you open to change it: graph or collection icon, its name,
- * what the graph or collection starts pages as, and what this page uses there.
+ * and who can read the page there and where it's listed.
  */
 function PlaceRow({
   kind,
   name,
   path,
   empty,
-  defaults,
   access,
   listing,
   encrypted,
@@ -281,7 +278,6 @@ function PlaceRow({
   name: string;
   path?: string;
   empty?: string;
-  defaults: Pick<ContainerDefaults, "defaultAccess" | "defaultListing">;
   access: ReadAccess;
   listing: EntryListing;
   encrypted?: boolean;
@@ -305,16 +301,11 @@ function PlaceRow({
           <KindIcon aria-label={kind === "graph" ? "Graph" : "Collection"} className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="truncate font-medium">{name}</span>
-            <span className="flex items-center gap-1 text-xs text-muted-foreground" title="What new pages here start as">
-              Default <AccessWords access={defaults.defaultAccess} listing={defaults.defaultListing} />
+            <span className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+              {path ? <AccessWords access={access} listing={listing} encrypted={encrypted} /> : empty}
             </span>
           </span>
         </button>
-        {path && (
-          <span className="flex shrink-0 items-center gap-1 rounded-4xl bg-muted px-2 py-0.5 text-xs font-medium">
-            <AccessWords access={access} listing={listing} encrypted={encrypted} />
-          </span>
-        )}
         {action && <div className="flex shrink-0 items-center">{action}</div>}
       </div>
       {open && (
