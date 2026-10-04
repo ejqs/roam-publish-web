@@ -25,6 +25,10 @@ bullet with each pull request that changes something they'd notice; leave out te
   ended where the change log already showed it. Each page's history on its status page still lists every change.
 - Choose what goes into the change log in the graph's settings: publishing, who can read, where it's listed,
   collections and tags. Merging quick changes and grouping by day can be turned off there too.
+- The Roam extension can make a page **Discoverable**, not just Listed or Unlisted (with its next version). When a
+  page can't be Discoverable, the extension says why.
+- Choosing **Discoverable** for a page is refused while the graph's front page or search engines are off, with the
+  reason, instead of saving a setting that had no effect.
 
 ### Published pages
 - A block with several embeds shows all of them, not just the first (with the next version of the Roam extension).

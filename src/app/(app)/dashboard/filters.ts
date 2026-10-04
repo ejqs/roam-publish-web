@@ -147,23 +147,7 @@ export function listOrder(s: GraphListState) {
 /** The owner's list of a graph's published pages. */
 export const graphPagesPath = (graphName: string) => `/dashboard/${encodeURIComponent(graphName)}`;
 
-/** Why a graph can't list pages on Discover right now, if it can't. */
-export function discoverBlocked(g: {
-  suspendedAt: Date | null;
-  frontPage: boolean;
-  indexable: boolean;
-  indexAccess: string;
-}) {
-  return g.suspendedAt
-    ? "This graph is suspended."
-    : g.indexAccess !== "open"
-      ? "This graph's front page is protected, so its pages can't be Discoverable."
-      : !g.frontPage
-      ? "Turn on this graph's front page in Sharing to make pages Discoverable."
-      : !g.indexable
-        ? "Turn on search engines in Sharing to make pages Discoverable."
-        : undefined;
-}
+export { discoverBlocked } from "@/lib/listing";
 
 // --- Collection page lists ----------------------------------------------------------------------
 

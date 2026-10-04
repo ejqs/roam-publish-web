@@ -161,6 +161,64 @@ describe("publish", () => {
   });
 });
 
+describe("listing", () => {
+  const listingOf = async (rootUid: string) =>
+    (await (await GET(extRequest("/api/ext/publications", ownerKey))).json()).publications.find(
+      (p: { rootUid: string }) => p.rootUid === rootUid,
+    );
+
+  test("moves between unlisted, listed and discoverable, and reports it everywhere", async () => {
+    const p = payload();
+    const a = await (await publish(ownerKey, p)).json();
+    expect(a.listing).toBe("unlisted");
+    expect(a.discoverBlocked).toBeNull();
+
+    const listed = await (await byUid("PATCH", ownerKey, p.rootUid, { listing: "listed" })).json();
+    expect(listed).toMatchObject({ visibility: "public", listing: "listed" });
+
+    const disc = await (await byUid("PATCH", ownerKey, p.rootUid, { listing: "discover" })).json();
+    expect(disc).toMatchObject({ visibility: "public", listing: "discover" });
+    expect(await listingOf(p.rootUid)).toMatchObject({ listing: "discover", discoverBlocked: null });
+    const r = await (await publish(ownerKey, payload({ rootUid: p.rootUid, text: "v2" }))).json();
+    expect(r.listing).toBe("discover");
+
+    const back = await (await byUid("PATCH", ownerKey, p.rootUid, { listing: "listed" })).json();
+    expect(back.listing).toBe("listed");
+    const row = await db.query.publication.findFirst({ where: eq(publication.rootUid, p.rootUid) });
+    expect(row?.discoverable).toBe(false);
+
+    expect((await (await byUid("PATCH", ownerKey, p.rootUid, { listing: "unlisted" })).json()).listing).toBe("unlisted");
+  });
+
+  test("Discoverable is refused with the reason when the graph or page can't be on Discover", async () => {
+    const p = payload();
+    await publish(ownerKey, p);
+    await db.update(graph).set({ indexable: false }).where(eq(graph.id, g.id));
+    const res = await byUid("PATCH", ownerKey, p.rootUid, { listing: "discover" });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain("search engines");
+    expect((await listingOf(p.rootUid)).discoverBlocked).toContain("search engines");
+
+    await db.update(graph).set({ indexable: true }).where(eq(graph.id, g.id));
+    await db.update(publication).set({ access: "members" }).where(eq(publication.rootUid, p.rootUid));
+    const gated = await byUid("PATCH", ownerKey, p.rootUid, { listing: "discover" });
+    expect(gated.status).toBe(400);
+    expect((await gated.json()).error).toContain("members-only");
+    // Listed still works.
+    expect((await byUid("PATCH", ownerKey, p.rootUid, { listing: "listed" })).status).toBe(200);
+  });
+
+  test("older extensions' visibility body leaves the Discover flag alone", async () => {
+    const p = payload();
+    await publish(ownerKey, p);
+    await byUid("PATCH", ownerKey, p.rootUid, { listing: "discover" });
+    await byUid("PATCH", ownerKey, p.rootUid, { visibility: "unlisted" });
+    const res = await (await byUid("PATCH", ownerKey, p.rootUid, { visibility: "public" })).json();
+    expect(res).toMatchObject({ visibility: "public", listing: "discover" });
+    expect((await byUid("PATCH", ownerKey, p.rootUid, { listing: "everywhere" })).status).toBe(400);
+  });
+});
+
 describe("members and ownership", () => {
   test("a member can't change or delete the owner's page; the owner can change a member's", async () => {
     const m = await makeUser();
