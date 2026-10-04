@@ -6,10 +6,14 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldContent, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { removeAppendToken, setAppendToken, setChangeLogOn } from "./change-log-actions";
+import { OPTIONAL_CATEGORIES } from "@/lib/changelog-categories";
+import { removeAppendToken, setAppendToken, setChangeLogOn, setChangeLogOptions } from "./change-log-actions";
+
+type Options = { off: string[]; merge: boolean; byDay: boolean };
 
 function todayMMDDYYYY() {
   const d = new Date();
@@ -22,15 +26,19 @@ export function ChangeLogForm({
   graphId,
   status,
   paused,
+  options: initialOptions,
   addedAt,
 }: {
   graphId: string;
   status: "ok" | "invalid" | null;
   /** Turned off, here or from the extension; the token is kept. */
   paused: boolean;
+  /** What goes into the change log; see `setChangeLogOptions`. */
+  options: Options;
   addedAt: string | null;
 }) {
   const [token, setToken] = useState("");
+  const [options, setOptions] = useState(initialOptions);
   const [pending, startTransition] = useTransition();
 
   function save() {
@@ -51,6 +59,18 @@ export function ChangeLogForm({
       const res = await setChangeLogOn(graphId, on);
       if (!res?.ok) return void toast.error(res?.message ?? "Couldn't change the change log.");
       toast.success(res.message);
+    });
+  }
+
+  function change(next: Partial<Options>) {
+    const before = options;
+    const updated = { ...options, ...next };
+    setOptions(updated);
+    startTransition(async () => {
+      const res = await setChangeLogOptions(graphId, updated);
+      if (res?.ok) return;
+      setOptions(before);
+      toast.error(res?.message ?? "Couldn't save the change log options.");
     });
   }
 
@@ -85,6 +105,61 @@ export function ChangeLogForm({
             <Switch id="change-log-on" checked={!paused} disabled={pending} onCheckedChange={toggle} />
           </Field>
         )}
+        {status !== null && !paused && (
+          <FieldGroup>
+            <FieldSet>
+              <FieldLegend variant="label">What to log in Roam</FieldLegend>
+              <FieldDescription>
+                Left out changes still show in each page&apos;s history on its status page. Moderation is always
+                logged.
+              </FieldDescription>
+              {OPTIONAL_CATEGORIES.map((c) => (
+                <Field key={c.id} orientation="horizontal">
+                  <Checkbox
+                    id={`change-log-${c.id}`}
+                    checked={!options.off.includes(c.id)}
+                    disabled={pending}
+                    onCheckedChange={(on) =>
+                      change({ off: on ? options.off.filter((o) => o !== c.id) : [...options.off, c.id] })
+                    }
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor={`change-log-${c.id}`}>{c.label}</FieldLabel>
+                    <FieldDescription>{c.description}</FieldDescription>
+                  </FieldContent>
+                </Field>
+              ))}
+            </FieldSet>
+            <Field orientation="horizontal">
+              <FieldContent>
+                <FieldLabel htmlFor="change-log-merge">Merge quick changes</FieldLabel>
+                <FieldDescription>
+                  A setting changed back and forth within a short time is logged once, with where it ended up.
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                id="change-log-merge"
+                checked={options.merge}
+                disabled={pending}
+                onCheckedChange={(merge) => change({ merge })}
+              />
+            </Field>
+            <Field orientation="horizontal">
+              <FieldContent>
+                <FieldLabel htmlFor="change-log-by-day">Group by day</FieldLabel>
+                <FieldDescription>
+                  Entries go under one [[date]] block per day. Off puts the date on every entry.
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                id="change-log-by-day"
+                checked={options.byDay}
+                disabled={pending}
+                onCheckedChange={(byDay) => change({ byDay })}
+              />
+            </Field>
+          </FieldGroup>
+        )}
         {status === "ok" && !paused && (
           <Alert>
             <CheckCircle2Icon />
@@ -117,7 +192,7 @@ export function ChangeLogForm({
               In Roam: Settings → Graph → API tokens → New API token, with <strong>append-only access</strong>. We
               check it by adding one block to today&apos;s daily note. Roam also creates an{" "}
               <code>[[API Token: …]]</code> page for the token, which may not be deletable. If you know how to remove
-              it reliably, please let me know at ejqs [at] ejqs [dot] net.
+              it reliably, please let me know at support@roam.pub.
             </FieldDescription>
           </Field>
         )}

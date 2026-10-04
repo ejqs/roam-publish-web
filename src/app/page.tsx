@@ -24,7 +24,7 @@ const about = [
   block("**Who runs this**", [
     block("Me, [@ejqs](https://ejqs.net). It's [free*]([[Costs]]) and not affiliated with Roam Research."),
     block("I pay for hosting myself. If it's useful to you, [buy me a coffee](https://buymeacoffee.com/ejqs)."),
-    block(`Bugs and ideas: [GitHub Issues](${ISSUES_URL}) or send it over in ejqs [at] ejqs [dot] net`),
+    block(`Bugs and ideas: [GitHub Issues](${ISSUES_URL}) or send it over to support@roam.pub`),
   ]),
 ];
 

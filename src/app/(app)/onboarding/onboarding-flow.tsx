@@ -125,7 +125,7 @@ export function OnboardingFlow({
             </p>
             <p className="text-muted-foreground">
               There was a way I was able to delete an old API Token page, but I wasn&apos;t able to reproduce it. If
-              you know how to remove it reliably, please let me know at ejqs [at] ejqs [dot] net.
+              you know how to remove it reliably, please let me know at support@roam.pub.
             </p>
             <Field orientation="horizontal">
               <Checkbox

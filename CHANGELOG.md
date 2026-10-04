@@ -7,6 +7,7 @@ bullet with each pull request that changes something they'd notice; leave out te
 ## 2026-10-04
 
 ### Dashboard
+- Password protection shows as a lock everywhere, and an encrypted page shows the lock with an **E** beside it.
 - A page's **Manage** dialog lists each place it's published as one row, with an icon for a graph or a collection and
   what the page uses there. Open a row to change it.
 - Access control and Visibility control mark the graph's or collection's default choice.
@@ -18,10 +19,25 @@ bullet with each pull request that changes something they'd notice; leave out te
 - The graph's **Defaults** tab is now **Sharing**, and holds the front page, search engines, Discoverable, RSS and
   breadcrumb settings that used to be under Settings.
 
+### Publishing
+- The change log under a page's status link groups entries under one `[[date]]` block per day, each line showing
+  just the time.
+- A setting changed back and forth within a short time is logged once, with where it ended up, and not at all if it
+  ended where the change log already showed it. Each page's history on its status page still lists every change.
+- Choose what goes into the change log in the graph's settings: publishing, who can read, where it's listed,
+  collections and tags. Merging quick changes and grouping by day can be turned off there too.
+- The Roam extension can make a page **Discoverable**, not just Listed or Unlisted (with its next version). When a
+  page can't be Discoverable, the extension says why.
+- Choosing **Discoverable** for a page is refused while the graph's front page or search engines are off, with the
+  reason, instead of saving a setting that had no effect.
+
 ### Published pages
 - A block with several embeds shows all of them, not just the first (with the next version of the Roam extension).
 - A Roam Publish status link pasted under an ordinary block no longer hides that block and everything under it from
   the published page; only the link itself is left out (also with the next version of the Roam extension).
+
+### Site
+- You can now reach us at support@roam.pub.
 
 ## 2026-10-03
 

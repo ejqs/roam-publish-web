@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { changelogEntry, graph, publication, shortlink } from "@/db/schema";
 import { decryptToken } from "./append-token";
 import { manageablePublications } from "./graph-access";
+import type { ChangeCategory } from "./changelog-categories";
 import { appendUnderBlock } from "./roam-append";
 
 /**
@@ -16,13 +17,17 @@ import { appendUnderBlock } from "./roam-append";
  * Not real time in Roam: events are queued (`changelog_entry`, deduplicated), and `flushChangeLog`, run in
  * the background every few seconds, sends each page's queued entries in one call once the page has
  * been quiet for a bit, at most one call per graph every APPEND_GAP_MS, backing off on a 429.
+ *
+ * The owner chooses per graph which kinds of change go to Roam (`changeLogOff`), whether changes to
+ * one setting in one send collapse to its final value (`changeLogMerge`, see `mergeLines`), and
+ * whether entries go under one [[date]] block per day (`changeLogByDay`).
  */
 export type PageRef = { graphId: string; rootUid: string };
 /**
  * `key` makes an entry idempotent: one with a key already logged for this page is never appended
  * again. Without one, an entry identical to the page's previous entry is skipped.
  */
-export type Change = PageRef & { text: string; key?: string };
+export type Change = PageRef & { category: ChangeCategory; text: string; key?: string };
 
 const ORDINAL = (d: number) =>
   d % 10 === 1 && d !== 11 ? "st" : d % 10 === 2 && d !== 12 ? "nd" : d % 10 === 3 && d !== 13 ? "rd" : "th";
@@ -51,20 +56,28 @@ export function roamInert(text: string) {
     .trim();
 }
 
-/** `[[October 2nd, 2026]] 14:03`: a daily note link plus time, in the graph's time zone. */
-export function stamp(date: Date, timeZone: string | null) {
-  const tz = timeZone ?? "UTC";
+/** `[[October 2nd, 2026]]` and `14:03`: a daily note link and the time, in the graph's time zone. */
+export function stampParts(date: Date, timeZone: string | null): { day: string; time: string } {
   let parts: Intl.DateTimeFormatPart[];
   try {
     parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz, year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+      timeZone: timeZone ?? "UTC", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
     }).formatToParts(date);
   } catch {
-    return stamp(date, "UTC");
+    return stampParts(date, null);
   }
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   const day = Number(get("day"));
-  return `[[${get("month")} ${day}${ORDINAL(day)}, ${get("year")}]] ${get("hour")}:${get("minute")}${timeZone ? "" : " UTC"}`;
+  return {
+    day: `[[${get("month")} ${day}${ORDINAL(day)}, ${get("year")}]]`,
+    time: `${get("hour")}:${get("minute")}${timeZone ? "" : " UTC"}`,
+  };
+}
+
+/** `[[October 2nd, 2026]] 14:03`: a daily note link plus time, in the graph's time zone. */
+export function stamp(date: Date, timeZone: string | null) {
+  const { day, time } = stampParts(date, timeZone);
+  return `${day} ${time}`;
 }
 
 /** Queue change log entries, after the response is sent; the background sender writes them to Roam. */
@@ -74,22 +87,30 @@ export function logChanges(changes: Change[]) {
   after(() => queueChanges(changes, at).catch((e) => console.error("change log queue failed", e)));
 }
 
-export const logChange = (page: PageRef, text: string, key?: string) => logChanges([{ ...page, text, key }]);
+export const logChange = (page: PageRef, category: ChangeCategory, text: string, key?: string) =>
+  logChanges([{ ...page, category, text, key }]);
 
 /** Log the same kind of event for pages known by publication id. */
-export async function logForPublications(ids: string[], text: string | ((p: { title: string }) => string)) {
+export async function logForPublications(
+  ids: string[],
+  category: ChangeCategory,
+  text: string | ((p: { title: string }) => string),
+) {
   if (ids.length === 0) return;
   const rows = await db
     .select({ graphId: publication.graphId, rootUid: publication.rootUid, title: publication.title })
     .from(publication)
     .where(inArray(publication.id, ids));
-  logChanges(rows.map((r) => ({ graphId: r.graphId, rootUid: r.rootUid, text: typeof text === "string" ? text : text(r) })));
+  logChanges(
+    rows.map((r) => ({ graphId: r.graphId, rootUid: r.rootUid, category, text: typeof text === "string" ? text : text(r) })),
+  );
 }
 
 /**
  * Records non-duplicate entries in each page's history (pages with a status link, i.e. published
  * at least once). They're queued for Roam ("pending") when the page has a status link block and the
- * graph a usable, unpaused token; otherwise they're history only ("local").
+ * graph a usable, unpaused token, and the owner hasn't left that kind of change out; otherwise
+ * they're history only ("local").
  */
 export async function queueChanges(changes: Change[], at = new Date()) {
   const pairs = [...new Map(changes.map((c) => [`${c.graphId}\u0000${c.rootUid}`, c])).values()];
@@ -103,6 +124,7 @@ export async function queueChanges(changes: Change[], at = new Date()) {
         and ${graph.appendTokenEnc} is not null
         and ${graph.appendTokenStatus} is distinct from 'invalid'
         and not ${graph.changeLogPaused}`,
+      off: graph.changeLogOff,
     })
     .from(shortlink)
     .innerJoin(graph, eq(graph.id, shortlink.graphId))
@@ -112,7 +134,7 @@ export async function queueChanges(changes: Change[], at = new Date()) {
       r.shortlinkId,
       changes.filter((c) => c.graphId === r.graphId && c.rootUid === r.rootUid),
       at,
-      r.toRoam ? "pending" : "local",
+      (c) => (r.toRoam && (c.category === "moderation" || !r.off.includes(c.category)) ? "pending" : "local"),
     );
 }
 
@@ -164,13 +186,84 @@ export async function flushChangeLog(now = new Date()) {
   return ready.rows.length;
 }
 
+/**
+ * Parts of an entry ("; "-joined) that say where one setting stands, so a later one replaces it.
+ * `setting` parts also state a value: one matching what Roam last showed for it says nothing new.
+ * Other parts are events kept as they are.
+ */
+const TOPICS: { re: RegExp; topic: (m: RegExpExecArray) => string; setting: boolean }[] = [
+  { re: /^Access (.+?): /, topic: (m) => `access ${m[1]}`, setting: true },
+  { re: /^(?:Password (.+) changed|Own password (.+) removed)$/, topic: (m) => `password ${m[1] ?? m[2]}`, setting: false },
+  { re: /^(?:Encrypted with password|Encryption turned off)$/, topic: () => "encryption", setting: true },
+  { re: /^Made (?:unlisted|public)/, topic: () => "visibility", setting: true },
+  { re: /^(?:Shown in the graph again|Hidden from the graph)/, topic: () => "in graph", setting: true },
+  { re: /^(?:Unlisted|Listed|Discoverable) in (.+)$/, topic: (m) => `listing ${m[1]}`, setting: true },
+  { re: /^Byline changed to /, topic: () => "byline", setting: true },
+  { re: /^Republished$/, topic: () => "republished", setting: false },
+];
+
+function topicOf(part: string) {
+  for (const t of TOPICS) {
+    const m = t.re.exec(part);
+    if (m) return { key: t.topic(m), setting: t.setting };
+  }
+  return null;
+}
+
+/**
+ * What each entry of one send adds to Roam, in order, or null when nothing is left of it: for each
+ * setting only the last change is kept (in the entry it happened in), and dropped too when Roam's
+ * change log already shows that value. `shown` is what was sent to Roam before, newest first.
+ */
+export function mergeLines(texts: string[], shown: string[]): (string | null)[] {
+  const split = texts.map((t) => t.split("; "));
+  const last = new Map<string, string>();
+  split.forEach((parts, i) =>
+    parts.forEach((part, j) => {
+      const t = topicOf(part);
+      if (t) last.set(t.key, `${i}:${j}`);
+    }),
+  );
+  const before = new Map<string, string>();
+  for (const line of shown)
+    for (const part of line.split("; ").reverse()) {
+      const t = topicOf(part);
+      if (t?.setting && !before.has(t.key)) before.set(t.key, part);
+    }
+  return split.map((parts, i) => {
+    const kept = parts.filter((part, j) => {
+      const t = topicOf(part);
+      return !t || (last.get(t.key) === `${i}:${j}` && before.get(t.key) !== part);
+    });
+    return kept.length ? kept.join("; ") : null;
+  });
+}
+
+/** What Roam's change log under this shortlink already says, newest first. */
+async function shownInRoam(shortlinkId: string) {
+  const rows = await db
+    .select({ text: sql<string>`coalesce(${changelogEntry.roamText}, ${changelogEntry.text})` })
+    .from(changelogEntry)
+    .where(and(eq(changelogEntry.shortlinkId, shortlinkId), eq(changelogEntry.status, "sent")))
+    .orderBy(desc(changelogEntry.createdAt))
+    .limit(200);
+  return rows.map((r) => r.text);
+}
+
 async function sendPage(shortlinkId: string, graphId: string, now: Date) {
   // Pace this graph before sending, so a slow or failing call still counts toward the gap.
   const [paced] = await db
     .update(graph)
     .set({ appendNextAt: new Date(now.getTime() + APPEND_GAP_MS) })
     .where(and(eq(graph.id, graphId), or(isNull(graph.appendNextAt), lte(graph.appendNextAt, now))))
-    .returning({ name: graph.name, enc: graph.appendTokenEnc, timeZone: graph.timeZone, backoff: graph.appendBackoff });
+    .returning({
+      name: graph.name,
+      enc: graph.appendTokenEnc,
+      timeZone: graph.timeZone,
+      backoff: graph.appendBackoff,
+      merge: graph.changeLogMerge,
+      byDay: graph.changeLogByDay,
+    });
   if (!paced) return; // Another run took this graph's turn.
   const link = await db.query.shortlink.findFirst({ where: eq(shortlink.id, shortlinkId) });
   const claimed = await db
@@ -189,47 +282,73 @@ async function sendPage(shortlinkId: string, graphId: string, now: Date) {
     return;
   }
   claimed.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  const ids = claimed.map((c) => c.id);
-  const setStatus = (status: "pending" | "sent" | "failed") =>
-    db.update(changelogEntry).set({ status }).where(inArray(changelogEntry.id, ids));
+  const setStatus = (ids: string[], status: "pending" | "sent" | "failed" | "merged") =>
+    ids.length ? db.update(changelogEntry).set({ status }).where(inArray(changelogEntry.id, ids)) : undefined;
 
   const token = decryptToken(paced.enc!);
   if (!token) {
     // Encrypted with a key the server no longer has: ask the owner for a new token.
-    await setStatus("pending");
+    await setStatus(claimed.map((c) => c.id), "pending");
     await db.update(graph).set({ appendTokenStatus: "invalid" }).where(eq(graph.id, graphId));
     return;
   }
-  // Dated when each event happened, not when it was sent.
-  const res = await appendUnderBlock(
-    paced.name,
-    token,
-    link.anchorUid!,
-    claimed.map((c) => `${stamp(c.createdAt, paced.timeZone)} ${c.text}`),
-  );
-  if (res.ok) {
-    await setStatus("sent");
-    await db.update(graph).set({ appendTokenOkAt: new Date(), appendBackoff: 0 }).where(eq(graph.id, graphId));
+
+  const lines = paced.merge ? mergeLines(claimed.map((c) => c.text), await shownInRoam(shortlinkId)) : claimed.map((c) => c.text);
+  await setStatus(claimed.filter((_, i) => lines[i] === null).map((c) => c.id), "merged");
+  // Dated when each event happened, not when it was sent; with byDay, one call per day's block.
+  const groups: { day?: string; items: { id: string; line: string; text: string }[] }[] = [];
+  claimed.forEach((c, i) => {
+    const line = lines[i];
+    if (line === null) return;
+    const { day, time } = stampParts(c.createdAt, paced.timeZone);
+    const text = paced.byDay ? `${time} ${line}` : `${day} ${time} ${line}`;
+    const group = groups.at(-1);
+    if (group && (!paced.byDay || group.day === day)) group.items.push({ id: c.id, line, text });
+    else groups.push({ day: paced.byDay ? day : undefined, items: [{ id: c.id, line, text }] });
+  });
+
+  let anySent = false;
+  for (const [i, group] of groups.entries()) {
+    const res = await appendUnderBlock(paced.name, token, link.anchorUid!, group.items.map((it) => it.text), group.day);
+    if (res.ok) {
+      anySent = true;
+      for (const it of group.items)
+        await db.update(changelogEntry).set({ status: "sent", roamText: it.line }).where(eq(changelogEntry.id, it.id));
+      continue;
+    }
+    if (anySent) await db.update(graph).set({ appendTokenOkAt: new Date(), appendBackoff: 0 }).where(eq(graph.id, graphId));
+    await sendFailed(res, groups.slice(i).flatMap((g) => g.items.map((it) => it.id)), shortlinkId, graphId, paced.backoff, setStatus);
     return;
   }
+  if (anySent) await db.update(graph).set({ appendTokenOkAt: new Date(), appendBackoff: 0 }).where(eq(graph.id, graphId));
+}
+
+async function sendFailed(
+  res: { status: number; retryAfterMs?: number },
+  ids: string[],
+  shortlinkId: string,
+  graphId: string,
+  backoff: number,
+  setStatus: (ids: string[], status: "pending" | "failed") => unknown,
+) {
   if (res.status === 429) {
     // Not applied: keep the entries queued and back off this graph.
-    await setStatus("pending");
-    const wait = res.retryAfterMs ?? Math.min(BACKOFF_BASE_MS * 2 ** paced.backoff, BACKOFF_MAX_MS);
+    await setStatus(ids, "pending");
+    const wait = res.retryAfterMs ?? Math.min(BACKOFF_BASE_MS * 2 ** backoff, BACKOFF_MAX_MS);
     await db
       .update(graph)
-      .set({ appendNextAt: new Date(Date.now() + wait), appendBackoff: paced.backoff + 1 })
+      .set({ appendNextAt: new Date(Date.now() + wait), appendBackoff: backoff + 1 })
       .where(eq(graph.id, graphId));
     return;
   }
   if (res.status === 401 || res.status === 403) {
     // Revoked or replaced in Roam: keep the entries until the owner adds a new token.
-    await setStatus("pending");
+    await setStatus(ids, "pending");
     await db.update(graph).set({ appendTokenStatus: "invalid" }).where(eq(graph.id, graphId));
     return;
   }
   // Anything else may or may not have been applied; never risk sending it twice.
-  await setStatus("failed");
+  await setStatus(ids, "failed");
   if (res.status === 400) {
     // Most likely the shortlink block was deleted in Roam; the extension writes a new one on the next publish.
     await db.update(shortlink).set({ anchorUid: null }).where(eq(shortlink.id, shortlinkId));
@@ -240,7 +359,7 @@ async function sendPage(shortlinkId: string, graphId: string, now: Date) {
  * Records the entries that aren't duplicates and returns them; the rest are dropped. Claims for one
  * page are serialized, so two requests can't both pass the "same as the last entry" check.
  */
-async function claim(shortlinkId: string, changes: Change[], at: Date, status: "pending" | "local") {
+async function claim(shortlinkId: string, changes: Change[], at: Date, statusOf: (c: Change) => "pending" | "local") {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${shortlinkId}))`);
     const [last] = await tx
@@ -260,7 +379,8 @@ async function claim(shortlinkId: string, changes: Change[], at: Date, status: "
           shortlinkId,
           key: c.key ?? crypto.randomUUID(),
           text: c.text,
-          status,
+          category: c.category,
+          status: statusOf(c),
           createdAt: new Date(at.getTime() + i),
         })
         .onConflictDoNothing()

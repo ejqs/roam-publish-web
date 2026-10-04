@@ -99,7 +99,7 @@ export async function setPageTags(publicationId: string, raw: { add?: string[]; 
     if (next.full) return { ok: false, message: `A page can have up to ${MAX_TAGS} tags.` };
     if (!next.summary.length) return { ok: true, message: "" };
     await db.update(publication).set({ ...next.edits, tags: next.tags }).where(eq(publication.id, pub.id));
-    logChange(pub, `Tags changed on the website: ${next.summary.join(" ")}`);
+    logChange(pub, "tags", `Tags changed on the website: ${next.summary.join(" ")}`);
     revalidateTags();
     return { ok: true, message: "Tags updated." };
   });
@@ -159,7 +159,7 @@ export async function bulkSetTags(raw: { kind: "graph" | "collection"; ids: stri
       if (!next.summary.length) continue;
       await db.update(publication).set({ ...next.edits, tags: next.tags }).where(eq(publication.id, pub.id));
       changed++;
-      log.push({ graphId: pub.graphId, rootUid: pub.rootUid, text: `Tags changed on the website: ${next.summary.join(" ")}` });
+      log.push({ graphId: pub.graphId, rootUid: pub.rootUid, category: "tags", text: `Tags changed on the website: ${next.summary.join(" ")}` });
     }
     logChanges(log);
     revalidateTags();

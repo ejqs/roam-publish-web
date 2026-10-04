@@ -10,6 +10,7 @@ import { json, preflight } from "@/lib/cors";
 import { changeLogStatusOf, logChange, validTimeZone } from "@/lib/changelog";
 import { addEntry } from "@/lib/collections";
 import { notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
+import { extListing } from "@/lib/listing";
 import { defaultCollectionsFor, primaryUrls } from "@/lib/places";
 import { ensureShortlink, setAnchor, shortlinkSet, shortUrl, withoutShortlinks } from "@/lib/shortlinks";
 import { plainText } from "@/lib/slug";
@@ -72,6 +73,7 @@ export const GET = withRoute("GET /api/ext/publications", async (req: Request) =
     .from(publication)
     .where(eq(publication.graphId, ctx.graphId))
     .orderBy(desc(publication.updatedAt));
+  const g = (await db.query.graph.findFirst({ where: eq(graph.id, ctx.graphId) }))!;
   const urls = await primaryUrls(ctx.graphName, rows);
   const links = new Map(
     (await db.select().from(shortlink).where(eq(shortlink.graphId, ctx.graphId))).map((l) => [l.rootUid, l]),
@@ -87,6 +89,7 @@ export const GET = withRoute("GET /api/ext/publications", async (req: Request) =
       anchorUid: links.get(p.rootUid)?.anchorUid ?? null,
       contentHash: plainHash(p),
       visibility: p.visibility,
+      ...extListing(g, p),
       encrypted: p.encrypted,
       removed: !!p.removedAt,
       mine: ctx.role === "owner" || p.publishedBy === ctx.userId,
@@ -140,9 +143,11 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   // The hash covers what the extension sent; shortlink blocks in it are never stored or shown.
   const tree = withoutShortlinks(p.tree, await shortlinkSet(ctx.graphId));
   const short = shortUrl(link.id);
+  const g = (await db.query.graph.findFirst({ where: eq(graph.id, ctx.graphId) }))!;
 
   if (existing) {
     const visibility = existing.visibility;
+    const listing = extListing(g, existing);
     const url = (await primaryUrls(ctx.graphName, [{ ...existing, title }])).get(existing.id);
     // Older extensions don't send an author; leave the stored one alone then.
     const authorChanged = p.author !== undefined && authorName !== existing.authorName;
@@ -150,7 +155,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     // A republish that needs its keys again (a password was reset) isn't "unchanged".
     const same = before === hash && !existing.needsRepublish;
     if (same && !authorChanged)
-      return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility, changeLog: await changeLogStatusOf(ctx.graphId) });
+      return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility, ...listing, changeLog: await changeLogStatusOf(ctx.graphId) });
     await db.transaction(async (tx) => {
       // An encrypted page stays encrypted: the new content is sealed to its passwords' public keys.
       const content = existing.encrypted
@@ -184,16 +189,15 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     const key = (k: string) => (existing.encrypted ? keyedHash("changelog-key", k) : k);
     const from = `${before}@${existing.updatedAt.getTime()}`;
     if (same)
-      logChange(page, `Byline changed to "${authorName ?? "(none)"}"`, key(`byline:${from}:${existing.authorName ?? ""}>${authorName ?? ""}`));
-    else logChange(page, "Republished", key(`content:${from}>${hash}`));
-    return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, changeLog: await changeLogStatusOf(ctx.graphId) });
+      logChange(page, "publishing", `Byline changed to "${authorName ?? "(none)"}"`, key(`byline:${from}:${existing.authorName ?? ""}>${authorName ?? ""}`));
+    else logChange(page, "publishing", "Republished", key(`content:${from}>${hash}`));
+    return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, ...listing, changeLog: await changeLogStatusOf(ctx.graphId) });
   }
 
   // New pages go where the graph's "New pages go to" setting says. If that leaves them nowhere
   // (no graph place and no collection the publisher belongs to), they stay in the graph.
-  const g = await db.query.graph.findFirst({ where: eq(graph.id, ctx.graphId) });
   const collections = await defaultCollectionsFor(ctx.graphId, ctx.userId);
-  const inGraph = !!g?.newPagesInGraph || collections.length === 0;
+  const inGraph = g.newPagesInGraph || collections.length === 0;
 
   const [created] = await db
     .insert(publication)
@@ -209,7 +213,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
       authorName,
       inGraph,
       // Who can read starts as the graph's current default; changing the default later doesn't move it.
-      access: g?.defaultAccess ?? "inherit",
+      access: g.defaultAccess,
       // New pages start from the graph's Discover default; later changes to it don't apply.
       // A graph whose pages default to a password or members never starts them on Discover.
       discoverable: sql`(select ${graph.featured} and ${graph.defaultAccess} = 'open' from ${graph} where ${graph.id} = ${ctx.graphId})`,
@@ -217,13 +221,14 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
   const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
-  logChange(page, `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
+  logChange(page, "publishing", `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
   return json(req, {
     status: "created",
     url,
     shortUrl: short,
     contentHash: hash,
     visibility: created.visibility,
+    ...extListing(g, created),
     changeLog: await changeLogStatusOf(ctx.graphId),
   });
 });

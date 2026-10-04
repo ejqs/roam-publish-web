@@ -62,7 +62,7 @@ const outline = [
     block(
       "These terms apply to password-protected and encrypted pages too. Encryption doesn't put a page beyond moderation: it can still be removed based on reports, its title, or anything else known about it.",
     ),
-    block("Report anything that breaks them with the Report button on any page. To appeal a decision, email ejqs [at] ejqs [dot] net."),
+    block("Report anything that breaks them with the Report button on any page. To appeal a decision, email support@roam.pub."),
   ]),
   block("**Ending**", [
     block("You can delete your account at any time from Settings. What that deletes is in the [[Privacy policy]]."),
@@ -86,7 +86,7 @@ const outline = [
   block("**Changes**", [
     block("These terms may change. If a change matters, the date above changes and signed-up users are told by email."),
     block("Every past version is in the [full change history](https://github.com/ejqs/roam-publish-web/commits/main/src/app/terms/page.tsx)."),
-    block("Questions: ejqs [at] ejqs [dot] net."),
+    block("Questions: support@roam.pub."),
   ]),
 ];
 

@@ -9,6 +9,7 @@ import { graph } from "@/db/schema";
 import { canStoreTokens, encryptToken } from "@/lib/append-token";
 import { auth } from "@/lib/auth";
 import { setChangeLogPaused, validTimeZone } from "@/lib/changelog";
+import { OPTIONAL_CATEGORIES, type OptionalCategory } from "@/lib/changelog-categories";
 import { rateLimit } from "@/lib/rate-limit";
 import { appendToDailyNote } from "@/lib/roam-append";
 import type { FormState } from "../../actions";
@@ -88,5 +89,31 @@ export async function setChangeLogOn(graphId: string, on: boolean): Promise<Form
       return { ok: false, message: "Add an append-only token first." };
     revalidatePath("/dashboard", "layout");
     return { ok: true, message: on ? "Change log is on." : "Change log is off. The token is kept." };
+  });
+}
+
+const Options = z.object({
+  off: z.array(z.enum(OPTIONAL_CATEGORIES.map((c) => c.id) as [OptionalCategory, ...OptionalCategory[]])).max(10),
+  merge: z.boolean(),
+  byDay: z.boolean(),
+});
+
+/** What goes into the change log: kinds of change left out, merging quick changes, grouping by day. */
+export async function setChangeLogOptions(
+  graphId: string,
+  input: { off: string[]; merge: boolean; byDay: boolean },
+): Promise<FormState> {
+  return withAction("dashboard.changelog.setChangeLogOptions", async () => {
+    const owned = await ownedGraph(graphId);
+    if (!owned) return { ok: false, message: "Graph not found." };
+    const parsed = Options.safeParse(input);
+    if (!parsed.success) return { ok: false, message: "Those options aren't valid." };
+    const { off, merge, byDay } = parsed.data;
+    await db
+      .update(graph)
+      .set({ changeLogOff: [...new Set(off)], changeLogMerge: merge, changeLogByDay: byDay })
+      .where(eq(graph.id, graphId));
+    revalidatePath("/dashboard", "layout");
+    return { ok: true, message: "Saved." };
   });
 }

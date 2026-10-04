@@ -4,7 +4,8 @@ import { updateEntry } from "@/app/(app)/dashboard/place-actions";
 import { db } from "@/db";
 import { changelogEntry, collection, graph, shortlink } from "@/db/schema";
 import { encryptToken } from "@/lib/append-token";
-import { flushChangeLog, recordAnchorCheck, roamInert } from "@/lib/changelog";
+import { setChangeLogOptions } from "@/app/(app)/dashboard/[graph]/settings/change-log-actions";
+import { type Change, flushChangeLog, logChanges, mergeLines, queueChanges, recordAnchorCheck, roamInert } from "@/lib/changelog";
 import { addEntry } from "@/lib/collections";
 import { ensureShortlink, setAnchor } from "@/lib/shortlinks";
 import { resetDb } from "../helpers/db";
@@ -32,6 +33,23 @@ async function loggedPage() {
 
 const queued = () => db.select().from(changelogEntry);
 
+/** Runs the background sender as if `minutes` had passed, with the block confirmed meanwhile. */
+async function flushAfter(minutes: number) {
+  const at = new Date(Date.now() + minutes * 60_000);
+  await db.update(shortlink).set({ anchorConfirmedAt: at });
+  await flushChangeLog(at);
+}
+
+/** Logs changes for the page in one go, as one request would. */
+async function log(page: { graphId: string; rootUid: string }, changes: [Change["category"], string][]) {
+  logChanges(changes.map(([category, text]) => ({ ...page, category, text })));
+  await runAfter();
+}
+
+type Body = { location: { block: { uid: string }; "nest-under"?: { string: string } }; "append-data": { string: string }[] };
+const sentLines = (call: { body: unknown }) => (call.body as Body)["append-data"].map((d) => d.string);
+const nestUnder = (call: { body: unknown }) => (call.body as Body).location["nest-under"]?.string;
+
 describe("roamInert", () => {
   test("leaves plain names alone and defuses Roam markup", () => {
     expect(roamInert("Reading list (2026)")).toBe("Reading list (2026)");
@@ -44,7 +62,7 @@ describe("change log", () => {
   test("sends queued entries once, under the confirmed block, with the stored token", async () => {
     const { g, pub } = await loggedPage();
     const { logChange } = await import("@/lib/changelog");
-    logChange({ graphId: g.id, rootUid: pub.rootUid }, "Made public");
+    logChange({ graphId: g.id, rootUid: pub.rootUid }, "listing", "Made public");
     await runAfter();
     const later = new Date(Date.now() + 5 * 60_000);
     await db.update(shortlink).set({ anchorConfirmedAt: later });
@@ -60,7 +78,7 @@ describe("change log", () => {
     const { g, pub } = await loggedPage();
     await recordAnchorCheck(g.id, [], [{ rootUid: pub.rootUid, anchorUid: "anchor123" }]);
     const { logChange } = await import("@/lib/changelog");
-    logChange({ graphId: g.id, rootUid: pub.rootUid }, "Made public");
+    logChange({ graphId: g.id, rootUid: pub.rootUid }, "listing", "Made public");
     await runAfter();
     await flushChangeLog(new Date(Date.now() + 5 * 60_000));
     expect(roam.calls).toHaveLength(0);
@@ -71,7 +89,7 @@ describe("change log", () => {
     roam = fakeRoam(401);
     const { g, pub } = await loggedPage();
     const { logChange } = await import("@/lib/changelog");
-    logChange({ graphId: g.id, rootUid: pub.rootUid }, "Made public");
+    logChange({ graphId: g.id, rootUid: pub.rootUid }, "listing", "Made public");
     await runAfter();
     const later = new Date(Date.now() + 5 * 60_000);
     await db.update(shortlink).set({ anchorConfirmedAt: later });
@@ -101,5 +119,139 @@ describe("change log", () => {
     expect(texts).not.toContain("[[");
     // Still a working link, with the name readable.
     expect(texts).toMatch(/\[Reading iframe: https:\/\/evil\.example Spam page\]\(http:\/\/localhost:3000\/c\//);
+  });
+});
+
+describe("mergeLines", () => {
+  test("keeps the last change to each setting, in the entry where it happened", () => {
+    expect(
+      mergeLines(
+        ["Access in the graph: Password; Password in the graph changed", "Access in the graph: Open", "Tags changed on the website: +#a"],
+        [],
+      ),
+    ).toEqual(["Password in the graph changed", "Access in the graph: Open", "Tags changed on the website: +#a"]);
+  });
+
+  test("drops a final value Roam already shows, but never an event", () => {
+    expect(mergeLines(["Made unlisted", "Made public"], ["Tags changed on the website: +#a", "Made public"])).toEqual([null, null]);
+    expect(mergeLines(["Republished"], ["Republished"])).toEqual(["Republished"]);
+    expect(mergeLines(["Republished", "Republished"], [])).toEqual([null, "Republished"]);
+  });
+
+  test("settings in different places are separate", () => {
+    expect(mergeLines(["Access in the graph: Open", "Access in [C](http://x/c/c): Password"], [])).toEqual([
+      "Access in the graph: Open",
+      "Access in [C](http://x/c/c): Password",
+    ]);
+  });
+});
+
+describe("change log in Roam", () => {
+  test("back-and-forth changes go to Roam once, under the day's block; the history keeps them all", async () => {
+    const { g, pub } = await loggedPage();
+    const page = { graphId: g.id, rootUid: pub.rootUid };
+    await log(page, [
+      ["access", "Access in the graph: Open"],
+      ["access", "Access in the graph: Password"],
+      ["access", "Access in the graph: Open"],
+      ["access", "Access in the graph: Password"],
+    ]);
+    await flushAfter(5);
+    expect(roam.calls).toHaveLength(1);
+    expect(sentLines(roam.calls[0])).toEqual([expect.stringMatching(/^\d\d:\d\d UTC Access in the graph: Password$/)]);
+    expect(nestUnder(roam.calls[0])).toMatch(/^\[\[\w+ \d+(st|nd|rd|th), \d{4}\]\]$/);
+    const rows = await queued();
+    expect(rows).toHaveLength(4);
+    expect(rows.filter((r) => r.status === "merged")).toHaveLength(3);
+    expect(rows.find((r) => r.status === "sent")?.roamText).toBe("Access in the graph: Password");
+  });
+
+  test("changing a setting back to what Roam already shows adds nothing", async () => {
+    const { g, pub } = await loggedPage();
+    const page = { graphId: g.id, rootUid: pub.rootUid };
+    await log(page, [["access", "Access in the graph: Password"]]);
+    await flushAfter(5);
+    await log(page, [
+      ["access", "Access in the graph: Open"],
+      ["access", "Access in the graph: Password"],
+    ]);
+    await flushAfter(10);
+    expect(roam.calls).toHaveLength(1);
+    expect((await queued()).filter((r) => r.status === "merged")).toHaveLength(2);
+  });
+
+  test("a kind of change the owner left out stays in the history only; moderation always goes", async () => {
+    const { g, pub } = await loggedPage();
+    await db.update(graph).set({ changeLogOff: ["listing", "moderation"] }).where(eq(graph.id, g.id));
+    const page = { graphId: g.id, rootUid: pub.rootUid };
+    await log(page, [
+      ["listing", "Made public"],
+      ["moderation", "Restored by a moderator"],
+    ]);
+    await flushAfter(5);
+    expect(roam.calls.flatMap(sentLines)).toEqual([expect.stringContaining("Restored by a moderator")]);
+    const rows = await queued();
+    expect(rows.find((r) => r.text === "Made public")?.status).toBe("local");
+    expect(rows.find((r) => r.text === "Made public")?.category).toBe("listing");
+  });
+
+  test("with merging and grouping off, every change is its own dated line", async () => {
+    const { g, pub } = await loggedPage();
+    await db.update(graph).set({ changeLogMerge: false, changeLogByDay: false }).where(eq(graph.id, g.id));
+    await log({ graphId: g.id, rootUid: pub.rootUid }, [
+      ["access", "Access in the graph: Open"],
+      ["access", "Access in the graph: Password"],
+    ]);
+    await flushAfter(5);
+    expect(roam.calls).toHaveLength(1);
+    expect(nestUnder(roam.calls[0])).toBeUndefined();
+    expect(sentLines(roam.calls[0])).toEqual([
+      expect.stringMatching(/^\[\[.+\]\] \d\d:\d\d UTC Access in the graph: Open$/),
+      expect.stringMatching(/^\[\[.+\]\] \d\d:\d\d UTC Access in the graph: Password$/),
+    ]);
+  });
+
+  test("a send across midnight goes under each day's block", async () => {
+    const { g, pub } = await loggedPage();
+    const midnight = new Date();
+    midnight.setUTCHours(0, 0, 0, 0);
+    midnight.setUTCDate(midnight.getUTCDate() - 1);
+    const page = { graphId: g.id, rootUid: pub.rootUid };
+    await queueChanges([{ ...page, category: "tags", text: "Tags changed on the website: +#a" }], new Date(midnight.getTime() - 60_000));
+    await queueChanges([{ ...page, category: "tags", text: "Tags changed on the website: +#b" }], new Date(midnight.getTime() + 60_000));
+    await flushAfter(5);
+    expect(roam.calls).toHaveLength(2);
+    expect(nestUnder(roam.calls[0])).not.toBe(nestUnder(roam.calls[1]));
+    expect(sentLines(roam.calls[0])).toEqual(["23:59 UTC Tags changed on the website: +#a"]);
+    expect(sentLines(roam.calls[1])).toEqual(["00:01 UTC Tags changed on the website: +#b"]);
+  });
+
+  test("a rate-limited send keeps the changes and merges them on the retry", async () => {
+    roam.restore();
+    roam = fakeRoam(429);
+    const { g, pub } = await loggedPage();
+    await log({ graphId: g.id, rootUid: pub.rootUid }, [
+      ["listing", "Made unlisted"],
+      ["listing", "Made public"],
+    ]);
+    await flushAfter(5);
+    expect((await queued()).find((r) => r.text === "Made public")?.status).toBe("pending");
+    roam.restore();
+    roam = fakeRoam();
+    await flushAfter(60);
+    expect(roam.calls.flatMap(sentLines)).toEqual([expect.stringContaining("Made public")]);
+  });
+});
+
+describe("change log options", () => {
+  test("only the graph's owner can change them, to known kinds", async () => {
+    const { owner, g } = await loggedPage();
+    actAs(owner);
+    expect((await setChangeLogOptions(g.id, { off: ["tags"], merge: false, byDay: true }))?.ok).toBe(true);
+    const row = await db.query.graph.findFirst({ where: eq(graph.id, g.id) });
+    expect([row?.changeLogOff, row?.changeLogMerge, row?.changeLogByDay]).toEqual([["tags"], false, true]);
+    expect((await setChangeLogOptions(g.id, { off: ["moderation"], merge: true, byDay: true }))?.ok).toBe(false);
+    actAs(await makeUser());
+    expect((await setChangeLogOptions(g.id, { off: [], merge: true, byDay: true }))?.ok).toBe(false);
   });
 });
