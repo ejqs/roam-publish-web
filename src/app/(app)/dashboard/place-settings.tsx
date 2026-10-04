@@ -4,6 +4,7 @@ import {
   ChevronRightIcon,
   CircleHelpIcon,
   CompassIcon,
+  FileTextIcon,
   GlobeIcon,
 } from "lucide-react";
 import { useId, useOptimistic, useState, useTransition } from "react";
@@ -23,7 +24,8 @@ import { cn } from "cn";
 import { type Access, setAccess } from "./actions";
 import { updateEntry, updateGraphPlace } from "./place-actions";
 
-export const ICONS = { unlisted: PRIVACY_ICONS.unlisted, public: GlobeIcon, discover: CompassIcon };
+// Listed is a document, so the globe only ever means Anyone.
+export const ICONS = { unlisted: PRIVACY_ICONS.unlisted, public: FileTextIcon, discover: CompassIcon };
 export const LABELS = { unlisted: LISTING_LABELS.unlisted, public: LISTING_LABELS.listed, discover: LISTING_LABELS.discover };
 export const READ_ICONS = { open: GlobeIcon, password: PRIVACY_ICONS.password, members: PRIVACY_ICONS.members };
 export const READ_LABELS = { open: "Anyone", password: "Password", members: "Members" };
