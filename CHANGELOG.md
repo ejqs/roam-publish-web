@@ -17,6 +17,11 @@ bullet with each pull request that changes something they'd notice; leave out te
 - The graph's **Defaults** tab is now **Sharing**, and holds the front page, search engines, Discoverable, RSS and
   breadcrumb settings that used to be under Settings.
 
+### Published pages
+- A block with several embeds shows all of them, not just the first (with the next version of the Roam extension).
+- A Roam Publish status link pasted under an ordinary block no longer hides that block and everything under it from
+  the published page; only the link itself is left out (also with the next version of the Roam extension).
+
 ## 2026-10-03
 
 ### Announcements

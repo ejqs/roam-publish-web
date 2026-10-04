@@ -141,6 +141,8 @@ export type Node = {
   align?: "left" | "center" | "right" | "justify";
   /** The block or page this block embeds with `{{embed: …}}`. */
   embed?: Node;
+  /** Further embeds in the same block, in order; omitted when it has at most one. */
+  moreEmbeds?: Node[];
   /** Set on an embedded page's root, whose string is "". */
   title?: string;
   children: Node[];

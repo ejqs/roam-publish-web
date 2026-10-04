@@ -144,6 +144,9 @@ export function blockComponent(text: string): "table" | "kanban" | "diagram" | n
 
 /** True when the block is a single `{{…}}` component, which Roam draws in place of the text. */
 export const isOnlyComponent = (text: string) => new RegExp(`^\\s*${COMPONENT.source}\\s*$`).test(text);
+/** Nothing but `{{…}}` components, e.g. several embeds in one block. */
+export const isOnlyComponents = (text: string) =>
+  /\S/.test(text) && !text.replace(new RegExp(COMPONENT.source, "g"), "").trim();
 
 function videoEmbedSrc(url: string) {
   let m = /(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/.exec(url);

@@ -49,28 +49,42 @@ export async function setAnchor(graphId: string, rootUid: string, anchorUid: str
 const LEADING = /^(?:\[[^\]\n]*\]\()?https?:\/\/[^\s)]+?\/p\/([2-9A-HJ-NP-Za-km-z]{8})(?=[\s)]|$)/;
 
 /**
- * Drops shortlink blocks of the given ids, with everything under them, at any depth, embeds
- * included. A shortlink block is "{tag}" with the "[{text}]({server}/p/{id})" block and the change log under it,
- * so a block goes when its own text or one of its children's starts with a known shortlink. The
- * extension already leaves them out; this covers trees sent by builds that don't, and shortlink
- * blocks of blocks published from inside this page that the extension didn't know about.
+ * Drops shortlink blocks, with everything under them, at any depth, embeds included. A shortlink
+ * block is "{tag}" with the "[{text}]({server}/p/{id})" block and the change log under it. A block
+ * goes when its own text starts with a known shortlink, or when one of its children's does and one
+ * of its children is a recorded Changelog block (the link block itself, or, from earlier builds, a
+ * separate "Changelog" block next to it). A status link pasted under an ordinary block drops only
+ * that link, not the block it's under. The extension already leaves them out; this covers trees
+ * sent by builds that don't, and shortlink blocks of blocks published from inside this page that
+ * the extension didn't know about. Same rule as the extension's `isShortlinkBlock`.
  */
-export function withoutShortlinks(tree: Node, ids: Set<string>): Node {
+export function withoutShortlinks(tree: Node, { ids, anchors }: ShortlinkSet): Node {
   if (ids.size === 0) return tree;
   const isLink = (text: string) => {
     const m = LEADING.exec(text);
     return !!m && ids.has(m[1]);
   };
+  const isShortlinkBlock = (c: Node) =>
+    isLink(c.string) || (c.children.some((g) => isLink(g.string)) && c.children.some((g) => anchors.has(g.uid)));
   const strip = (n: Node): Node => ({
     ...n,
     ...(n.embed && { embed: strip(n.embed) }),
-    children: n.children.filter((c) => !isLink(c.string) && !c.children.some((g) => isLink(g.string))).map(strip),
+    ...(n.moreEmbeds && { moreEmbeds: n.moreEmbeds.map(strip) }),
+    children: n.children.filter((c) => !isShortlinkBlock(c)).map(strip),
   });
   return strip(tree);
 }
 
-/** Every shortlink id in a graph. */
-export async function shortlinkIds(graphId: string) {
-  const rows = await db.select({ id: shortlink.id }).from(shortlink).where(eq(shortlink.graphId, graphId));
-  return new Set(rows.map((r) => r.id));
+export type ShortlinkSet = { ids: Set<string>; anchors: Set<string> };
+
+/** Every shortlink id in a graph, and the uids of the Changelog blocks they nest under in Roam. */
+export async function shortlinkSet(graphId: string): Promise<ShortlinkSet> {
+  const rows = await db
+    .select({ id: shortlink.id, anchorUid: shortlink.anchorUid })
+    .from(shortlink)
+    .where(eq(shortlink.graphId, graphId));
+  return {
+    ids: new Set(rows.map((r) => r.id)),
+    anchors: new Set(rows.flatMap((r) => (r.anchorUid ? [r.anchorUid] : []))),
+  };
 }
