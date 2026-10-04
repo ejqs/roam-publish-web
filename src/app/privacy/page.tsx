@@ -23,7 +23,7 @@ const outline = [
     block("You choose what's published and who can read it. The extension sends nothing until you publish."),
     block("No ads, no tracking cookies, and nothing is sold."),
     block("Deleting something deletes it, for good."),
-    block("Questions, or to ask about your data: ejqs [at] ejqs [dot] net."),
+    block("Questions, or to ask about your data: support@roam.pub or ejqs [at] ejqs [dot] net."),
   ]),
   block("**What's public**", [
     block(
@@ -134,7 +134,7 @@ const outline = [
       "Under them (for example, the GDPR in the EU and UK), you have the right to know how your data is used, get a copy, correct it, object to how it's used, and have it deleted.",
     ),
     block("You can see, change or delete everything you publish from the dashboard, and delete your account at any time."),
-    block("For a copy of your data, or anything else, email ejqs [at] ejqs [dot] net."),
+    block("For a copy of your data, or anything else, email support@roam.pub or ejqs [at] ejqs [dot] net."),
     block(
       "You can also complain to a data protection authority: the Philippines' [National Privacy Commission](https://privacy.gov.ph), or the one where you live.",
     ),

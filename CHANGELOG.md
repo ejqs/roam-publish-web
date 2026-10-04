@@ -23,6 +23,9 @@ bullet with each pull request that changes something they'd notice; leave out te
 - A Roam Publish status link pasted under an ordinary block no longer hides that block and everything under it from
   the published page; only the link itself is left out (also with the next version of the Roam extension).
 
+### Site
+- You can now reach us at support@roam.pub.
+
 ## 2026-10-03
 
 ### Announcements
