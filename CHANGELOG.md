@@ -4,6 +4,19 @@ User-facing changes to roam.pub, newest first. Dates are when the change landed 
 file, with the extension's, at `/updates`: one bullet is one entry, written for the people who use the site. Add a
 bullet with each pull request that changes something they'd notice; leave out tests, refactors and internal tooling.
 
+## 2026-10-04
+
+### Dashboard
+- A page's **Manage** dialog lists each place it's published as one row, with an icon for a graph or a collection, what
+  it uses there, and what the graph or collection starts pages as. Open a row to change it.
+- Access control and Visibility control mark the graph's or collection's default choice.
+- Choosing a password and encrypting the page now sit under **Password**, in the place you're changing.
+- When **Discoverable** can't be chosen, the reason is always shown under it.
+- Pages say **Unlisted** instead of "Not listed", and the dashboard menu shows both settings, as in
+  "Anyone · Listed".
+- The graph's **Defaults** tab is now **Sharing**, and holds the front page, search engines, Discoverable, RSS and
+  breadcrumb settings that used to be under Settings.
+
 ## 2026-10-03
 
 ### Announcements
@@ -21,15 +34,6 @@ bullet with each pull request that changes something they'd notice; leave out te
 - Graph settings are split: access defaults for new pages have their own **Defaults** tab.
 - The access settings are now called **Access control** (who can open a page) and **Visibility control** (where it's
   listed).
-- A page's **Manage** dialog lists each place it's published as one row, with an icon for a graph or a collection, what
-  it uses there, and what the graph or collection starts pages as. Open a row to change it.
-- Access control and Visibility control mark the graph's or collection's default choice.
-- Choosing a password and encrypting the page now sit under **Password**, in the place you're changing.
-- When **Discoverable** can't be chosen, the reason is always shown under it.
-- Pages say **Unlisted** instead of "Not listed", and the dashboard menu shows both settings, as in
-  "Anyone · Listed".
-- The graph's **Defaults** tab is now **Sharing**, and holds the front page, search engines, Discoverable, RSS and
-  breadcrumb settings that used to be under Settings.
 - Each privacy setting has its own icon everywhere: an eye crossed out for unlisted, a key for a password, a keyhole
   lock for encrypted and people for members only.
 
