@@ -93,6 +93,12 @@ export const graph = pgTable("graph", {
   appendBackoff: integer("append_backoff").notNull().default(0),
   /** The owner paused the change log: the token is kept, but nothing is queued or sent. */
   changeLogPaused: boolean("change_log_paused").notNull().default(false),
+  /** Kinds of change (`ChangeCategory`) the owner left out of the Roam change log; new kinds start on. */
+  changeLogOff: text("change_log_off").array().notNull().default(sql`'{}'::text[]`),
+  /** Changes to one setting in one send become a single line with the final value. */
+  changeLogMerge: boolean("change_log_merge").notNull().default(true),
+  /** Entries go under one [[date]] block per day instead of each carrying the date. */
+  changeLogByDay: boolean("change_log_by_day").notNull().default(true),
   /** IANA time zone from the owner's browser; dates change log entries. */
   timeZone: text("time_zone"),
   verifiedAt: timestamp("verified_at", { withTimezone: true }).notNull().defaultNow(),
@@ -559,11 +565,16 @@ export const changelogEntry = pgTable(
      * "pending", claimed as "sending" by the background sender, then "sent" or "failed". Only
      * entries Roam definitely didn't apply (429) go back to pending, so nothing is sent twice.
      * "dropped" entries were queued for a block that turned out to be gone, or waited too long.
-     * "local" entries were never for Roam: no token, change log off, or no status link block.
+     * "local" entries were never for Roam: no token, change log off (or this kind of change left
+     * out), or no status link block. "merged" entries were folded into a later one in the same send.
      */
-    status: text("status", { enum: ["pending", "sending", "sent", "failed", "dropped", "local"] })
+    status: text("status", { enum: ["pending", "sending", "sent", "failed", "dropped", "local", "merged"] })
       .notNull()
       .default("pending"),
+    /** What kind of change it is (`ChangeCategory`); null on entries from before kinds existed. */
+    category: text("category"),
+    /** The line as written to Roam, after merging and without its time stamp. */
+    roamText: text("roam_text"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

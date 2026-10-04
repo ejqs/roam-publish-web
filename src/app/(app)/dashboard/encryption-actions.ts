@@ -117,7 +117,7 @@ export async function setEncryption(publicationId: string, raw: z.input<typeof I
           .where(eq(publication.id, pub.id));
         await tx.delete(publicationKey).where(eq(publicationKey.publicationId, pub.id));
       });
-      logChange(pub, "Encryption turned off");
+      logChange(pub, "access", "Encryption turned off");
       revalidateAll();
       return { ok: true, message: "Encryption turned off." };
     }
@@ -170,7 +170,7 @@ export async function setEncryption(publicationId: string, raw: z.input<typeof I
         })
         .where(eq(publication.id, pub.id));
     });
-    logChange(pub, "Encrypted with password");
+    logChange(pub, "access", "Encrypted with password");
     revalidateAll();
     return { ok: true, message: "Encrypted." };
   });

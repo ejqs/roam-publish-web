@@ -184,8 +184,8 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     const key = (k: string) => (existing.encrypted ? keyedHash("changelog-key", k) : k);
     const from = `${before}@${existing.updatedAt.getTime()}`;
     if (same)
-      logChange(page, `Byline changed to "${authorName ?? "(none)"}"`, key(`byline:${from}:${existing.authorName ?? ""}>${authorName ?? ""}`));
-    else logChange(page, "Republished", key(`content:${from}>${hash}`));
+      logChange(page, "publishing", `Byline changed to "${authorName ?? "(none)"}"`, key(`byline:${from}:${existing.authorName ?? ""}>${authorName ?? ""}`));
+    else logChange(page, "publishing", "Republished", key(`content:${from}>${hash}`));
     return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, changeLog: await changeLogStatusOf(ctx.graphId) });
   }
 
@@ -217,7 +217,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
   const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
-  logChange(page, `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
+  logChange(page, "publishing", `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
   return json(req, {
     status: "created",
     url,

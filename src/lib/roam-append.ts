@@ -8,16 +8,21 @@ export type AppendResult =
   | { ok: true }
   | { ok: false; status: number; message: string; /** From a 429's Retry-After. */ retryAfterMs?: number };
 
-type Location = { page: { title: string | { "daily-note-page": string } } } | { block: { uid: string } };
+type Location =
+  | { page: { title: string | { "daily-note-page": string } } }
+  | { block: { uid: string }; "nest-under"?: { string: string } };
 
 /** Append one block to a daily note page (date as MM-DD-YYYY) via Roam's Append API. */
 export function appendToDailyNote(graph: string, token: string, date: string, text: string) {
   return append(graph, token, { page: { title: { "daily-note-page": date } } }, [text]);
 }
 
-/** Append blocks, in order, as the last children of an existing block. */
-export function appendUnderBlock(graph: string, token: string, uid: string, texts: string[]) {
-  return append(graph, token, { block: { uid } }, texts);
+/**
+ * Append blocks, in order, as the last children of an existing block; with `nestUnder`, under its
+ * child block with exactly that text instead, which Roam creates first if there isn't one.
+ */
+export function appendUnderBlock(graph: string, token: string, uid: string, texts: string[], nestUnder?: string) {
+  return append(graph, token, { block: { uid }, ...(nestUnder && { "nest-under": { string: nestUnder } }) }, texts);
 }
 
 async function append(graph: string, token: string, location: Location, texts: string[]): Promise<AppendResult> {

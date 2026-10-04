@@ -19,6 +19,7 @@ import {
 import { ACCESS_LABELS } from "@/components/manage/labels";
 import { auth } from "@/lib/auth";
 import { type Change, logChange, logChanges, logForPublications, roamInert } from "@/lib/changelog";
+import type { ChangeCategory } from "@/lib/changelog-categories";
 import { addEntry, canManageEntry, collectionRole } from "@/lib/collections";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { clearGatedCollectionDiscover, clearGatedGraphDiscover } from "@/lib/discover-rules";
@@ -202,10 +203,13 @@ export async function updateGraphPlace(
     });
     if (!saved.ok) return saved;
     await clearGatedGraphDiscover(g.id);
-    const log = describePlace("in the graph", input, pub, g.defaultAccess);
+    const page = { graphId: pub.graphId, rootUid: pub.rootUid };
+    const log: Change[] = [];
+    const accessLog = describePlace("in the graph", input, pub, g.defaultAccess);
+    if (accessLog.length) log.push({ ...page, category: "access", text: accessLog.join("; ") });
     if (input.inGraph !== undefined && input.inGraph !== pub.inGraph)
-      log.push(input.inGraph ? "Shown in the graph again" : "Hidden from the graph (collections only)");
-    if (log.length) logChange(pub, log.join("; "));
+      log.push({ ...page, category: "listing", text: input.inGraph ? "Shown in the graph again" : "Hidden from the graph (collections only)" });
+    logChanges(log);
     revalidateAll();
     return { ok: true, message: input.password ? "Password set." : "Saved." };
   });
@@ -274,10 +278,10 @@ export async function updateEntry(
     });
     if (!saved.ok) return saved;
     await clearGatedCollectionDiscover(c.id);
-    const log = describePlace(`in ${collectionLink(c)}`, input, entry, c.defaultAccess);
+    const accessLog = describePlace(`in ${collectionLink(c)}`, input, entry, c.defaultAccess);
+    if (accessLog.length) await logForPublications([entry.publicationId], "access", accessLog.join("; "));
     if (input.listing && input.listing !== entry.listing)
-      log.push(`${LISTING_LOG[input.listing]} in ${collectionLink(c)}`);
-    if (log.length) await logForPublications([entry.publicationId], log.join("; "));
+      await logForPublications([entry.publicationId], "listing", `${LISTING_LOG[input.listing]} in ${collectionLink(c)}`);
     revalidateAll();
     return { ok: true, message: input.password ? "Password set." : "Saved." };
   });
@@ -331,7 +335,7 @@ export async function addToCollection(
         return sealed;
       }
     }
-    await logForPublications([publicationId], (p) => `Added to collection ${collectionLink(c)}: ${entryUrl(c.slug, entry.entryUid, p.title)}`);
+    await logForPublications([publicationId], "collections", (p) => `Added to collection ${collectionLink(c)}: ${entryUrl(c.slug, entry.entryUid, p.title)}`);
     revalidateAll();
     return { ok: true, message: `Added to ${c.name}.` };
   });
@@ -392,6 +396,7 @@ export async function removeEntry(entryId: string, currentPassword?: string): Pr
     if (pub)
       logChange(
         pub,
+        "collections",
         `Removed from collection ${c ? collectionLink(c) : ""}`.trim() + (backInGraph ? "; back in the graph, unlisted" : ""),
       );
     revalidateAll();
@@ -487,7 +492,7 @@ export async function applyAccessToAllPages(
     if (kind === "graph") await clearGatedGraphDiscover(c.id);
     else await clearGatedCollectionDiscover(c.id);
     const where = kind === "graph" ? "in the graph" : `in ${collectionLink(c as { name: string; slug: string })}`;
-    await logForPublications(affected, `Access ${where}: ${ACCESS_LABELS[access]} (applied to all pages)`);
+    await logForPublications(affected, "access", `Access ${where}: ${ACCESS_LABELS[access]} (applied to all pages)`);
     revalidateAll();
     const n = updated.length;
     const kept = encryptedIds.size ? ` ${ENCRYPTED_KEPT(encryptedIds.size)}` : "";
@@ -551,13 +556,15 @@ export async function bulkUpdatePublications(raw: BulkInput): Promise<PlaceResul
       if (Object.keys(set).length === 0) continue;
       await db.update(publication).set(set).where(eq(publication.id, pub.id));
       changed++;
-      const text = [
-        set.access && set.access !== pub.access && `Access in the graph: ${ACCESS_LABELS[set.access as (typeof ACCESS)[number]]}`,
-        set.visibility &&
-          (set.visibility !== pub.visibility || set.discoverable !== undefined && set.discoverable !== pub.discoverable) &&
-          (set.visibility === "unlisted" ? "Made unlisted" : set.discoverable ? "Made public and listed on Discover" : "Made public"),
-      ].filter(Boolean);
-      if (text.length) log.push({ graphId: pub.graphId, rootUid: pub.rootUid, text: text.join("; ") });
+      const page = { graphId: pub.graphId, rootUid: pub.rootUid };
+      if (set.access && set.access !== pub.access)
+        log.push({ ...page, category: "access", text: `Access in the graph: ${ACCESS_LABELS[set.access as (typeof ACCESS)[number]]}` });
+      if (set.visibility && (set.visibility !== pub.visibility || set.discoverable !== undefined && set.discoverable !== pub.discoverable))
+        log.push({
+          ...page,
+          category: "listing",
+          text: set.visibility === "unlisted" ? "Made unlisted" : set.discoverable ? "Made public and listed on Discover" : "Made public",
+        });
     }
     logChanges(log);
     for (const graphId of new Set(rows.map((r) => r.g.id))) await clearGatedGraphDiscover(graphId);
@@ -589,7 +596,7 @@ export async function bulkUnpublish(raw: { ids: string[] }): Promise<PlaceResult
       .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
     if (deleted.length === 0) return NOT_ALLOWED;
     await dropOrphanLockKeys(db);
-    logChanges(deleted.map((p) => ({ ...p, text: "Unpublished on the website" })));
+    logChanges(deleted.map((p) => ({ ...p, category: "publishing" as const, text: "Unpublished on the website" })));
     revalidateAll();
     const skipped = parsed.data.ids.length - deleted.length;
     return {
@@ -626,7 +633,11 @@ export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
     let notDiscover = 0;
     let keptEncrypted = 0;
     let changed = 0;
-    const log = new Map<string, string[]>();
+    const log = new Map<string, { category: ChangeCategory; text: string; pubIds: string[] }>();
+    const note = (category: ChangeCategory, text: string, pubId: string) => {
+      const k = `${category}\u0000${text}`;
+      log.set(k, { category, text, pubIds: [...(log.get(k)?.pubIds ?? []), pubId] });
+    };
     for (const { entry, c, encrypted } of mine) {
       const set: Partial<typeof collectionEntry.$inferInsert> = {};
       let access = entry.access === "inherit" ? c.defaultAccess : entry.access;
@@ -645,13 +656,12 @@ export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
       if (Object.keys(set).length === 0) continue;
       await db.update(collectionEntry).set(set).where(eq(collectionEntry.id, entry.id));
       changed++;
-      const text = [
-        set.access && set.access !== entry.access && `Access in ${collectionLink(c)}: ${ACCESS_LABELS[set.access as (typeof ACCESS)[number]]}`,
-        set.listing && set.listing !== entry.listing && `${LISTING_LOG[set.listing]} in ${collectionLink(c)}`,
-      ].filter(Boolean).join("; ");
-      if (text) log.set(text, [...(log.get(text) ?? []), entry.publicationId]);
+      if (set.access && set.access !== entry.access)
+        note("access", `Access in ${collectionLink(c)}: ${ACCESS_LABELS[set.access as (typeof ACCESS)[number]]}`, entry.publicationId);
+      if (set.listing && set.listing !== entry.listing)
+        note("listing", `${LISTING_LOG[set.listing]} in ${collectionLink(c)}`, entry.publicationId);
     }
-    for (const [text, pubIds] of log) await logForPublications(pubIds, text);
+    for (const { category, text, pubIds } of log.values()) await logForPublications(pubIds, category, text);
     for (const id of roles.keys()) await clearGatedCollectionDiscover(id);
     revalidateAll();
 

@@ -37,7 +37,7 @@ export async function unpublish(publicationId: string) {
       .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)))
       .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
     await dropOrphanLockKeys(db);
-    logChanges(deleted.map((p) => ({ ...p, text: "Unpublished on the website" })));
+    logChanges(deleted.map((p) => ({ ...p, category: "publishing" as const, text: "Unpublished on the website" })));
     revalidatePath("/dashboard", "layout");
     revalidatePath("/c/[id]", "layout");
     updateTag(DISCOVER_TAG);
@@ -92,7 +92,7 @@ export async function setAccess(publicationId: string, access: Access): Promise<
     // Only real changes are logged; unlisting leaves the Discover flag alone.
     const same =
       before?.visibility === set.visibility && (set.visibility === "unlisted" || before.discoverable === set.discoverable);
-    if (changed && !same) logChange(changed, ACCESS_LOG[access]);
+    if (changed && !same) logChange(changed, "listing", ACCESS_LOG[access]);
     revalidatePath("/dashboard", "layout");
     revalidatePath("/[graph]", "page");
     revalidatePath("/");

@@ -36,7 +36,7 @@ export const DELETE = withRoute("DELETE /api/ext/publications/[rootUid]", async 
   if (pub instanceof Response) return pub;
   await db.delete(publication).where(eq(publication.id, pub.id));
   await dropOrphanLockKeys(db);
-  logChange(pub, "Unpublished");
+  logChange(pub, "publishing", "Unpublished");
   return json(req, { deleted: true });
 });
 
@@ -54,7 +54,7 @@ export const PATCH = withRoute("PATCH /api/ext/publications/[rootUid]", async (
   const pub = await ownPage(req, ctx, (await params).rootUid);
   if (pub instanceof Response) return pub;
   await db.update(publication).set({ visibility: parsed.data.visibility }).where(eq(publication.id, pub.id));
-  if (parsed.data.visibility !== pub.visibility) logChange(pub, `Made ${parsed.data.visibility}`);
+  if (parsed.data.visibility !== pub.visibility) logChange(pub, "listing", `Made ${parsed.data.visibility}`);
   const url = (await primaryUrls(ctx.graphName, [pub])).get(pub.id);
   return json(req, { visibility: parsed.data.visibility, url });
 });
