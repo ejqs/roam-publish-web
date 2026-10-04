@@ -7,6 +7,7 @@ bullet with each pull request that changes something they'd notice; leave out te
 ## 2026-10-04
 
 ### Dashboard
+- Password protection shows as a lock everywhere, and an encrypted page shows the lock with an **E** on it.
 - A page's **Manage** dialog lists each place it's published as one row, with an icon for a graph or a collection and
   what the page uses there. Open a row to change it.
 - Access control and Visibility control mark the graph's or collection's default choice.
