@@ -82,4 +82,13 @@ describe("privacyNotes", () => {
     ]);
     expect(privacyNotes({ ...base, access: "members" }).map((n) => n.kind)).toEqual(["members"]);
   });
+  test("a listed page out of search says so; an unlisted one only says unlisted", () => {
+    expect(privacyNotes({ ...base, access: "password", unsearchable: true }).map((n) => n.kind)).toEqual([
+      "password",
+      "unsearchable",
+    ]);
+    expect(privacyNotes({ ...base, access: "open", unlisted: true, unsearchable: true }).map((n) => n.kind)).toEqual([
+      "unlisted",
+    ]);
+  });
 });

@@ -6,7 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { graphPagesPath } from "@/app/(app)/dashboard/filters";
 import { CopyButton } from "@/components/copy-button";
-import { ACCESS_LABELS, LISTING_LABELS } from "@/components/manage/labels";
+import { ACCESS_LABELS, LISTING_LABELS, notSearchable } from "@/components/manage/labels";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -88,7 +88,9 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
                 key: "graph",
                 where: `Graph · ${g.name}`,
                 url: publicationUrl(g.name, pub.rootUid, pub.title),
-                listing: pub.visibility === "unlisted" ? "Unlisted" : pub.discoverable ? "Discoverable" : "Listed",
+                listing:
+                  (pub.visibility === "unlisted" ? "Unlisted" : pub.discoverable ? "Discoverable" : "Listed") +
+                  notSearchable(pub.visibility === "public" && !pub.discoverable, pub.searchable),
                 access: ACCESS_LABELS[effectiveAccess({ ...g, kind: "graph" }, pub)],
               },
             ]
@@ -97,7 +99,7 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
           key: entry.id,
           where: `Collection · ${c.name}`,
           url: entryUrl(c.slug, entry.entryUid, pub.title),
-          listing: LISTING_LABELS[entry.listing],
+          listing: LISTING_LABELS[entry.listing] + notSearchable(entry.listing === "listed", pub.searchable),
           access: ACCESS_LABELS[effectiveAccess({ ...c, kind: "collection" }, entry)],
         })),
       ]

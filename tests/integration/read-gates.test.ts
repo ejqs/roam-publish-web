@@ -4,7 +4,7 @@ import GraphTags from "@/app/[graph]/tags/page";
 import CPage from "@/app/c/[id]/[[...slug]]/page";
 import { PageList } from "@/components/page-list";
 import { db } from "@/db";
-import { collectionEntry } from "@/db/schema";
+import { collectionEntry, publication } from "@/db/schema";
 import { searchPages } from "@/lib/site-search";
 import { resetDb } from "../helpers/db";
 import { actAs, makeCollection, makeGraph, makePublication, makeUser } from "../helpers/factories";
@@ -188,6 +188,22 @@ describe("site search", () => {
     const { total, rows } = await find();
     expect(total).toBe(1);
     expect(rows[0].source.label).toBe(c.name);
+  });
+
+  test("leaves out a Listed page its owner took out of search, but never a Discoverable one", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    const tree = secretTree("hidden1");
+    await makePublication(g.id, owner.id, {
+      rootUid: tree.uid,
+      tree,
+      ...indexFields(tree),
+      visibility: "public",
+      searchable: false,
+    });
+    expect((await find()).total).toBe(0);
+    await db.update(publication).set({ discoverable: true });
+    expect((await find()).total).toBe(1);
   });
 
   test("links to the collection when only the collection lets the page be searched", async () => {

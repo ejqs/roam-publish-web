@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { unpublish } from "@/app/(app)/dashboard/actions";
+import { setPageSearchable, unpublish } from "@/app/(app)/dashboard/actions";
 import { addToCollection, removeEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
 import { ICONS, LABELS, PlaceSettingsFields, READ_ICONS, READ_LABELS } from "@/app/(app)/dashboard/place-settings";
 import { setPageTags } from "@/app/(app)/dashboard/tag-actions";
@@ -19,6 +19,7 @@ import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
 import { AccessIcon } from "@/components/privacy-icon";
 import type { Access as ReadAccess, EntryListing } from "@/db/schema";
+import { notSearchable } from "./labels";
 import { EncryptionSection } from "./encryption-section";
 import { PlacePasswordForm, type PlaceState } from "./place-access-form";
 import { usePasswordPrompt } from "./password-prompt";
@@ -125,6 +126,7 @@ export function ManageDialog({
               empty={`Not shown in ${data.origin.graphName}`}
               access={gAccess}
               listing={gListing}
+              searchable={data.searchable}
               encrypted={data.encrypted}
               open={openPlace === "graph"}
               onToggle={() => toggle("graph")}
@@ -146,6 +148,7 @@ export function ManageDialog({
                   access={REACH_OF[gListing]}
                   discoverBlocked={g.discoverBlocked}
                   place={g}
+                  searchable={data.searchable}
                   passwordPanel={
                     <PasswordPanel>
                       <PlacePasswordForm
@@ -175,6 +178,7 @@ export function ManageDialog({
                   path={e.path}
                   access={access}
                   listing={listing}
+                  searchable={data.searchable}
                   encrypted={data.encrypted}
                   open={openPlace === e.entryId}
                   onToggle={() => toggle(e.entryId)}
@@ -200,6 +204,7 @@ export function ManageDialog({
                       access={REACH_OF[listing]}
                       discoverBlocked={e.container.discoverBlocked}
                       place={e}
+                      searchable={data.searchable}
                       passwordPanel={
                         <PasswordPanel>
                           <PlacePasswordForm
@@ -230,6 +235,25 @@ export function ManageDialog({
           )}
         </section>
 
+        {data.canManagePage && (
+          <section className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-0.5">
+              <h3 className="font-medium">
+                <label htmlFor="manage-searchable">Show in roam.pub search</label>
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Off keeps this page out of roam.pub/search wherever it&apos;s Listed. It stays listed there, and
+                Discoverable places are always searchable.
+              </p>
+            </div>
+            <Switch
+              id="manage-searchable"
+              checked={data.searchable}
+              disabled={pending}
+              onCheckedChange={(searchable) => run(() => setPageSearchable(data.publicationId, searchable))}
+            />
+          </section>
+        )}
 
         {data.canManagePage && (
           <div className="flex justify-end border-t pt-3">
@@ -268,6 +292,7 @@ function PlaceRow({
   empty,
   access,
   listing,
+  searchable,
   encrypted,
   open,
   onToggle,
@@ -280,6 +305,7 @@ function PlaceRow({
   empty?: string;
   access: ReadAccess;
   listing: EntryListing;
+  searchable: boolean;
   encrypted?: boolean;
   open: boolean;
   onToggle: () => void;
@@ -302,7 +328,7 @@ function PlaceRow({
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="truncate font-medium">{name}</span>
             <span className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-              {path ? <AccessWords access={access} listing={listing} encrypted={encrypted} /> : empty}
+              {path ? <AccessWords access={access} listing={listing} searchable={searchable} encrypted={encrypted} /> : empty}
             </span>
           </span>
         </button>
@@ -326,8 +352,18 @@ function PlaceRow({
   );
 }
 
-/** "Password · Listed", each with its Access or Visibility control icon. */
-function AccessWords({ access, listing, encrypted }: { access: ReadAccess; listing: EntryListing; encrypted?: boolean }) {
+/** "Password · Listed", each with its Access or Visibility control icon; "Listed (Not Searchable)" out of search. */
+function AccessWords({
+  access,
+  listing,
+  searchable,
+  encrypted,
+}: {
+  access: ReadAccess;
+  listing: EntryListing;
+  searchable: boolean;
+  encrypted?: boolean;
+}) {
   const reach = REACH_OF[listing];
   const ReachIcon = ICONS[reach];
   const OpenIcon = READ_ICONS.open;
@@ -342,6 +378,7 @@ function AccessWords({ access, listing, encrypted }: { access: ReadAccess; listi
       <span aria-hidden>·</span>
       <ReachIcon aria-hidden className="size-3 shrink-0" />
       {LABELS[reach]}
+      {notSearchable(listing === "listed", searchable)}
     </>
   );
 }

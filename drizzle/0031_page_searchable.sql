@@ -1,0 +1,1 @@
+ALTER TABLE "publication" ADD COLUMN "searchable" boolean DEFAULT true NOT NULL;

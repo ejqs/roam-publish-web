@@ -193,7 +193,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
       siteSearch={await canSearchSite(me)}
       related={related.map((r) => ({ title: r.title, href: publicationPath(g.name, r.rootUid, r.title) }))}
       byline={byline}
-      privacy={privacyNotes({ access, encrypted: pub.encrypted, unlisted: pub.visibility === "unlisted", container: g.name })}
+      privacy={privacyNotes({ access, encrypted: pub.encrypted, unlisted: pub.visibility === "unlisted", unsearchable: !pub.searchable && !(pub.discoverable && access === "open"), container: g.name })}
       report={{ graphName: g.name, rootUid: pub.rootUid }}
       votes={votes}
       countViews={pub.visibility === "public" && access === "open"}

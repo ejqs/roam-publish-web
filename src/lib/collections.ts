@@ -102,7 +102,7 @@ export async function addEntry(
         collectionId,
         publicationId,
         entryUid,
-        // New pages start from the collection's Discover default, like graph.featured.
+        // New pages start from the collection's Discover default.
         listing: row.featured && row.open ? "discover" : "listed",
         // Who can read starts as the collection's current default, like a new graph page.
         access: row.defaultAccess,

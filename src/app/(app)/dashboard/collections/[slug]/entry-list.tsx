@@ -126,6 +126,7 @@ export function EntryList({
                         access={entry.listing === "listed" ? "public" : entry.listing}
                         discoverBlocked={place.container.discoverBlocked}
                         place={place}
+                        searchable={m?.searchable}
                       />
                     ) : (
                       <Badge variant="outline">{LISTING_LABELS[entry.listing]}</Badge>

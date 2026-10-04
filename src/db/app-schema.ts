@@ -47,11 +47,6 @@ export const graph = pgTable("graph", {
   indexable: boolean("indexable").notNull().default(true),
   /** Listed pages show up in roam.pub site search; Discoverable pages always do. */
   searchListed: boolean("search_listed").notNull().default(true),
-  /**
-   * Starting value of publication.discoverable for newly published pages. Changing it never
-   * touches pages that already exist.
-   */
-  featured: boolean("featured").notNull().default(false),
   /** Short plain-text description shown on the front page. */
   description: text("description").notNull().default(""),
   /** Breadcrumbs on the front page and publications link back to the owner's public profile. */
@@ -168,8 +163,8 @@ export const publication = pgTable(
     /** Unlisted items are reachable by link only; public ones also appear on the front page. */
     visibility: text("visibility", { enum: ["public", "unlisted"] }).notNull().default("unlisted"),
     /**
-     * Listed on /discover and the home page's trending list (when also public). Set from the
-     * graph's default (graph.featured) when first published, then only changed per page.
+     * Listed on /discover and the home page's trending list (when also public). New pages start
+     * without it; set per page when it's listed.
      */
     discoverable: boolean("discoverable").notNull().default(false),
     title: text("title").notNull(),
@@ -184,6 +179,8 @@ export const publication = pgTable(
     authorName: text("author_name"),
     /** Shown at /{graph}/{uid}. Off when the page should only appear in collections. */
     inGraph: boolean("in_graph").notNull().default(true),
+    /** Shows up in roam.pub site search where it's Listed. Discoverable places are always searchable. */
+    searchable: boolean("searchable").notNull().default(true),
     /** Access at /{graph}/{uid}; "inherit" uses graph.defaultAccess. */
     access: text("access", { enum: PLACE_ACCESS }).notNull().default("inherit"),
     /** The page's own password; when null, password access uses the graph's. */

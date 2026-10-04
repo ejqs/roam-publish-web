@@ -1,4 +1,4 @@
-import { EyeOffIcon, LockIcon, UsersIcon } from "lucide-react";
+import { EyeOffIcon, LockIcon, SearchXIcon, UsersIcon } from "lucide-react";
 import { EncryptedIcon } from "@/components/encrypted-icon";
 import { ACCESS_LABELS, LISTING_LABELS } from "@/components/manage/labels";
 import type { Access } from "@/db/schema";
@@ -13,6 +13,7 @@ export const PRIVACY_ICONS = {
   password: LockIcon,
   encrypted: EncryptedIcon,
   members: UsersIcon,
+  unsearchable: SearchXIcon,
 } as const;
 
 export type PrivacyKind = keyof typeof PRIVACY_ICONS;
@@ -21,17 +22,21 @@ export type PrivacyNote = { kind: PrivacyKind; label: string; text: string; href
 
 /**
  * What a reader is told about a page they're reading: whether it's protected, and whether it's
- * listed. Nothing for an open, listed page. `container` is the graph or collection it's shown in.
+ * listed or kept out of site search. Nothing for an open, listed, searchable page. `container` is
+ * the graph or collection it's shown in.
  */
 export function privacyNotes({
   access,
   encrypted,
   unlisted,
+  unsearchable = false,
   container,
 }: {
   access: Access;
   encrypted: boolean;
   unlisted: boolean;
+  /** Listed here, and its owner took it out of roam.pub search. Unlisted already says it can't be found. */
+  unsearchable?: boolean;
   container: string;
 }): PrivacyNote[] {
   const notes: PrivacyNote[] = [];
@@ -52,6 +57,12 @@ export function privacyNotes({
       label: LISTING_LABELS.unlisted,
       // Unlisted pages can hide their graph from readers, so this doesn't name it.
       text: "Only people with the link can find it. It isn't on a front page, in search engines or on Discover.",
+    });
+  else if (unsearchable)
+    notes.push({
+      kind: "unsearchable",
+      label: "Not Searchable",
+      text: `Its owner keeps it out of roam.pub search. It's still listed on ${container}.`,
     });
   return notes;
 }

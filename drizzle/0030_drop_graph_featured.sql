@@ -1,0 +1,1 @@
+ALTER TABLE "graph" DROP COLUMN "featured";

@@ -24,7 +24,6 @@ export async function clearGatedGraphDiscover(graphId: string) {
           : sql`not (${publication.access} = 'open' or (${publication.access} = 'inherit' and ${g.defaultAccess} = 'open'))`,
       ),
     );
-  if (allGated || g.defaultAccess !== "open") await db.update(graph).set({ featured: false }).where(eq(graph.id, graphId));
 }
 
 /**

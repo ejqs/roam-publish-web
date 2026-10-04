@@ -58,7 +58,7 @@ export function GraphSettingsForm({ graphId, initial }: { graphId: string; initi
 
 type Listing = Omit<GraphSettings, "description">;
 
-/** On the Sharing tab: the front page, search engines, site search, Discoverable, RSS and breadcrumbs. */
+/** On the Sharing tab: the front page, search engines, site search, RSS and breadcrumbs. */
 export function GraphListingForm({
   graphId,
   graphName,
@@ -75,7 +75,7 @@ export function GraphListingForm({
   const [saved, setSaved] = useState(initial);
   const [pending, startTransition] = useTransition();
   const set = (key: keyof Listing) => (value: boolean) => setSettings((s) => ({ ...s, [key]: value }));
-  const normalize = (s: Listing): Listing => ({ ...s, featured: s.featured && s.frontPage, rss: s.rss && s.frontPage });
+  const normalize = (s: Listing): Listing => ({ ...s, rss: s.rss && s.frontPage });
   const current = normalize(settings);
   const dirty = (Object.keys(current) as (keyof Listing)[]).some((k) => current[k] !== saved[k]);
 
@@ -119,21 +119,6 @@ export function GraphListingForm({
             description="Find your listed pages from roam.pub/search. Discoverable pages are always searchable."
             checked={settings.searchListed}
             onChange={set("searchListed")}
-          />
-          <FieldSeparator />
-          <SettingSwitch
-            id="featured"
-            label="New pages are Discoverable when listed"
-            description={
-              !settings.frontPage
-                ? "Turn on the front page to make this graph's pages Discoverable."
-                : !settings.indexable
-                  ? "Turn on search engines to make this graph's pages Discoverable."
-                  : "Listing a new page also puts it on roam.pub/discover. Existing pages keep their own setting."
-            }
-            checked={settings.featured && settings.frontPage}
-            disabled={!settings.frontPage || !settings.indexable}
-            onChange={set("featured")}
           />
           <FieldSeparator />
           <SettingSwitch
