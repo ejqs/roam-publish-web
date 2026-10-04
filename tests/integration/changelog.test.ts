@@ -166,6 +166,34 @@ describe("change log in Roam", () => {
     expect(rows.find((r) => r.status === "sent")?.roamText).toBe("Access in the graph: Password");
   });
 
+  test("changes within 5 minutes of each other merge; the send waits until 5 minutes have passed", async () => {
+    const { g, pub } = await loggedPage();
+    const page = { graphId: g.id, rootUid: pub.rootUid };
+    const t0 = new Date(Date.now() - 20 * 60_000);
+    const at = (min: number) => new Date(t0.getTime() + min * 60_000);
+    await queueChanges([{ ...page, category: "listing", text: "Made unlisted" }], t0);
+    await queueChanges([{ ...page, category: "listing", text: "Made public" }], at(4));
+    const flush = async (min: number) => {
+      await db.update(shortlink).set({ anchorConfirmedAt: at(min) });
+      await flushChangeLog(at(min));
+    };
+    await flush(5);
+    expect(roam.calls).toHaveLength(0);
+    await flush(9);
+    expect(roam.calls.flatMap(sentLines)).toEqual([expect.stringContaining("Made public")]);
+  });
+
+  test("without merging, a quiet page is sent after 30 seconds", async () => {
+    const { g, pub } = await loggedPage();
+    await db.update(graph).set({ changeLogMerge: false }).where(eq(graph.id, g.id));
+    const t0 = new Date(Date.now() - 20 * 60_000);
+    await queueChanges([{ graphId: g.id, rootUid: pub.rootUid, category: "listing", text: "Made public" }], t0);
+    const at = new Date(t0.getTime() + 60_000);
+    await db.update(shortlink).set({ anchorConfirmedAt: at });
+    await flushChangeLog(at);
+    expect(roam.calls).toHaveLength(1);
+  });
+
   test("changing a setting back to what Roam already shows adds nothing", async () => {
     const { g, pub } = await loggedPage();
     const page = { graphId: g.id, rootUid: pub.rootUid };

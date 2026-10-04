@@ -22,8 +22,9 @@ bullet with each pull request that changes something they'd notice; leave out te
 ### Publishing
 - The change log under a page's status link groups entries under one `[[date]]` block per day, each line showing
   just the time.
-- A setting changed back and forth within a short time is logged once, with where it ended up, and not at all if it
-  ended where the change log already showed it. Each page's history on its status page still lists every change.
+- Changes to a setting made within 5 minutes of each other are logged once, with where it ended up, and not at all
+  if it ended where the change log already showed it. Entries reach Roam about 5 minutes after the last change.
+  Each page's history on its status page still lists every change.
 - Choose what goes into the change log in the graph's settings: publishing, who can read, where it's listed,
   collections and tags. Merging quick changes and grouping by day can be turned off there too.
 - The Roam extension can make a page **Discoverable**, not just Listed or Unlisted (with its next version). When a
