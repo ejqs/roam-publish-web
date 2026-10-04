@@ -44,7 +44,9 @@ export type PlaceSettingsProps = {
 
 type PlaceInput = { access?: ReadAccess; showAuthor?: ShowAuthor; views?: PlaceViews; showViewCountries?: ShowAuthor };
 
-const NOT_ON_DISCOVER = "Only pages anyone can read go on Discover.";
+const NOT_ON_DISCOVER = "Discoverable is only for pages anyone can read.";
+/** A stored listing as the Visibility control's value. */
+const REACH_OF = { unlisted: "unlisted", listed: "public", discover: "discover" } as const;
 export const ENCRYPTED_ONLY_PASSWORD = "Encrypted pages can only use Password. Turn off encryption first.";
 
 /** What to warn about before a page goes onto or comes off Discover, or null when the change doesn't touch it. */
@@ -201,7 +203,16 @@ export function displaySummary(s: PlaceSettings) {
 }
 
 /** Who can read it and where it's listed: two segmented controls, with what the choice means under each. */
-export function AccessFields({ s, compact }: { s: PlaceSettings; compact?: boolean }) {
+export function AccessFields({
+  s,
+  compact,
+  passwordPanel,
+}: {
+  s: PlaceSettings;
+  compact?: boolean;
+  /** Shown under Access control while this place uses Password: which password, and encryption. */
+  passwordPanel?: React.ReactNode;
+}) {
   const id = useId();
   const { container, target } = s;
 
@@ -224,7 +235,7 @@ export function AccessFields({ s, compact }: { s: PlaceSettings; compact?: boole
 
   const reachSegments: Segment<Access>[] = (["unlisted", "public", "discover"] as const).map((v) => ({
     value: v,
-    label: v === "discover" ? "Discover" : LABELS[v],
+    label: LABELS[v],
     icon: ICONS[v],
     disabled: v === "discover" && s.reach !== "discover" ? s.blocked : undefined,
   }));
@@ -251,11 +262,13 @@ export function AccessFields({ s, compact }: { s: PlaceSettings; compact?: boole
           aria-labelledby={`${id}-read`}
           value={s.askPassword ? "password" : s.read}
           options={readSegments}
+          defaultValue={container.defaultAccess}
           onChange={s.chooseRead}
           disabled={s.pending}
         />
         <p className={caption}>{s.askPassword ? "Readers enter a password. Set one to switch." : readDescription}</p>
         {s.askPassword && <SetPasswordForm onSave={s.savePassword} onCancel={() => s.setAskPassword(false)} />}
+        {s.read === "password" && !s.askPassword && passwordPanel}
         {s.passwordPrompt}
       </div>
       <div className="flex flex-col gap-1.5">
@@ -266,12 +279,13 @@ export function AccessFields({ s, compact }: { s: PlaceSettings; compact?: boole
           aria-labelledby={`${id}-reach`}
           value={s.reach}
           options={reachSegments}
+          defaultValue={REACH_OF[container.defaultListing]}
           onChange={s.chooseReach}
           disabled={s.pending}
         />
         <p className={caption}>
           {reachDescription}
-          {s.read !== "open" && !s.note && s.reach !== "discover" && " Discover is only for pages anyone can read."}
+          {!s.note && s.reach !== "discover" && s.blocked && ` ${s.blocked}`}
         </p>
         {s.note && (
           <p role="status" className="rounded-sm bg-muted px-2 py-1.5 text-xs">
@@ -481,11 +495,11 @@ export function DisplaySection({ s, defaultOpen = false }: { s: PlaceSettings; d
 }
 
 /** The settings for one place, inline in the Manage dialog. */
-export function PlaceSettingsFields(props: PlaceSettingsProps) {
+export function PlaceSettingsFields({ passwordPanel, ...props }: PlaceSettingsProps & { passwordPanel?: React.ReactNode }) {
   const s = usePlaceSettings(props);
   return (
     <div className="flex flex-col gap-4">
-      <AccessFields s={s} />
+      <AccessFields s={s} passwordPanel={passwordPanel} />
       <div className="h-px bg-border" />
       <DisplaySection s={s} />
       <p aria-live="polite" className="-mt-2 h-4 text-right text-xs text-muted-foreground">

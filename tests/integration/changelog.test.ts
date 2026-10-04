@@ -96,7 +96,7 @@ describe("change log", () => {
     expect((await updateEntry(entry.id, { listing: "unlisted" })).ok).toBe(true);
     await runAfter();
     const texts = (await queued()).map((e) => e.text).join("\n");
-    expect(texts).toContain("Not listed");
+    expect(texts).toContain("Unlisted");
     expect(texts).not.toContain("{{");
     expect(texts).not.toContain("[[");
     // Still a working link, with the name readable.

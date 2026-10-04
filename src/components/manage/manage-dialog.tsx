@@ -1,31 +1,33 @@
 "use client";
 
-import { ChevronDownIcon, KeyRoundIcon, PlusIcon, Settings2Icon, TriangleAlertIcon, XIcon } from "lucide-react";
+import { BookIcon, ChevronDownIcon, ChevronRightIcon, FolderIcon, PlusIcon, RefreshCwIcon, Settings2Icon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { unpublish } from "@/app/(app)/dashboard/actions";
 import { addToCollection, removeEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
-import { PlaceSettingsFields } from "@/app/(app)/dashboard/place-settings";
+import { ICONS, LABELS, PlaceSettingsFields, READ_ICONS, READ_LABELS } from "@/app/(app)/dashboard/place-settings";
 import { setPageTags } from "@/app/(app)/dashboard/tag-actions";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import type { ManageData } from "@/lib/manage-data";
+import type { ContainerDefaults, ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
-import { AccessIcon, PrivacyIcon } from "@/components/privacy-icon";
-import { ACCESS_LABELS, LISTING_LABELS } from "./choice";
+import { AccessIcon } from "@/components/privacy-icon";
+import type { Access as ReadAccess, EntryListing } from "@/db/schema";
 import { EncryptionSection } from "./encryption-section";
 import { PlacePasswordForm, type PlaceState } from "./place-access-form";
 import { usePasswordPrompt } from "./password-prompt";
 import { TagsEditor } from "./tags-editor";
 
-const effective = (s: PlaceState, def: keyof typeof ACCESS_LABELS) => (s.access === "inherit" ? def : s.access);
+const effective = (s: PlaceState, def: ReadAccess) => (s.access === "inherit" ? def : s.access);
+
+/** A listing as the Visibility control names it. */
+const REACH_OF = { unlisted: "unlisted", listed: "public", discover: "discover" } as const;
 
 /**
  * Everything about where a page appears and who can read it, on the dashboard and on the published
@@ -59,14 +61,11 @@ export function ManageDialog({
 
   const g = data.graphPlace;
   const gAccess = effective(g.state, g.container.defaultAccess);
-  const exposure = mostOpenPlace([
-    ...(g.inGraph ? [{ name: `${data.origin.graphName} (its graph)`, path: g.path, access: gAccess }] : []),
-    ...data.entries.map((e) => ({
-      name: e.collectionName,
-      path: e.path,
-      access: effective(e.state, e.container.defaultAccess),
-    })),
-  ]);
+  const gListing: EntryListing = g.visibility === "unlisted" ? "unlisted" : g.discoverable && gAccess === "open" ? "discover" : "listed";
+  // One place open at a time, starting with the first.
+  const [openPlace, setOpenPlace] = useState<string | null>(g.inGraph ? "graph" : (data.entries[0]?.entryId ?? null));
+  const toggle = (id: string) => setOpenPlace((cur) => (cur === id ? null : id));
+  const encryptionPanel = data.canManagePage ? <EncryptionSection data={data} onChanged={refresh} compact /> : null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -91,18 +90,10 @@ export function ManageDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {exposure && (
+        {data.needsRepublish && (
           <p className="flex gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-            <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            <span>
-              {exposure.least.access === "open" ? "Anyone with the link" : "Anyone with the password"} can read this
-              page in{" "}
-              <Link href={exposure.least.path} className="font-medium text-link hover:underline">
-                {exposure.least.name}
-              </Link>
-              , even though it&apos;s {exposure.most.access === "members" ? "members only" : "password protected"} in{" "}
-              {exposure.most.name}.
-            </span>
+            <RefreshCwIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>Needs republish. A password it was encrypted with was reset: republish this page from Roam to make it readable everywhere again.</span>
           </p>
         )}
 
@@ -125,26 +116,19 @@ export function ManageDialog({
         )}
 
         <section className="flex flex-col gap-2">
-          <h3 className="font-medium">Where it&apos;s published</h3>
+          <h3 className="font-medium">Sharing</h3>
           <ul className="divide-y rounded-sm border">
             <PlaceRow
-              label={`Graph · ${data.origin.graphName}`}
+              kind="graph"
+              name={data.origin.graphName}
               path={g.inGraph ? g.path : undefined}
               empty={`Not shown in ${data.origin.graphName}`}
+              defaults={g.container}
               access={gAccess}
-              lock={lockExplanation(gAccess, "graph", g.container.label)}
+              listing={gListing}
               encrypted={data.encrypted}
-              settings={
-                data.canManagePage && g.inGraph ? (
-                  <PlaceSettingsFields
-                    target={{ kind: "graph", publicationId: data.publicationId, frontPage: g.frontPage, indexable: g.indexable }}
-                    access={g.visibility === "unlisted" ? "unlisted" : g.discoverable ? "discover" : "public"}
-                    discoverBlocked={g.discoverBlocked}
-                    place={g}
-                  />
-                ) : undefined
-              }
-              listing={g.visibility === "unlisted" ? "unlisted" : g.discoverable && gAccess === "open" ? "discover" : "listed"}
+              open={openPlace === "graph"}
+              onToggle={() => toggle("graph")}
               action={
                 data.canManagePage && (
                   <Switch
@@ -156,40 +140,46 @@ export function ManageDialog({
                   />
                 )
               }
-              password={
-                data.canManagePage && g.inGraph && gAccess === "password" ? (
-                  <PlacePasswordForm
-                    kind="graph"
-                    id={data.publicationId}
-                    hasOwnPassword={g.state.hasOwnPassword}
-                    container={g.container}
-                    encrypted={data.encrypted}
-                    onSaved={refresh}
-                  />
-                ) : undefined
-              }
-            />
+            >
+              {data.canManagePage && g.inGraph ? (
+                <PlaceSettingsFields
+                  target={{ kind: "graph", publicationId: data.publicationId, frontPage: g.frontPage, indexable: g.indexable }}
+                  access={REACH_OF[gListing]}
+                  discoverBlocked={g.discoverBlocked}
+                  place={g}
+                  passwordPanel={
+                    <PasswordPanel>
+                      <PlacePasswordForm
+                        kind="graph"
+                        id={data.publicationId}
+                        hasOwnPassword={g.state.hasOwnPassword}
+                        container={g.container}
+                        encrypted={data.encrypted}
+                        onSaved={refresh}
+                      />
+                      {encryptionPanel}
+                    </PasswordPanel>
+                  }
+                />
+              ) : (
+                <ReadOnlyPlace lock={lockExplanation(gAccess, "graph", g.container.label, data.encrypted)} />
+              )}
+            </PlaceRow>
             {data.entries.map((e) => {
               const access = effective(e.state, e.container.defaultAccess);
+              const listing = e.state.listing ?? "listed";
               return (
                 <PlaceRow
                   key={e.entryId}
-                  label={`Collection · ${e.collectionName}`}
+                  kind="collection"
+                  name={e.collectionName}
                   path={e.path}
+                  defaults={e.container}
                   access={access}
-                  lock={lockExplanation(access, "collection", e.collectionName)}
+                  listing={listing}
                   encrypted={data.encrypted}
-                  settings={
-                    e.canManage ? (
-                      <PlaceSettingsFields
-                        target={{ kind: "entry", entryId: e.entryId }}
-                        access={e.state.listing === "listed" || !e.state.listing ? "public" : e.state.listing}
-                        discoverBlocked={e.container.discoverBlocked}
-                        place={e}
-                      />
-                    ) : undefined
-                  }
-                  listing={e.state.listing ?? "listed"}
+                  open={openPlace === e.entryId}
+                  onToggle={() => toggle(e.entryId)}
                   action={
                     (e.canManage || data.canManagePage) && (
                       <Button
@@ -205,19 +195,31 @@ export function ManageDialog({
                       </Button>
                     )
                   }
-                  password={
-                    e.canManage && access === "password" ? (
-                      <PlacePasswordForm
-                        kind="entry"
-                        id={e.entryId}
-                        hasOwnPassword={e.state.hasOwnPassword}
-                        container={e.container}
-                        encrypted={data.encrypted}
-                        onSaved={refresh}
-                      />
-                    ) : undefined
-                  }
-                />
+                >
+                  {e.canManage ? (
+                    <PlaceSettingsFields
+                      target={{ kind: "entry", entryId: e.entryId }}
+                      access={REACH_OF[listing]}
+                      discoverBlocked={e.container.discoverBlocked}
+                      place={e}
+                      passwordPanel={
+                        <PasswordPanel>
+                          <PlacePasswordForm
+                            kind="entry"
+                            id={e.entryId}
+                            hasOwnPassword={e.state.hasOwnPassword}
+                            container={e.container}
+                            encrypted={data.encrypted}
+                            onSaved={refresh}
+                          />
+                          {encryptionPanel}
+                        </PasswordPanel>
+                      }
+                    />
+                  ) : (
+                    <ReadOnlyPlace lock={lockExplanation(access, "collection", e.collectionName, data.encrypted)} />
+                  )}
+                </PlaceRow>
               );
             })}
           </ul>
@@ -230,7 +232,6 @@ export function ManageDialog({
           )}
         </section>
 
-        {data.canManagePage && <EncryptionSection data={data} onChanged={refresh} />}
 
         {data.canManagePage && (
           <div className="flex justify-end border-t pt-3">
@@ -258,99 +259,113 @@ export function ManageDialog({
   );
 }
 
-const STRICTNESS = { open: 0, password: 1, members: 2 } as const;
-
-type PlaceSummary = { name: string; path: string; access: keyof typeof ACCESS_LABELS };
-
-/** The least and most protected places, when they differ. */
-function mostOpenPlace(places: PlaceSummary[]) {
-  if (places.length < 2) return null;
-  const sorted = [...places].sort((a, b) => STRICTNESS[a.access] - STRICTNESS[b.access]);
-  const [least, most] = [sorted[0], sorted[sorted.length - 1]];
-  return STRICTNESS[least.access] < STRICTNESS[most.access] ? { least, most } : null;
-}
-
-/** One place a page appears: its link, where it's listed and who can read it, and its own password. */
+/**
+ * One place a page appears, as a row you open to change it: graph or collection icon, its name,
+ * what the graph or collection starts pages as, and what this page uses there.
+ */
 function PlaceRow({
-  label,
+  kind,
+  name,
   path,
   empty,
+  defaults,
   access,
-  lock,
-  encrypted,
   listing,
-  settings,
+  encrypted,
+  open,
+  onToggle,
   action,
-  password,
+  children,
 }: {
-  label: string;
+  kind: "graph" | "collection";
+  name: string;
   path?: string;
   empty?: string;
-  access: keyof typeof ACCESS_LABELS;
-  lock?: string;
+  defaults: Pick<ContainerDefaults, "defaultAccess" | "defaultListing">;
+  access: ReadAccess;
+  listing: EntryListing;
   encrypted?: boolean;
-  listing: keyof typeof LISTING_LABELS;
-  /** Its settings, for people who can change this place. */
-  settings?: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
   action?: React.ReactNode;
-  password?: React.ReactNode;
+  /** Its settings, or what it is for people who can't change it. */
+  children: React.ReactNode;
 }) {
-  const [showPassword, setShowPassword] = useState(false);
+  const KindIcon = kind === "graph" ? BookIcon : FolderIcon;
   return (
-    <li className="flex flex-col gap-3 p-3">
-      <div className="flex items-start gap-2">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="text-xs text-muted-foreground">{label}</span>
-          {path ? (
-            <Link href={path} className="truncate text-link hover:underline">
-              {path}
-            </Link>
-          ) : (
-            <span className="text-muted-foreground">{empty}</span>
-          )}
-        </div>
+    <li className="flex flex-col">
+      <div className="flex items-center gap-2 py-1.5 pr-3 pl-1">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-start gap-2 rounded-sm px-2 py-1 text-left outline-none hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <ChevronRightIcon className={cn("mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
+          <KindIcon aria-label={kind === "graph" ? "Graph" : "Collection"} className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate font-medium">{name}</span>
+            <span className="flex items-center gap-1 text-xs text-muted-foreground" title="What new pages here start as">
+              Default <AccessWords access={defaults.defaultAccess} listing={defaults.defaultListing} />
+            </span>
+          </span>
+        </button>
+        {path && (
+          <span className="flex shrink-0 items-center gap-1 rounded-4xl bg-muted px-2 py-0.5 text-xs font-medium">
+            <AccessWords access={access} listing={listing} encrypted={encrypted} />
+          </span>
+        )}
         {action && <div className="flex shrink-0 items-center">{action}</div>}
       </div>
-      {path && (settings ?? <PlaceBadges access={access} listing={listing} lock={lock} encrypted={encrypted} />)}
-      {path && password && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="self-start text-muted-foreground"
-          aria-expanded={showPassword}
-          onClick={() => setShowPassword(!showPassword)}
-        >
-          <KeyRoundIcon /> Page password
-          <ChevronDownIcon className={cn(showPassword && "rotate-180")} />
-        </Button>
+      {open && (
+        <div className="flex flex-col gap-3 pr-3 pb-3 pl-10">
+          {path ? (
+            <>
+              <Link href={path} className="truncate text-xs text-link hover:underline">
+                {path}
+              </Link>
+              {children}
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground">{empty}</span>
+          )}
+        </div>
       )}
-      {path && showPassword && password}
     </li>
   );
 }
 
-function PlaceBadges({
-  access,
-  listing,
-  lock,
-  encrypted,
-}: {
-  access: keyof typeof ACCESS_LABELS;
-  listing: keyof typeof LISTING_LABELS;
-  lock?: string;
-  encrypted?: boolean;
-}) {
+/** "Password · Listed", each with its Access or Visibility control icon. */
+function AccessWords({ access, listing, encrypted }: { access: ReadAccess; listing: EntryListing; encrypted?: boolean }) {
+  const reach = REACH_OF[listing];
+  const ReachIcon = ICONS[reach];
+  const OpenIcon = READ_ICONS.open;
   return (
-    <span className="flex flex-wrap gap-1">
-      <Badge variant="outline">
-        {listing === "unlisted" && <PrivacyIcon kind="unlisted" />} {LISTING_LABELS[listing]}
-      </Badge>
-      {access !== "open" && (
-        <Badge variant="outline" title={lock} className="cursor-help">
-          <AccessIcon access={access} encrypted={encrypted} /> {encrypted ? "Encrypted" : ACCESS_LABELS[access]}
-        </Badge>
+    <>
+      {access === "open" ? (
+        <OpenIcon aria-hidden className="size-3 shrink-0" />
+      ) : (
+        <AccessIcon access={access} encrypted={encrypted} className="size-3 shrink-0" />
       )}
-    </span>
+      {encrypted && access === "password" ? "Encrypted" : READ_LABELS[access]}
+      <span aria-hidden>·</span>
+      <ReachIcon aria-hidden className="size-3 shrink-0" />
+      {LABELS[reach]}
+    </>
+  );
+}
+
+/** Under Access control while a place uses Password: which password, then encryption. */
+function PasswordPanel({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col gap-3 rounded-sm bg-muted/50 p-3 [&>*+*]:border-t [&>*+*]:pt-3">{children}</div>;
+}
+
+/** A place this viewer can't change: who can read it there, explained. */
+function ReadOnlyPlace({ lock }: { lock?: string }) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      {lock ?? "Anyone with the link can read it here."} Only whoever manages it can change this.
+    </p>
   );
 }
 
