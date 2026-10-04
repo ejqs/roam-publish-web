@@ -61,7 +61,6 @@ export default async function GraphSharingPage(props: PageProps<"/dashboard/[gra
             frontPage: g.frontPage,
             indexable: g.indexable,
             searchListed: g.searchListed,
-            featured: g.featured,
             showOwner: g.showOwner,
             hideUnlistedBreadcrumbs: g.hideUnlistedBreadcrumbs,
             rss: g.rss,

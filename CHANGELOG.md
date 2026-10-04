@@ -20,6 +20,8 @@ bullet with each pull request that changes something they'd notice; leave out te
   breadcrumb settings that used to be under Settings.
 - Turn off **Listed pages in site search** in a graph's Sharing tab or a collection's settings to keep its listed
   pages out of roam.pub search. Discoverable pages are always searchable.
+- The graph setting **New pages are Discoverable when listed** is gone. New pages start unlisted, and you choose
+  **Listed** or **Discoverable** for each page when you list it, so the setting never took effect.
 
 ### Publishing
 - The change log under a page's status link groups entries under one `[[date]]` block per day, each line showing

@@ -170,7 +170,7 @@ export async function moderate(_prev: ActionState, formData: FormData): Promise<
       if (op === "suspend") {
         await db
           .update(graph)
-          .set({ suspendedAt: new Date(), suspendedReason: reason, featured: false })
+          .set({ suspendedAt: new Date(), suspendedReason: reason })
           .where(eq(graph.id, targetId));
         // Suspending the graph settles every open report on it, page reports included.
         await resolveReports(eq(report.graphId, targetId), "actioned", adminId);

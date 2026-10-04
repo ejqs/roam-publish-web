@@ -14,23 +14,23 @@ const read = (id: string) => db.query.graph.findFirst({ where: eq(graph.id, id) 
 // reset what the other owns.
 test("saving one tab's settings keeps the other's", async () => {
   const owner = await makeUser();
-  const g = await makeGraph(owner.id, { frontPage: true, indexable: true, featured: true, rss: true });
+  const g = await makeGraph(owner.id, { frontPage: true, indexable: true, rss: true });
   actAs(owner);
 
   expect((await updateGraphSettings(g.id, { description: "Notes" }))?.ok).toBe(true);
-  expect(await read(g.id)).toMatchObject({ description: "Notes", frontPage: true, featured: true, rss: true });
+  expect(await read(g.id)).toMatchObject({ description: "Notes", frontPage: true, rss: true });
 
   expect((await updateGraphSettings(g.id, { indexable: false }))?.ok).toBe(true);
   expect(await read(g.id)).toMatchObject({ description: "Notes", indexable: false, frontPage: true });
 });
 
-test("turning off the front page still turns off Discoverable and the feed", async () => {
+test("turning off the front page still turns off the feed", async () => {
   const owner = await makeUser();
-  const g = await makeGraph(owner.id, { frontPage: true, indexable: true, featured: true, rss: true });
+  const g = await makeGraph(owner.id, { frontPage: true, indexable: true, rss: true });
   actAs(owner);
 
   expect((await updateGraphSettings(g.id, { frontPage: false }))?.ok).toBe(true);
-  expect(await read(g.id)).toMatchObject({ frontPage: false, featured: false, rss: false });
+  expect(await read(g.id)).toMatchObject({ frontPage: false, rss: false });
 });
 
 test("only the owner can change them", async () => {

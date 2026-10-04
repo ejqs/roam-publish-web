@@ -214,9 +214,6 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
       inGraph,
       // Who can read starts as the graph's current default; changing the default later doesn't move it.
       access: g.defaultAccess,
-      // New pages start from the graph's Discover default; later changes to it don't apply.
-      // A graph whose pages default to a password or members never starts them on Discover.
-      discoverable: sql`(select ${graph.featured} and ${graph.defaultAccess} = 'open' from ${graph} where ${graph.id} = ${ctx.graphId})`,
     })
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);

@@ -161,7 +161,6 @@ const GraphSettings = z.object({
   frontPage: z.boolean(),
   indexable: z.boolean(),
   searchListed: z.boolean(),
-  featured: z.boolean(),
   showOwner: z.boolean(),
   hideUnlistedBreadcrumbs: z.boolean(),
   rss: z.boolean(),
@@ -181,15 +180,15 @@ export async function updateGraphSettings(graphId: string, input: Partial<GraphS
     }
     const current = await db.query.graph.findFirst({
       where: and(eq(graph.id, graphId), eq(graph.userId, session.user.id)),
-      columns: { frontPage: true, featured: true, rss: true },
+      columns: { frontPage: true, rss: true },
     });
     if (!current) return { ok: false, message: "Graph not found." };
     const s = { ...current, ...parsed.data };
 
     const updated = await db
       .update(graph)
-      // Featuring and the feed both list the front page, so they can't outlive it.
-      .set({ ...s, featured: s.featured && s.frontPage, rss: s.rss && s.frontPage })
+      // The feed lists the front page, so it can't outlive it.
+      .set({ ...s, rss: s.rss && s.frontPage })
       .where(and(eq(graph.id, graphId), eq(graph.userId, session.user.id)))
       .returning({ name: graph.name });
     if (updated.length === 0) return { ok: false, message: "Graph not found." };
