@@ -12,6 +12,12 @@ export const ACCESS_DESCRIPTIONS = {
 export const LISTING_LABELS = { unlisted: "Unlisted", listed: "Listed", discover: "Discoverable" } as const;
 
 /**
+ * Added after "Listed" ("Listed (Not Searchable)") when its owner took the page out of roam.pub search.
+ * Only for plain Listed: Discoverable pages are always searchable.
+ */
+export const notSearchable = (listed: boolean, searchable: boolean) => (listed && !searchable ? " (Not Searchable)" : "");
+
+/**
  * Who can read: a page ("Anyone with the link") or a front page ("Anyone"), with members named
  * after the graph or collection they belong to.
  */

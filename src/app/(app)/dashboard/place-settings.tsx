@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useId, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ACCESS_DESCRIPTIONS, LISTING_LABELS } from "@/components/manage/labels";
+import { ACCESS_DESCRIPTIONS, LISTING_LABELS, notSearchable } from "@/components/manage/labels";
 import { usePasswordPrompt } from "@/components/manage/password-prompt";
 import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import { placeViewsOptions, VIEWS_HELP, VIEWS_LABELS } from "@/components/manage/views-fields";
@@ -42,6 +42,8 @@ export type PlaceSettingsProps = {
   /** Why this graph or collection can't list pages on Discover right now, if it can't (ignoring the page's own access). */
   discoverBlocked?: string;
   place: Pick<ManageData["graphPlace"], "state" | "container">;
+  /** The page shows up in roam.pub search (a page-wide switch in the Manage dialog). */
+  searchable?: boolean;
 };
 
 type PlaceInput = { access?: ReadAccess; showAuthor?: ShowAuthor; views?: PlaceViews; showViewCountries?: ShowAuthor };
@@ -66,7 +68,7 @@ function discoverWarning(from: Access, to: Access, protecting = false) {
  * view count. Choosing Password with no password to use asks for one first and changes nothing
  * until it's set. Protecting a Discoverable page lists it instead, since Discover only shows open pages.
  */
-export function usePlaceSettings({ target, access, discoverBlocked, place }: PlaceSettingsProps) {
+export function usePlaceSettings({ target, access, discoverBlocked, place, searchable = true }: PlaceSettingsProps) {
   const { container } = place;
   const [optimistic, setOptimistic] = useOptimistic({
     access,
@@ -167,6 +169,7 @@ export function usePlaceSettings({ target, access, discoverBlocked, place }: Pla
   return {
     target,
     container,
+    searchable,
     pending,
     saved,
     note,
@@ -203,6 +206,10 @@ export function displaySummary(s: PlaceSettings) {
     .filter(Boolean)
     .join(" · ");
 }
+
+/** "Listed", or "Listed (Not Searchable)" when the page is out of roam.pub search. */
+export const reachLabel = (s: Pick<PlaceSettings, "reach" | "searchable">) =>
+  LABELS[s.reach] + notSearchable(s.reach === "public", s.searchable);
 
 /** Who can read it and where it's listed: two segmented controls, with what the choice means under each. */
 export function AccessFields({
@@ -288,6 +295,7 @@ export function AccessFields({
         <p className={caption}>
           {reachDescription}
           {!s.note && s.reach !== "discover" && s.blocked && ` ${s.blocked}`}
+          {s.reach === "public" && !s.searchable && " Kept out of roam.pub search (in Manage)."}
         </p>
         {s.note && (
           <p role="status" className="rounded-sm bg-muted px-2 py-1.5 text-xs">

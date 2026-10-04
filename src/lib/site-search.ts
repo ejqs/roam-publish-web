@@ -10,6 +10,8 @@ import { collectionPath, entryPath, graphPath, publicationPath } from "@/lib/pub
  * Search across the site. Only what anyone can already find by browsing shows up: open pages listed
  * on an open, indexable graph front page or collection. Protected and unlisted pages never do, and
  * Listed (not Discoverable) pages only while their graph or collection allows it (`searchListed`).
+ * A Listed page its owner took out of search (`publication.searchable`) doesn't either. Pages on
+ * Discover are always searchable.
  */
 
 export const SEARCH_PAGE_SIZE = 20;
@@ -24,10 +26,13 @@ const inOpenGraph = and(
   graphPlaceOpen,
 ) as SQL;
 
-/** `inOpenGraph`, and Discoverable or in a graph that lets Listed pages be searched. */
-const inSearchGraph = and(inOpenGraph, or(eq(publication.discoverable, true), eq(graph.searchListed, true))) as SQL;
+/** `inOpenGraph`, and Discoverable, or Listed where both the graph and the page allow search. */
+const inSearchGraph = and(
+  inOpenGraph,
+  or(eq(publication.discoverable, true), and(eq(graph.searchListed, true), eq(publication.searchable, true))),
+) as SQL;
 
-const entryOpenWhere = sql`e.listing <> 'unlisted' and (e.listing = 'discover' or c.search_listed)
+const entryOpenWhere = sql`e.listing <> 'unlisted' and (e.listing = 'discover' or (c.search_listed and ${publication.searchable}))
   and (e.access = 'open' or (e.access = 'inherit' and c.default_access = 'open'))
   and c.index_access = 'open' and c.indexable and c.suspended_at is null
   and coalesce(o.banned, false) = false`;

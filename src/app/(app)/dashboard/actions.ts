@@ -88,6 +88,30 @@ export async function setAccess(publicationId: string, access: Access): Promise<
   });
 }
 
+/** Whether a page shows up in roam.pub site search where it's Listed. Discoverable places always do. */
+export async function setPageSearchable(publicationId: string, searchable: boolean): Promise<NonNullable<FormState>> {
+  return withAction("dashboard.setPageSearchable", async () => {
+    const session = await getSession();
+    if (!session) return { ok: false, message: "Your session expired. Please log in again." };
+    const [changed] = await db
+      .update(publication)
+      .set({ searchable: !!searchable })
+      .where(
+        and(
+          eq(publication.id, publicationId),
+          eq(publication.searchable, !searchable),
+          manageablePublications(session.user.id),
+        ),
+      )
+      .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
+    if (changed) logChange(changed, "listing", searchable ? "Shown in roam.pub search" : "Hidden from roam.pub search");
+    revalidatePath("/dashboard", "layout");
+    revalidatePath("/[graph]", "layout");
+    revalidatePath("/c/[id]", "layout");
+    return { ok: true, message: searchable ? "Shown in roam.pub search." : "Hidden from roam.pub search." };
+  });
+}
+
 const NEEDS_GRAPH = "Connect a Roam graph first.";
 
 export async function claimUsername(_prev: FormState, formData: FormData): Promise<FormState> {

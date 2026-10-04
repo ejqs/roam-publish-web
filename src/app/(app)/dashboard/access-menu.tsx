@@ -15,6 +15,7 @@ import {
   type PlaceSettingsProps,
   READ_ICONS,
   READ_LABELS,
+  reachLabel,
   usePlaceSettings,
 } from "./place-settings";
 
@@ -41,12 +42,12 @@ export function AccessMenu(props: PlaceSettingsProps) {
           <Button
             variant="outline"
             size="sm"
-            title={s.paused ? `Not shown on Discover: ${s.blocked}` : undefined}
+            title={s.paused ? `Not shown on Discover: ${s.blocked}` : !s.searchable && s.reach === "public" ? "Not in roam.pub search" : undefined}
             className={cn("max-w-full gap-1.5", s.paused && "text-muted-foreground")}
           >
             <ReadIcon />
             <span className="truncate">
-              {readLabel} · <ReachIcon className="inline align-[-2px]" /> {LABELS[s.reach]}
+              {readLabel} · <ReachIcon className="inline align-[-2px]" /> {reachLabel(s)}
               {s.paused && " (paused)"}
             </span>
             <ChevronDownIcon className="opacity-60" />

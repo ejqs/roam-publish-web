@@ -218,6 +218,13 @@
       "when": 1791107658491,
       "tag": "0030_drop_graph_featured",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791107817879,
+      "tag": "0031_page_searchable",
+      "breakpoints": true
     }
   ]
 }

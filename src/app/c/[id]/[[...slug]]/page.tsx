@@ -326,7 +326,7 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
       related={related}
       siteSearch={await canSearchSite(me)}
       byline={byline}
-      privacy={privacyNotes({ access, encrypted: pub.encrypted, unlisted: entry.listing === "unlisted", container: c.name })}
+      privacy={privacyNotes({ access, encrypted: pub.encrypted, unlisted: entry.listing === "unlisted", unsearchable: !pub.searchable && entry.listing === "listed", container: c.name })}
       report={{ collectionSlug: c.slug, entryUid: entry.entryUid }}
       votes={votes}
       countViews={entry.listing !== "unlisted" && access === "open"}

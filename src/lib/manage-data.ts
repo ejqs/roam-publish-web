@@ -29,6 +29,8 @@ export type ManageData = {
   needsRepublish: boolean;
   /** Can change the page itself: its graph place, collections, unpublish. */
   canManagePage: boolean;
+  /** Shows up in roam.pub site search where it's Listed. Discoverable places always do. */
+  searchable: boolean;
   origin: { graphName: string; rootUid: string };
   graphPlace: {
     inGraph: boolean;
@@ -130,6 +132,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
       encrypted: pub.encrypted,
       needsRepublish: pub.needsRepublish,
       canManagePage,
+      searchable: pub.searchable,
       origin: { graphName: g.name, rootUid: pub.rootUid },
       graphPlace: {
         inGraph: pub.inGraph,

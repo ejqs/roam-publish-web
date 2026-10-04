@@ -136,6 +136,7 @@ export function PublicationList({
                         access={p.visibility === "unlisted" ? "unlisted" : p.discoverable ? "discover" : "public"}
                         discoverBlocked={discoverBlocked}
                         place={m.graphPlace}
+                        searchable={m.searchable}
                       />
                     )}
                     {/* The access menu names it already. */}

@@ -179,6 +179,8 @@ export const publication = pgTable(
     authorName: text("author_name"),
     /** Shown at /{graph}/{uid}. Off when the page should only appear in collections. */
     inGraph: boolean("in_graph").notNull().default(true),
+    /** Shows up in roam.pub site search where it's Listed. Discoverable places are always searchable. */
+    searchable: boolean("searchable").notNull().default(true),
     /** Access at /{graph}/{uid}; "inherit" uses graph.defaultAccess. */
     access: text("access", { enum: PLACE_ACCESS }).notNull().default("inherit"),
     /** The page's own password; when null, password access uses the graph's. */
