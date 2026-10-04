@@ -22,6 +22,9 @@ const outline = [
     block("Shows you how many people view your published pages. Privacy-friendly, with no ads and no tracking across other sites."),
     block("20 USD a month."),
   ]),
+  block("**Domain: roam.pub**", [
+    block("32.44 USD a year to keep the domain."),
+  ]),
   block("**Why the asterisk**", [
     block("I'm paying for this myself and will cover it for at least the first 6 months."),
     block(`If it becomes a strain, I'll look at cutting costs first. If that isn't enough, I may add a small fee${ASIDE_MARK}, with at least 2 months' notice.`),
@@ -30,7 +33,7 @@ const outline = [
   ]),
 ];
 
-const asides = { [outline[4].children[1].uid]: <FeeNote /> };
+const asides = { [outline[5].children[1].uid]: <FeeNote /> };
 
 export default function CostsPage() {
   return (
