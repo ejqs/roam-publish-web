@@ -1,8 +1,8 @@
 "use client";
 
-import { CheckIcon, ChevronDownIcon, type LucideIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, type LucideProps } from "lucide-react";
 import { PRIVACY_ICONS } from "@/components/privacy-icons";
-import { useState } from "react";
+import { type ComponentType, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "cn";
@@ -20,7 +20,7 @@ import {
 
 export { ICONS, LABELS, type MenuTarget };
 
-export type Option<T> = { value: T; label: string; description?: string; disabled?: string; icon?: LucideIcon };
+export type Option<T> = { value: T; label: string; description?: string; disabled?: string; icon?: ComponentType<LucideProps> };
 
 /**
  * One place's settings behind a button, for dashboard rows. The button says who can read it and

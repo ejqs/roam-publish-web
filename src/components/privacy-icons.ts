@@ -1,17 +1,17 @@
 import { EyeOffIcon, LockIcon, UsersIcon } from "lucide-react";
-import { LockEIcon } from "@/components/lock-e-icon";
+import { EncryptedIcon } from "@/components/encrypted-icon";
 import { ACCESS_LABELS, LISTING_LABELS } from "@/components/manage/labels";
 import type { Access } from "@/db/schema";
 
 /**
  * One icon per privacy state, everywhere a page's privacy shows: the dashboard's controls and
  * badges, list rows, the unlock screen and the title of a published page. A password is a lock; encryption
- * adds an E to it.
+ * is the lock with an E beside it.
  */
 export const PRIVACY_ICONS = {
   unlisted: EyeOffIcon,
   password: LockIcon,
-  encrypted: LockEIcon,
+  encrypted: EncryptedIcon,
   members: UsersIcon,
 } as const;
 

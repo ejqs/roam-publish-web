@@ -1,13 +1,13 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
-import { useRef } from "react";
+import type { LucideProps } from "lucide-react";
+import { type ComponentType, useRef } from "react";
 import { cn } from "cn";
 
 export type Segment<T extends string> = {
   value: T;
   label: string;
-  icon?: LucideIcon;
+  icon?: ComponentType<LucideProps>;
   /** Why it can't be chosen right now; shown as its tooltip. */
   disabled?: string;
 };
