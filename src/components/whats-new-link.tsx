@@ -11,7 +11,15 @@ export async function whatsNewState() {
  * The "What's new" link with its dot. `quietClassName` applies only while there's nothing new, so a
  * faded footer can fade it too and let it stand out when there is.
  */
-export async function WhatsNewLink({ className, quietClassName }: { className?: string; quietClassName?: string }) {
+export async function WhatsNewLink({
+  className,
+  quietClassName,
+  version,
+}: {
+  className?: string;
+  quietClassName?: string;
+  version?: string;
+}) {
   const { dot, plant } = await whatsNewState();
-  return <WhatsNewAnchor dot={dot} plant={plant} className={dot ? className : `${className ?? ""} ${quietClassName ?? ""}`} />;
+  return <WhatsNewAnchor dot={dot} plant={plant} version={version} className={dot ? className : `${className ?? ""} ${quietClassName ?? ""}`} />;
 }
