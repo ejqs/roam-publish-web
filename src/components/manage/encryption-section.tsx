@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { setEncryption } from "@/app/(app)/dashboard/encryption-actions";
 import { updateEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
-import { LockEIcon } from "@/components/lock-e-icon";
+import { EncryptedIcon } from "@/components/encrypted-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -136,7 +136,7 @@ export function EncryptionSection({
         {data.encrypted ? (
           <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-success" />
         ) : (
-          <LockEIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <EncryptedIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <label htmlFor={`encrypt-${data.publicationId}`} className="font-medium">
@@ -304,7 +304,7 @@ export function EncryptionSection({
                   Cancel
                 </Button>
                 <Button onClick={encrypt} disabled={pending}>
-                  <LockEIcon /> Encrypt
+                  <EncryptedIcon /> Encrypt
                 </Button>
               </DialogFooter>
             </>
