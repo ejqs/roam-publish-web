@@ -7,7 +7,7 @@ import { jobsWarmedUp, runAlerts } from "./alerts";
 import { runStatusBanner } from "./status-banner";
 import { flushMetrics } from "./telemetry-stats";
 import { umamiDisabledReason } from "./umami";
-import { countrySweep, fullSweep, hotSweep, withClient } from "./view-sync";
+import { countrySweep, fullSweep, hotSweep, hotSweepInterval, withClient } from "./view-sync";
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -17,6 +17,14 @@ const countryBudget = () => {
   const n = Number(process.env.UMAMI_COUNTRY_CALLS);
   return Number.isInteger(n) && n > 0 ? n : 10;
 };
+
+/** Umami calls the sync may spend an hour. Umami Cloud allows 50 every 15 seconds per key; this leaves room for others. */
+const umamiCallsPerHour = () => {
+  const n = Number(process.env.UMAMI_CALLS_PER_HOUR);
+  return Number.isInteger(n) && n > 0 ? n : 1000;
+};
+
+const date = (v: unknown) => (typeof v === "string" ? new Date(v) : null);
 
 export const FULL_SWEEP = "umami-full-sweep";
 
@@ -80,15 +88,27 @@ export const JOBS: JobDef[] = [
   {
     name: "umami-hot-sweep",
     label: "Umami views: pages being read",
-    description: "Adds views since the full sweep to pages read since then. Bigger counts update less often.",
-    schedule: "Hourly",
+    description:
+      "Adds views since the full sweep to pages read since then. Pages gaining views fast update sooner, and quiet ones wait up to a day.",
+    schedule: "Every 15 minutes to hourly, paced to the Umami API budget",
     intervalMs: HOUR,
+    nextIntervalMs: (cursor) =>
+      hotSweepInterval({
+        callsPerRun: typeof cursor.lastCalls === "number" ? cursor.lastCalls : 1,
+        callsPerHour: umamiCallsPerHour(),
+        // The country sweep runs every 5 minutes.
+        reservedPerHour: countryBudget() * 12,
+        rateLimitedAt: date(cursor.lastRateLimitedAt),
+      }),
     exclusive: true,
     disabledReason: umamiDisabledReason,
     run: async ({ cursor }) => {
       const full = await db.query.backgroundJob.findFirst({ where: eq(backgroundJob.name, FULL_SWEEP) });
-      const at = typeof full?.cursor.fullSweepAt === "string" ? new Date(full.cursor.fullSweepAt) : null;
-      return withClient(cursor, (client) => hotSweep(client, at));
+      return withClient(cursor, async (client) => {
+        const result = await hotSweep(client, date(full?.cursor.fullSweepAt));
+        cursor.lastCalls = client.calls;
+        return result;
+      });
     },
   },
   {

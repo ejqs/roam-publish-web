@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { showsViewCountries, viewsMode } from "@/lib/views";
 import { backoffMs, countCalls, type JobDef, jobStatus, type JobRow } from "@/lib/jobs";
-import { parseUmamiPath, refreshInterval } from "@/lib/view-sync";
+import { blendVelocity, hotSweepInterval, MIN_SYNC, parseUmamiPath, refreshInterval, surged, syncInterval } from "@/lib/view-sync";
 import { countryName, foldCountries, formatViews, totalViews } from "@/lib/views";
 
 describe("formatViews", () => {
@@ -76,6 +76,56 @@ test("bigger counts wait longer between updates, never more than a day", () => {
   expect(refreshInterval(500)).toBe(3 * h);
   expect(refreshInterval(5000)).toBe(12 * h);
   expect(refreshInterval(5_000_000)).toBe(24 * h);
+});
+
+describe("velocity pacing", () => {
+  const h = 60 * 60_000;
+  test("unknown velocity falls back to the size brackets", () => {
+    expect(syncInterval(500, null)).toBe(refreshInterval(500));
+  });
+  test("about the time to grow 2%, between 15 minutes and a day", () => {
+    expect(syncInterval(1000, 20)).toBe(h); // 20 views to go at 20 an hour
+    expect(syncInterval(1000, 5)).toBe(4 * h);
+    expect(syncInterval(10, 100)).toBe(MIN_SYNC);
+    expect(syncInterval(100_000, 1)).toBe(24 * h);
+    expect(syncInterval(50, 0)).toBe(24 * h);
+  });
+  test("a fast page refreshes sooner than a still one of the same size", () => {
+    expect(syncInterval(20_000, 2000)).toBeLessThan(syncInterval(20_000, 10));
+  });
+  test("blends half the new rate with half the old, never below zero", () => {
+    expect(blendVelocity(null, 30, 3 * h)).toBe(10);
+    expect(blendVelocity(20, 30, 3 * h)).toBe(15);
+    expect(blendVelocity(null, -5, h)).toBe(0);
+    // Short gaps count as at least 15 minutes, so one burst doesn't read as thousands an hour.
+    expect(blendVelocity(null, 10, 60_000)).toBe(40);
+  });
+  test("a surge is at least 10 views and a tenth of the count", () => {
+    expect(surged(50, 9)).toBe(false);
+    expect(surged(50, 10)).toBe(true);
+    expect(surged(1000, 99)).toBe(false);
+    expect(surged(1000, 100)).toBe(true);
+  });
+});
+
+describe("hot sweep pace", () => {
+  const h = 60 * 60_000;
+  const base = { callsPerHour: 1000, reservedPerHour: 120, rateLimitedAt: null };
+  test("every 15 minutes while the calls fit the budget", () => {
+    expect(hotSweepInterval({ ...base, callsPerRun: 1 })).toBe(MIN_SYNC);
+    expect(hotSweepInterval({ ...base, callsPerRun: 200 })).toBe(MIN_SYNC);
+  });
+  test("slows down as each run needs more calls, at most hourly", () => {
+    expect(hotSweepInterval({ ...base, callsPerRun: 440 })).toBe(30 * 60_000);
+    expect(hotSweepInterval({ ...base, callsPerRun: 5000 })).toBe(h);
+    expect(hotSweepInterval({ ...base, callsPerHour: 100, callsPerRun: 1 })).toBe(h);
+  });
+  test("hourly for an hour after a rate limit", () => {
+    const now = new Date();
+    const at = new Date(now.getTime() - 30 * 60_000);
+    expect(hotSweepInterval({ ...base, callsPerRun: 1, rateLimitedAt: at, now })).toBe(h);
+    expect(hotSweepInterval({ ...base, callsPerRun: 1, rateLimitedAt: new Date(now.getTime() - 2 * h), now })).toBe(MIN_SYNC);
+  });
 });
 
 describe("viewsMode", () => {

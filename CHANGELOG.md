@@ -47,6 +47,8 @@ bullet with each pull request that changes something they'd notice; leave out te
   the published page; only the link itself is left out (also with the next version of the Roam extension).
 - A page or block shown as a Document or Numbered list in Roam now shows its nested blocks the same way, instead of
   switching back to bullets below the first level.
+- View counts on pages getting a rush of readers now catch up within about 15 minutes, while counts that aren't
+  moving refresh less often.
 
 ### Site
 - You can now reach us at support@roam.pub.

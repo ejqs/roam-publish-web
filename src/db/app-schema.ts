@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   customType,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -604,8 +605,10 @@ export const pageViews = pgTable(
     baseline: integer("baseline").notNull().default(0),
     views: integer("views").notNull().default(0),
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
-    /** The hot sweep leaves the count alone until then; bigger counts wait longer. */
+    /** The hot sweep leaves the count alone until then, unless it surges; faster pages wait less. */
     nextSyncAt: timestamp("next_sync_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Views gained per hour, smoothed over syncs; null until measured. Paces nextSyncAt. */
+    viewsPerHour: doublePrecision("views_per_hour"),
     /** Top countries, most views first. Null until first looked up. */
     countries: jsonb("countries").$type<ViewCountry[]>(),
     countriesSyncedAt: timestamp("countries_synced_at", { withTimezone: true }),

@@ -17,9 +17,12 @@ import { foldCountries, MIN_SHOWN_VIEWS, viewsMode } from "./views";
  *
  * - The daily full sweep reads every path's all-time views in one paged call and resets each page's
  *   baseline, so every page is refreshed at least once a day.
- * - The hourly hot sweep reads only the views since the full sweep, so the pages that come back are
- *   the ones being read right now. Each gets baseline + recent views, unless its count is big
- *   enough that it's not due yet: bigger counts change less in their rounded form.
+ * - The hot sweep reads only the views since the full sweep, so the pages that come back are the
+ *   ones being read right now. Each gets baseline + recent views when it's due. How soon it's due
+ *   again follows its velocity (views per hour, smoothed): fast pages come back within minutes,
+ *   pages whose count isn't moving wait up to a day. A page that surges is updated even before
+ *   it's due. The sweep itself costs the same calls however many pages it updates, so it paces
+ *   its own runs to the Umami API budget (hotSweepInterval).
  * - Countries take one call per page, so they get a budget per run, most overdue first: pages
  *   showing them publicly on a listed place, then unlisted ones, and only then pages whose count
  *   only their managers see.
@@ -30,12 +33,58 @@ import { foldCountries, MIN_SHOWN_VIEWS, viewsMode } from "./views";
 const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
 
-/** How long a count stands before the hot sweep updates it again. */
+/** The shortest a count stands, and the hot sweep's fastest pace. */
+export const MIN_SYNC = 15 * 60_000;
+
+/** How long a count stands when its velocity isn't known yet: bigger counts change less in their rounded form. */
 export function refreshInterval(views: number) {
   if (views < 100) return HOUR;
   if (views < 1000) return 3 * HOUR;
   if (views < 10_000) return 12 * HOUR;
   return DAY;
+}
+
+/**
+ * How long a count stands before the hot sweep updates it again: about the time it takes to grow
+ * by 2% at its current pace, between 15 minutes and a day.
+ */
+export function syncInterval(views: number, perHour: number | null) {
+  if (perHour === null) return refreshInterval(views);
+  if (perHour <= 0) return DAY;
+  const step = Math.max(1, views * 0.02);
+  return Math.min(DAY, Math.max(MIN_SYNC, Math.round((step / perHour) * HOUR)));
+}
+
+/** Views per hour after gaining `gained` over `ms`, half the new rate and half the old. */
+export function blendVelocity(old: number | null, gained: number, ms: number) {
+  const now = Math.max(0, gained) / (Math.max(ms, MIN_SYNC) / HOUR);
+  return old === null ? now : (now + old) / 2;
+}
+
+/** A jump big enough to update a count before it's due. */
+export const surged = (oldViews: number, gained: number) => gained >= Math.max(MIN_SHOWN_VIEWS, oldViews * 0.1);
+
+/**
+ * How long until the next hot sweep: its last run's calls spread over the hourly budget left after
+ * the country sweep, between 15 minutes and an hour. More pages to read means more calls per run,
+ * so a bigger site sweeps less often; a rate limit in the last hour slows it to hourly.
+ */
+export function hotSweepInterval({
+  callsPerRun,
+  callsPerHour,
+  reservedPerHour,
+  rateLimitedAt,
+  now = new Date(),
+}: {
+  callsPerRun: number;
+  callsPerHour: number;
+  reservedPerHour: number;
+  rateLimitedAt: Date | null;
+  now?: Date;
+}) {
+  if (rateLimitedAt && now.getTime() - rateLimitedAt.getTime() < HOUR) return HOUR;
+  const budget = Math.max(1, callsPerHour - reservedPerHour);
+  return Math.min(HOUR, Math.max(MIN_SYNC, Math.ceil((Math.max(1, callsPerRun) / budget) * HOUR)));
 }
 
 /** Which refresh bracket a count is in; moving brackets moves a page up the country queue. */
@@ -172,6 +221,7 @@ async function upsert(rows: Row[]) {
     views: sql`excluded.views`,
     syncedAt: sql`excluded.synced_at`,
     nextSyncAt: sql`excluded.next_sync_at`,
+    viewsPerHour: sql`excluded.views_per_hour`,
     countriesNextSyncAt: sql`excluded.countries_next_sync_at`,
   };
   for (const part of chunks(rows.filter((r) => r.publicationId)))
@@ -180,14 +230,19 @@ async function upsert(rows: Row[]) {
     await db.insert(pageViews).values(part).onConflictDoUpdate({ target: pageViews.entryId, set });
 }
 
-type Existing = Pick<typeof pageViews.$inferSelect, "id" | "publicationId" | "entryId" | "baseline" | "views" | "nextSyncAt" | "countriesNextSyncAt">;
+type Existing = Pick<
+  typeof pageViews.$inferSelect,
+  "id" | "publicationId" | "entryId" | "baseline" | "views" | "syncedAt" | "nextSyncAt" | "viewsPerHour" | "countriesNextSyncAt"
+>;
 const existingCols = {
   id: pageViews.id,
   publicationId: pageViews.publicationId,
   entryId: pageViews.entryId,
   baseline: pageViews.baseline,
   views: pageViews.views,
+  syncedAt: pageViews.syncedAt,
   nextSyncAt: pageViews.nextSyncAt,
+  viewsPerHour: pageViews.viewsPerHour,
   countriesNextSyncAt: pageViews.countriesNextSyncAt,
 };
 
@@ -201,16 +256,21 @@ export async function fullSweep(client: UmamiClient, cursor: Record<string, unkn
   const places = await resolvePlaces(rows);
   const existing = new Map((await db.select(existingCols).from(pageViews)).map((r) => [keyOf(r), r]));
   await upsert(
-    [...places.values()].map((p) => ({
-      publicationId: p.publicationId,
-      entryId: p.entryId,
-      path: p.path,
-      baseline: p.views,
-      views: p.views,
-      syncedAt: now,
-      nextSyncAt: new Date(now.getTime() + refreshInterval(p.views)),
-      countriesNextSyncAt: countriesDue(existing.get(p.key), p.views, now),
-    })),
+    [...places.values()].map((p) => {
+      const old = existing.get(p.key);
+      const perHour = old ? blendVelocity(old.viewsPerHour, p.views - old.views, now.getTime() - old.syncedAt.getTime()) : null;
+      return {
+        publicationId: p.publicationId,
+        entryId: p.entryId,
+        path: p.path,
+        baseline: p.views,
+        views: p.views,
+        syncedAt: now,
+        nextSyncAt: new Date(now.getTime() + syncInterval(p.views, perHour)),
+        viewsPerHour: perHour,
+        countriesNextSyncAt: countriesDue(old, p.views, now),
+      };
+    }),
   );
   // Pages Umami no longer reports (unpublished, made unlisted, renamed graph) stop showing a count.
   // Only when the sweep saw everything, or a cut-off list would wipe real counts.
@@ -235,6 +295,7 @@ export async function hotSweep(client: UmamiClient, fullSweepAt: Date | null, no
       existing.set(keyOf(r), r);
 
   let waiting = 0;
+  let surges = 0;
   const added: Row[] = [];
   for (const p of list) {
     const old = existing.get(p.key);
@@ -252,23 +313,29 @@ export async function hotSweep(client: UmamiClient, fullSweepAt: Date | null, no
       });
       continue;
     }
-    if (old.nextSyncAt > now) {
-      waiting++;
-      continue;
-    }
     const views = old.baseline + p.views;
+    const gained = views - old.views;
+    if (old.nextSyncAt > now) {
+      if (!surged(old.views, gained)) {
+        waiting++;
+        continue;
+      }
+      surges++;
+    }
+    const perHour = blendVelocity(old.viewsPerHour, gained, now.getTime() - old.syncedAt.getTime());
     await db
       .update(pageViews)
       .set({
         views,
         syncedAt: now,
-        nextSyncAt: new Date(now.getTime() + refreshInterval(views)),
+        nextSyncAt: new Date(now.getTime() + syncInterval(views, perHour)),
+        viewsPerHour: perHour,
         countriesNextSyncAt: countriesDue(old, views, now),
       })
       .where(eq(pageViews.id, old.id));
   }
   await upsert(added);
-  return { calls: client.calls, paths: rows.length, updated: list.length - waiting - added.length, added: added.length, waiting };
+  return { calls: client.calls, paths: rows.length, updated: list.length - waiting - added.length, added: added.length, waiting, surged: surges };
 }
 
 /** SQL twin of viewsMode (lib/gates.ts). */
@@ -296,7 +363,7 @@ export async function countrySweep(
   const flags = sql`coalesce(${countriesSql(publication.showViewCountries, graph.showViewCountries)}, ${countriesSql(collectionEntry.showViewCountries, collection.showViewCountries)})`;
   const priority = sql<number>`case when ${mode} = 'show' and ${flags} then (case when ${listed} then 0 else 1 end) else 2 end`;
   const due = await db
-    .select({ id: pageViews.id, path: pageViews.path, views: pageViews.views, priority })
+    .select({ id: pageViews.id, path: pageViews.path, views: pageViews.views, viewsPerHour: pageViews.viewsPerHour, priority })
     .from(pageViews)
     .leftJoin(publication, eq(publication.id, pageViews.publicationId))
     .leftJoin(graph, eq(graph.id, publication.graphId))
@@ -317,7 +384,8 @@ export async function countrySweep(
         .set({
           countries: foldCountries(rows),
           countriesSyncedAt: now,
-          countriesNextSyncAt: new Date(now.getTime() + refreshInterval(row.views)),
+          // One call per page, so never more than hourly.
+          countriesNextSyncAt: new Date(now.getTime() + Math.max(HOUR, syncInterval(row.views, row.viewsPerHour))),
         })
         .where(eq(pageViews.id, row.id));
       done++;

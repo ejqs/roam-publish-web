@@ -110,27 +110,61 @@ describe("hot sweep", () => {
     umami.restore();
 
     const calls: UmamiCall[] = [];
+    let recent = 5;
     umami = fakeUmami((call) => {
       calls.push(call);
       return [
-        { x: "/notes/aaa", y: 20 },
+        { x: "/notes/aaa", y: recent },
         { x: "/notes/ddd/new", y: 3 },
       ];
     });
-    // Within the hour, the listed page's count of 90 isn't due yet.
+    // Within the hour, 5 more views on a count of 90 isn't a surge, and it isn't due yet.
     const early = await hotSweep(new UmamiClient(), t0, new Date(t0.getTime() + 30 * 60_000));
-    expect(early).toMatchObject({ waiting: 1, added: 1 });
+    expect(early).toMatchObject({ waiting: 1, added: 1, surged: 0 });
     expect(calls[0].startAt).toBe(t0.getTime());
     expect(await rowFor({ publicationId: listed.id })).toMatchObject({ views: 90 });
     expect(await rowFor({ publicationId: fresh.id })).toMatchObject({ views: 3, baseline: 0 });
 
+    recent = 20;
     const later = new Date(t0.getTime() + 2 * HOUR);
     expect(await hotSweep(new UmamiClient(), t0, later)).toMatchObject({ updated: 2 });
     const row = await rowFor({ publicationId: listed.id });
-    expect(row).toMatchObject({ views: 110, baseline: 90 });
+    expect(row).toMatchObject({ views: 110, baseline: 90, viewsPerHour: 10 });
     // 90 → 110 crossed into the next bracket: countries are due again now.
     expect(row!.countriesNextSyncAt.getTime()).toBe(later.getTime());
-    expect(row!.nextSyncAt.getTime()).toBe(later.getTime() + 3 * HOUR);
+    // 2% of 110 at 10 views an hour: under 15 minutes, so 15.
+    expect(row!.nextSyncAt.getTime()).toBe(later.getTime() + 15 * 60_000);
+  });
+
+  test("a page that surges is updated before it's due", async () => {
+    const { listed } = await setup();
+    const t0 = new Date();
+    umami = fakeUmami(() => [{ x: "/notes/aaa", y: 5000 }]);
+    await fullSweep(new UmamiClient(), {}, t0);
+    umami.restore();
+    // With no velocity yet, a count of 5000 waits 12 hours.
+    expect((await rowFor({ publicationId: listed.id }))!.nextSyncAt.getTime()).toBe(t0.getTime() + 12 * HOUR);
+
+    umami = fakeUmami(() => [{ x: "/notes/aaa", y: 800 }]);
+    const at = new Date(t0.getTime() + HOUR);
+    expect(await hotSweep(new UmamiClient(), t0, at)).toMatchObject({ surged: 1, updated: 1, waiting: 0 });
+    const row = await rowFor({ publicationId: listed.id });
+    expect(row).toMatchObject({ views: 5800, viewsPerHour: 800 });
+    // 2% of 5800 is 116 views, under 9 minutes at this pace: back in 15.
+    expect(row!.nextSyncAt.getTime()).toBe(at.getTime() + 15 * 60_000);
+  });
+
+  test("a count that stopped moving waits a day", async () => {
+    const { listed } = await setup();
+    const t0 = new Date();
+    umami = fakeUmami(() => [{ x: "/notes/aaa", y: 40 }]);
+    await fullSweep(new UmamiClient(), {}, t0);
+    expect((await rowFor({ publicationId: listed.id }))!.viewsPerHour).toBeNull();
+    const next = new Date(t0.getTime() + 24 * HOUR);
+    await fullSweep(new UmamiClient(), {}, next);
+    const row = await rowFor({ publicationId: listed.id });
+    expect(row).toMatchObject({ views: 40, viewsPerHour: 0 });
+    expect(row!.nextSyncAt.getTime()).toBe(next.getTime() + 24 * HOUR);
   });
 
   test("waits for the first full sweep", async () => {
@@ -217,6 +251,29 @@ describe("job runner", () => {
     const row = await db.query.backgroundJob.findFirst({ where: eq(backgroundJob.name, j.name) });
     expect(row).toMatchObject({ lastError: "boom", consecutiveFailures: 1, failCount: 1, cursor: { tried: true } });
     expect(row!.nextDueAt.getTime()).toBeGreaterThanOrEqual(before + 2 * HOUR);
+  });
+
+  test("a job can pace its next run, up to its interval", async () => {
+    let pace = 15 * 60_000;
+    const j = job(async () => ({ done: 1 }), { name: "paced-job", nextIntervalMs: () => pace });
+    const before = Date.now();
+    await runJob(j);
+    let row = await db.query.backgroundJob.findFirst({ where: eq(backgroundJob.name, j.name) });
+    expect(row!.nextDueAt.getTime() - before).toBeGreaterThanOrEqual(pace);
+    expect(row!.nextDueAt.getTime() - before).toBeLessThan(HOUR);
+
+    pace = 5 * HOUR;
+    await requestRun(j.name);
+    const again = Date.now();
+    await runJob(j);
+    row = await db.query.backgroundJob.findFirst({ where: eq(backgroundJob.name, j.name) });
+    expect(row!.nextDueAt.getTime() - again).toBeLessThanOrEqual(HOUR + 5000);
+  });
+
+  test("the hot sweep paces itself to the calls its last run took", () => {
+    const hot = JOBS.find((j) => j.name === "umami-hot-sweep")!;
+    expect(hot.nextIntervalMs!({ lastCalls: 1 })).toBe(15 * 60_000);
+    expect(hot.nextIntervalMs!({ lastCalls: 1, lastRateLimitedAt: new Date().toISOString() })).toBe(HOUR);
   });
 
   test("Umami jobs are off without an API key", async () => {
