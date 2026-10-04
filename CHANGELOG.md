@@ -36,6 +36,8 @@ bullet with each pull request that changes something they'd notice; leave out te
 - A block with several embeds shows all of them, not just the first (with the next version of the Roam extension).
 - A Roam Publish status link pasted under an ordinary block no longer hides that block and everything under it from
   the published page; only the link itself is left out (also with the next version of the Roam extension).
+- A page or block shown as a Document or Numbered list in Roam now shows its nested blocks the same way, instead of
+  switching back to bullets below the first level.
 
 ### Site
 - You can now reach us at support@roam.pub.

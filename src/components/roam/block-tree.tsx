@@ -185,7 +185,7 @@ function Block({
       {embed}
       {special}
       {!kind && node.children.length > 0 && (
-        <BlockList nodes={node.children} links={links} viewType={node.viewType} asides={asides} nested />
+        <BlockList nodes={node.children} links={links} viewType={node.viewType ?? viewType} asides={asides} nested />
       )}
     </li>
   );
