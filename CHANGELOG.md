@@ -9,7 +9,8 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 
 ### Security
 - Fixed: **Moderation pages** could be read without an admin account, which would have exposed account emails
-  and reports. Each one now checks who's asking. No one was affected: there were no users on roam.pub yet.
+  and reports. Each one now checks who's asking. There were no users on the website yet for this vulnerability
+  to be taken advantage of.
 
 ## 0.7.2 (2026-10-05)
 
