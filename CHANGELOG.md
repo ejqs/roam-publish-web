@@ -12,6 +12,8 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
   reports. Each one now checks who's asking.
 
 ### Dashboard
+- Improved: **Members** of a graph or collection see each other by name. Only the owner, who invites by
+  email, sees everyone's email address.
 - Improved: **RSS feed** shows as off and can't be changed while a graph's front page or a collection's page is
   locked, since the feed only works while anyone can open it. Unlocking brings back what you had.
 
