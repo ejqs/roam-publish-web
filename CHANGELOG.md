@@ -5,6 +5,12 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.7.2 (2026-10-05)
+
+### Dashboard
+- Improved: **Members** of a graph or collection see each other by name. Only the owner, who invites by
+  email, sees everyone's email address.
+
 ## 0.7.1 (2026-10-05)
 
 ### Security
@@ -12,8 +18,6 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
   reports. Each one now checks who's asking.
 
 ### Dashboard
-- Improved: **Members** of a graph or collection see each other by name. Only the owner, who invites by
-  email, sees everyone's email address.
 - Improved: **RSS feed** shows as off and can't be changed while a graph's front page or a collection's page is
   locked, since the feed only works while anyone can open it. Unlocking brings back what you had.
 
