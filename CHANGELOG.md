@@ -7,6 +7,10 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 
 ## 0.7.1 (2026-10-05)
 
+### Security
+- Fixed: **Moderation pages** could be read without an admin account, exposing account emails and
+  reports. Each one now checks who's asking.
+
 ### Dashboard
 - Improved: **RSS feed** shows as off and can't be changed while a graph's front page or a collection's page is
   locked, since the feed only works while anyone can open it. Unlocking brings back what you had.

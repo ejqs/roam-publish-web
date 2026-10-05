@@ -3,9 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db } from "@/db";
 import { moderationAction, user } from "@/db/schema";
+import { requireAdminPage } from "@/lib/admin";
 import { ADMIN_PAGE_SIZE, fmtDate, Pager, param, parsePage, STACKED_TABLE } from "../ui";
 
 export default async function AdminLogPage(props: PageProps<"/admin/log">) {
+  await requireAdminPage("/admin/log");
   const page = parsePage(param((await props.searchParams).page));
   const [[{ total }], rows] = await Promise.all([
     db.select({ total: count() }).from(moderationAction),

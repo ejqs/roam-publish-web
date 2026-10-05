@@ -3,6 +3,7 @@ import { BannerView } from "@/components/banner-view";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/db";
 import { announcement } from "@/db/schema";
+import { requireAdminPage } from "@/lib/admin";
 import { jobStatus } from "@/lib/jobs";
 import { jobByName } from "@/lib/jobs-registry";
 import { BANNER_HOLD_MS, BANNER_WINDOW_MS, IMPACTS, RUNS_TO_SHOW } from "@/lib/status-banner";
@@ -15,6 +16,7 @@ export const metadata = { title: "Announcement · Admin" };
 const DAY = 24 * 60 * 60_000;
 
 export default async function AdminAnnouncementPage() {
+  await requireAdminPage("/admin/announcement");
   const now = new Date();
   const job = jobByName("status-banner")!;
   const [rows, [jobRow]] = await Promise.all([

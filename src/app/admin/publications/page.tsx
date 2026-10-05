@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db } from "@/db";
 import { graph, publication, report, user } from "@/db/schema";
+import { requireAdminPage } from "@/lib/admin";
 import { publicationPath } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
 import { PublicationActions } from "../target-actions";
@@ -18,6 +19,7 @@ const openReports = sql<number>`(
 )`;
 
 export default async function AdminPublicationsPage(props: PageProps<"/admin/publications">) {
+  await requireAdminPage("/admin/publications");
   const search = await props.searchParams;
   const q = param(search.q);
   const f = param(search.filter);

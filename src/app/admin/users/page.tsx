@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db } from "@/db";
 import { graph, profile, user, usernameAlias } from "@/db/schema";
-import { isAdmin } from "@/lib/admin";
+import { isAdmin, requireAdminPage } from "@/lib/admin";
 import { UserActions } from "../target-actions";
 import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
 import { FormerUsernames, UsernameControls } from "./username-controls";
@@ -15,6 +15,7 @@ type Filter = (typeof FILTERS)[number];
 const graphCount = sql<number>`(select count(*)::int from ${graph} where ${graph.userId} = ${user.id})`;
 
 export default async function AdminUsersPage(props: PageProps<"/admin/users">) {
+  await requireAdminPage("/admin/users");
   const search = await props.searchParams;
   const q = param(search.q);
   const f = param(search.filter);

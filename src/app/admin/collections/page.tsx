@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db } from "@/db";
 import { collection, collectionEntry, report, user } from "@/db/schema";
+import { requireAdminPage } from "@/lib/admin";
 import { collectionPath } from "@/lib/publications";
 import { CollectionActions, UserActions } from "../target-actions";
 import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
@@ -17,6 +18,7 @@ const openReports = sql<number>`(
 )`;
 
 export default async function AdminCollectionsPage(props: PageProps<"/admin/collections">) {
+  await requireAdminPage("/admin/collections");
   const search = await props.searchParams;
   const q = param(search.q);
   const f = param(search.filter);
