@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { collectionEntry, graph, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
-import { emptyTree, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
+import { emptyTree, encryptNewPageIfWanted, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
 import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
@@ -231,6 +231,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     })
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
+  await encryptNewPageIfWanted(created.id);
   const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
   logChange(page, "publishing", `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
   return json(req, {

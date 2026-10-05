@@ -284,6 +284,7 @@ describe("the graph password", () => {
       views: "show",
       showViewCountries: false,
       newPagesInGraph: true,
+      encryptNewPages: false,
       defaultCollections: [],
       password,
       clearPassword: false,

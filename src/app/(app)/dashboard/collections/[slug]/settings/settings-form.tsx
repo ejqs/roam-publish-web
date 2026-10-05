@@ -20,12 +20,12 @@ type Initial = {
   description: string;
   indexAccess: Access;
   defaultAccess: Access;
+  encryptNewPages: boolean;
   showAuthors: boolean;
   views: ViewsMode;
   showViewCountries: boolean;
   indexable: boolean;
   searchListed: boolean;
-  featured: boolean;
   discoverable: boolean;
   rss: boolean;
 };
@@ -51,12 +51,13 @@ export function CollectionSettingsForm({
   const [access, setAccess] = useState<ContainerAccess>({
     indexAccess: initial.indexAccess,
     defaultAccess: initial.defaultAccess,
+    encryptNewPages: initial.encryptNewPages,
     password: "",
     clearPassword: false,
   });
   const [hasPassword, setHasPassword] = useState(initialHasPassword);
   const [pending, start] = useTransition();
-  const passwordProtected = access.indexAccess === "password";
+  const locked = access.indexAccess !== "open";
   const discoverOk = access.indexAccess === "open" && s.indexable;
   const set = <K extends keyof Initial>(k: K) => (v: Initial[K]) => setS((p) => ({ ...p, [k]: v }));
 
@@ -117,8 +118,13 @@ export function CollectionSettingsForm({
           <Toggle
             id="c-indexable"
             label="Search engines"
-            description="Let search engines index the collection page and its open, listed pages."
-            checked={s.indexable}
+            description={
+              locked
+                ? "Not available while the collection page is locked."
+                : "Let search engines index the collection page and its open, listed pages."
+            }
+            checked={s.indexable && !locked}
+            disabled={locked}
             onChange={set("indexable")}
           />
           <FieldSeparator />
@@ -126,12 +132,12 @@ export function CollectionSettingsForm({
             id="c-search-listed"
             label="Listed pages in site search"
             description={
-              passwordProtected
-                ? "Not available while the collection page needs a password."
+              locked
+                ? "Not available while the collection page is locked."
                 : "Find this collection's listed pages from roam.pub/search. Pages on Discover are always searchable."
             }
-            checked={s.searchListed && !passwordProtected}
-            disabled={passwordProtected}
+            checked={s.searchListed && !locked}
+            disabled={locked}
             onChange={set("searchListed")}
           />
           <FieldSeparator />
@@ -142,19 +148,6 @@ export function CollectionSettingsForm({
             checked={s.discoverable && discoverOk}
             disabled={!discoverOk}
             onChange={set("discoverable")}
-          />
-          <FieldSeparator />
-          <Toggle
-            id="c-featured"
-            label="List new pages on Discover"
-            description={
-              discoverOk && access.defaultAccess === "open"
-                ? "Pages added from now on start out on Discover. Existing pages keep their own setting."
-                : "Only open pages in an open, indexable collection can go on Discover."
-            }
-            checked={s.featured && discoverOk && access.defaultAccess === "open"}
-            disabled={!discoverOk || access.defaultAccess !== "open"}
-            onChange={set("featured")}
           />
           <FieldSeparator />
           <Toggle

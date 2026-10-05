@@ -5,11 +5,15 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
-## 0.6.3 (2026-10-05)
+## 0.7.0 (2026-10-05)
 
 ### Dashboard
-- Improved: **Listed pages in site search** is off and can't be turned on for a graph or collection whose front page
-  needs a password.
+- New: **Encrypt new password pages** in a graph's or collection's access settings stores pages you add from now on
+  encrypted with its password, so not even roam.pub can read them.
+- Improved: Collections no longer have a **List new pages on Discover** setting. The extension already asks whether
+  to list each page on Discover when you publish it.
+- Improved: **Search engines** and **Listed pages in site search** are off and can't be turned on while a graph's front
+  page or a collection's page is locked, since neither can reach it.
 
 ## 0.6.2 (2026-10-05)
 

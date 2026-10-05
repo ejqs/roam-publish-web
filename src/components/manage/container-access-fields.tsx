@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FieldDescription, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import type { Access } from "@/db/schema";
 import { Choice, readOptions } from "./choice";
@@ -15,6 +16,8 @@ import { Choice, readOptions } from "./choice";
 export type ContainerAccess = {
   indexAccess: Access;
   defaultAccess: Access;
+  /** Pages added from now on that are password-protected are encrypted. */
+  encryptNewPages: boolean;
   /** A new password, or "" to keep the current one. */
   password: string;
   clearPassword: boolean;
@@ -73,6 +76,22 @@ export function ContainerAccessFields({
           here, and each page can be changed on its own. Protected pages are never listed on Discover.
         </FieldDescription>
         <Choice id={`${kind}-default`} value={value.defaultAccess} options={readOptions(label)} onChange={(defaultAccess) => set({ defaultAccess })} />
+        <div className="flex items-start justify-between gap-4 pt-2">
+          <div className="flex flex-col gap-1">
+            <FieldLabel htmlFor={`${kind}-encrypt-new`}>Encrypt new password pages</FieldLabel>
+            <FieldDescription>
+              {value.defaultAccess === "password"
+                ? `Pages ${kind === "graph" ? "published" : "added"} from now on are stored encrypted with the ${kind} password, so not even roam.pub can read them. Needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Pages already here aren't changed.`
+                : `Only applies while new pages start as Password.`}
+            </FieldDescription>
+          </div>
+          <Switch
+            id={`${kind}-encrypt-new`}
+            checked={value.encryptNewPages && value.defaultAccess === "password"}
+            disabled={value.defaultAccess !== "password"}
+            onCheckedChange={(encryptNewPages) => set({ encryptNewPages })}
+          />
+        </div>
         {pageCount > 0 && (
           <ApplyToPagesDialog
             kind={kind}

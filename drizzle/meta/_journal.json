@@ -246,6 +246,20 @@
       "when": 1791127368024,
       "tag": "0034_whats_new_stamp",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1791171323901,
+      "tag": "0035_drop_featured",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791171325262,
+      "tag": "0036_collection_encrypt_new_pages",
+      "breakpoints": true
     }
   ]
 }

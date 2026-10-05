@@ -34,6 +34,7 @@ export function GraphAccessForm({
     views: ViewsMode;
     showViewCountries: boolean;
     newPagesInGraph: boolean;
+    encryptNewPages: boolean;
     defaultCollections: string[];
   };
   /** Collections the owner belongs to. */
@@ -42,6 +43,7 @@ export function GraphAccessForm({
   const [access, setAccess] = useState<ContainerAccess>({
     indexAccess: initial.indexAccess,
     defaultAccess: initial.defaultAccess,
+    encryptNewPages: initial.encryptNewPages,
     password: "",
     clearPassword: false,
   });

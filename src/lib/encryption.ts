@@ -575,3 +575,43 @@ export async function sealedPageTitles(l: LockRef) {
     .orderBy(publication.title);
   return rows.map((r) => r.title);
 }
+
+/**
+ * Encrypts a page just created when one of its places asks for that (`encryptNewPages`) and every
+ * shown place is password-protected with a key pair to seal to. Otherwise leaves it readable:
+ * encrypting is never a reason to refuse a publish.
+ */
+export async function encryptNewPageIfWanted(publicationId: string) {
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ pub: publication, g: graph })
+      .from(publication)
+      .innerJoin(graph, eq(graph.id, publication.graphId))
+      .where(eq(publication.id, publicationId))
+      .limit(1);
+    if (!row || row.pub.encrypted) return;
+    const entries = await tx
+      .select({ c: collection })
+      .from(collectionEntry)
+      .innerJoin(collection, eq(collection.id, collectionEntry.collectionId))
+      .where(eq(collectionEntry.publicationId, publicationId));
+    const wanted = (row.pub.inGraph && row.g.encryptNewPages) || entries.some(({ c }) => c.encryptNewPages);
+    if (!wanted) return;
+    const spots = await spotsOf(tx, publicationId);
+    if (unprotectedSpots(spots).length) return;
+    for (const l of locksOf(spots)) if (!(await lockKeyOf(tx, l))) return;
+    const { cipher, needsRepublish } = await sealNewContent(tx, publicationId, row.pub.tree);
+    await tx
+      .update(publication)
+      .set({
+        encrypted: true,
+        cipher,
+        needsRepublish,
+        tree: emptyTree(row.pub.rootUid),
+        searchText: "",
+        tags: [],
+        contentHash: sealHash(publicationId, plainHash(row.pub)),
+      })
+      .where(eq(publication.id, publicationId));
+  });
+}

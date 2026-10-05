@@ -127,7 +127,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           label: c.name,
           defaultAccess: c.defaultAccess,
           // Mirrors addEntry in lib/collections.ts.
-          defaultListing: (c.featured && c.indexAccess === "open" && c.defaultAccess === "open" ? "discover" : "listed") as EntryListing,
+          defaultListing: "listed" as EntryListing,
           hasPassword: !!c.passwordHash,
           showAuthors: c.showAuthors,
           views: c.views,

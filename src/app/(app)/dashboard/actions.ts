@@ -230,7 +230,13 @@ export async function updateGraphSettings(graphId: string, input: Partial<GraphS
     const updated = await db
       .update(graph)
       // The feed lists the front page, so it can't outlive it.
-      .set({ ...s, rss: s.rss && s.frontPage, searchListed: s.searchListed && indexAccess !== "password" })
+      .set({
+        ...s,
+        rss: s.rss && s.frontPage,
+        // Search engines and site search only reach a front page anyone can open.
+        indexable: s.indexable && indexAccess === "open",
+        searchListed: s.searchListed && indexAccess === "open",
+      })
       .where(and(eq(graph.id, graphId), eq(graph.userId, session.user.id)))
       .returning({ name: graph.name });
     if (updated.length === 0) return { ok: false, message: "Graph not found." };
@@ -252,6 +258,7 @@ const GraphAccess = z.object({
   views: z.enum(VIEWS_MODE),
   showViewCountries: z.boolean(),
   newPagesInGraph: z.boolean(),
+  encryptNewPages: z.boolean(),
   /** Collections new pages join; only ones the owner belongs to are kept. */
   defaultCollections: z.array(z.string()).max(50),
   /** A new graph password, or "" to keep the current one. */
@@ -317,8 +324,9 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
           views: s.views,
           showViewCountries: s.showViewCountries,
           newPagesInGraph: s.newPagesInGraph,
-          // A password-protected front page keeps its pages out of site search.
-          ...(s.indexAccess === "password" ? { searchListed: false } : {}),
+          encryptNewPages: s.encryptNewPages,
+          // A locked front page keeps its pages out of search engines and site search.
+          ...(s.indexAccess !== "open" ? { indexable: false, searchListed: false } : {}),
           ...(s.password
             ? { passwordHash: hashPassword(s.password), passwordVersion: g.passwordVersion + 1 }
             : s.clearPassword

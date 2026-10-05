@@ -1,0 +1,1 @@
+ALTER TABLE "collection" ADD COLUMN "encrypt_new_pages" boolean DEFAULT false NOT NULL;

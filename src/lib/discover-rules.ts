@@ -46,7 +46,6 @@ export async function clearGatedCollectionDiscover(collectionId: string) {
           : sql`not (${collectionEntry.access} = 'open' or (${collectionEntry.access} = 'inherit' and ${c.defaultAccess} = 'open'))`,
       ),
     );
-  if (allOff) await db.update(collection).set({ discoverable: false, featured: false }).where(eq(collection.id, collectionId));
-  else if (c.defaultAccess !== "open") await db.update(collection).set({ featured: false }).where(eq(collection.id, collectionId));
+  if (allOff) await db.update(collection).set({ discoverable: false }).where(eq(collection.id, collectionId));
 }
 
