@@ -72,7 +72,11 @@ export function EntryList({
             const place = placeOf(r);
             const access = entry.access === "inherit" ? c.defaultAccess : entry.access;
             return (
-              <li key={entry.id} className={`flex flex-col gap-2 px-2 py-3 ${COLUMNS} sm:py-2`}>
+              <li
+                key={entry.id}
+                id={`entry-${entry.id}`}
+                className={`flex scroll-mt-4 flex-col gap-2 px-2 py-3 ${COLUMNS} sm:py-2`}
+              >
                 <div className="flex min-w-0 items-start gap-2">
                   <span className="flex h-5 w-4 shrink-0 items-center">
                     {selectable.includes(entry.id) && <RowCheckbox id={entry.id} title={pub.title} />}

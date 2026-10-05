@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import { graphPagesPath } from "@/app/(app)/dashboard/filters";
+import { collectionPagesPath, graphPagesPath } from "@/app/(app)/dashboard/filters";
 import { CopyButton } from "@/components/copy-button";
 import { ACCESS_LABELS, LISTING_LABELS, notSearchable } from "@/components/manage/labels";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/db";
 import { pageHistory } from "@/lib/changelog";
+import { canManageEntry, collectionRole } from "@/lib/collections";
 import { collection, collectionEntry, graph, publication, shortlink } from "@/db/schema";
 import { effectiveAccess } from "@/lib/gates";
 import { canManage, graphRole } from "@/lib/graph-access";
@@ -58,9 +59,10 @@ const load = cache(async (id: string) => {
 });
 
 /**
- * A page's status link, for people in its graph: where the page lives now, with links to copy, and
- * its history (the change log, also written into Roam when the graph has a token). Signed-out
- * visitors are sent to log in; anyone else signed in gets a 404, never the page itself.
+ * A page's status link, for people in its graph: where the page lives now, with links to copy and a
+ * Manage button on each place the viewer can manage, and its history (the change log, also written
+ * into Roam when the graph has a token). Signed-out visitors are sent to log in; anyone else signed
+ * in gets a 404, never the page itself.
  */
 export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
   const { id } = await props.params;
@@ -80,6 +82,9 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
         .where(eq(collectionEntry.publicationId, pub.id))
         .orderBy(asc(collectionEntry.addedAt))
     : [];
+  const roles = new Map(
+    await Promise.all([...new Set(entries.map((e) => e.c.id))].map(async (id) => [id, await collectionRole(uid, id)] as const)),
+  );
   const places = pub
     ? [
         ...(pub.inGraph
@@ -92,6 +97,7 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
                   (pub.visibility === "unlisted" ? "Unlisted" : pub.discoverable ? "Discoverable" : "Listed") +
                   notSearchable(pub.visibility === "public" && !pub.discoverable, pub.searchable),
                 access: ACCESS_LABELS[effectiveAccess({ ...g, kind: "graph" }, pub)],
+                manage: canManage(role, uid, pub) ? `${graphPagesPath(g.name)}#pub-${pub.id}` : null,
               },
             ]
           : []),
@@ -101,6 +107,9 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
           url: entryUrl(c.slug, entry.entryUid, pub.title),
           listing: LISTING_LABELS[entry.listing] + notSearchable(entry.listing === "listed", pub.searchable),
           access: ACCESS_LABELS[effectiveAccess({ ...c, kind: "collection" }, entry)],
+          manage: canManageEntry(roles.get(c.id) ?? null, uid, entry)
+            ? `${collectionPagesPath(c.slug)}#entry-${entry.id}`
+            : null,
         })),
       ]
     : [];
@@ -158,18 +167,15 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
                       {p.url}
                     </a>
                   </div>
+                  {p.manage && (
+                    <Link href={p.manage} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                      Manage
+                    </Link>
+                  )}
                   <CopyButton text={p.url} />
                 </li>
               ))}
             </ul>
-          )}
-          {pub && canManage(role, uid, pub) && (
-            <Link
-              href={graphPagesPath(g.name)}
-              className={buttonVariants({ variant: "outline", className: "self-start" })}
-            >
-              Manage on the dashboard
-            </Link>
           )}
         </CardContent>
         <CardFooter className="block p-0">
