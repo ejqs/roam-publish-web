@@ -5,6 +5,14 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.7.0 (2026-10-05)
+
+### Dashboard
+- New: **Encrypt new password pages** in a graph's or collection's access settings stores pages added from now on
+  encrypted with its password, so not even roam.pub can read them. It needs a password of at least 10 characters.
+- Improved: **Search engines** and **Listed pages in site search** show as off and can't be changed while a graph's
+  front page or a collection's page is locked. Unlocking brings back what you had.
+
 ## 0.6.2 (2026-10-05)
 
 ### Dashboard

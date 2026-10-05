@@ -14,7 +14,8 @@ import { DISCOVER_TAG } from "@/lib/discover";
 import { purgeCollection } from "@/lib/deletion";
 import { clearGatedCollectionDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
-import { dropLock, KeysError, setLockPassword } from "@/lib/encryption";
+import { canEncryptWith, dropLock, KeysError, setLockPassword } from "@/lib/encryption";
+import { encryptNewPagesBlocked } from "@/lib/encryption-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { canReceiveInvite } from "@/lib/graph-access";
 import { rateLimit } from "@/lib/rate-limit";
@@ -74,6 +75,7 @@ const Settings = z.object({
   indexable: z.boolean(),
   searchListed: z.boolean(),
   featured: z.boolean(),
+  encryptNewPages: z.boolean(),
   discoverable: z.boolean(),
   rss: z.boolean(),
   password: z.union([z.literal(""), Password]),
@@ -99,6 +101,10 @@ export async function updateCollection(collectionId: string, input: CollectionSe
     const hasPassword = s.password ? true : s.clearPassword ? false : !!c.passwordHash;
     if ((s.indexAccess === "password" || s.defaultAccess === "password") && !hasPassword)
       return { ok: false, message: "Set a collection password to use password access." };
+    // Only kept while new pages start as Password: it does nothing otherwise.
+    const encryptNewPages = s.encryptNewPages && s.defaultAccess === "password";
+    if (encryptNewPages && !(await canEncryptWith({ scope: "collection", id: c.id }, s.password)))
+      return { ok: false, message: encryptNewPagesBlocked("collection") };
     if (!hasPassword && (await pagesNeedingContainerPassword("collection", c.id)))
       return { ok: false, message: "Some pages still use the collection password. Change them first." };
     // Discover only takes open, indexable collections; a gate turns it off (see clearGatedCollectionDiscover).
@@ -127,6 +133,7 @@ export async function updateCollection(collectionId: string, input: CollectionSe
         views: s.views,
         showViewCountries: s.showViewCountries,
         indexable: s.indexable,
+        encryptNewPages,
         searchListed: s.searchListed,
         featured: s.featured && open && s.defaultAccess === "open",
         discoverable: s.discoverable && open,

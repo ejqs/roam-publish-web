@@ -73,6 +73,8 @@ export const graph = pgTable("graph", {
   showViewCountries: boolean("show_view_countries").notNull().default(true),
   /** New pages from the extension are shown in the graph; off means they only join default collections. */
   newPagesInGraph: boolean("new_pages_in_graph").notNull().default(true),
+  /** New pages that end up password-protected here are encrypted when published (lib/encryption.ts). */
+  encryptNewPages: boolean("encrypt_new_pages").notNull().default(false),
   /** RSS feed of the front page's open pages at /{graph}/feed.xml. Needs an open front page. */
   rss: boolean("rss").notNull().default(false),
   /**
@@ -396,6 +398,8 @@ export const collection = pgTable("collection", {
   featured: boolean("featured").notNull().default(false),
   /** The collection itself is listed on /discover. */
   discoverable: boolean("discoverable").notNull().default(false),
+  /** Pages added that end up password-protected here are encrypted when added. */
+  encryptNewPages: boolean("encrypt_new_pages").notNull().default(false),
   /** RSS feed of the collection's open, listed pages at /c/{slug}/feed.xml. Needs an open collection page. */
   rss: boolean("rss").notNull().default(false),
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),

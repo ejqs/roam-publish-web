@@ -48,6 +48,7 @@ export default async function GraphSharingPage(props: PageProps<"/dashboard/[gra
             views: g.views,
             showViewCountries: g.showViewCountries,
             newPagesInGraph: g.newPagesInGraph,
+            encryptNewPages: g.encryptNewPages,
             defaultCollections: defaults.map((d) => d.collectionId),
           }}
           collections={collections.filter((c) => !c.suspendedAt).map((c) => ({ id: c.id, name: c.name }))}

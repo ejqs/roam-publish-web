@@ -20,6 +20,7 @@ type Initial = {
   description: string;
   indexAccess: Access;
   defaultAccess: Access;
+  encryptNewPages: boolean;
   showAuthors: boolean;
   views: ViewsMode;
   showViewCountries: boolean;
@@ -51,11 +52,13 @@ export function CollectionSettingsForm({
   const [access, setAccess] = useState<ContainerAccess>({
     indexAccess: initial.indexAccess,
     defaultAccess: initial.defaultAccess,
+    encryptNewPages: initial.encryptNewPages,
     password: "",
     clearPassword: false,
   });
   const [hasPassword, setHasPassword] = useState(initialHasPassword);
   const [pending, start] = useTransition();
+  const locked = access.indexAccess !== "open";
   const discoverOk = access.indexAccess === "open" && s.indexable;
   const set = <K extends keyof Initial>(k: K) => (v: Initial[K]) => setS((p) => ({ ...p, [k]: v }));
 
@@ -116,16 +119,26 @@ export function CollectionSettingsForm({
           <Toggle
             id="c-indexable"
             label="Search engines"
-            description="Let search engines index the collection page and its open, listed pages."
-            checked={s.indexable}
+            description={
+              locked
+                ? "Not available while the collection page is locked."
+                : "Let search engines index the collection page and its open, listed pages."
+            }
+            checked={s.indexable && !locked}
+            disabled={locked}
             onChange={set("indexable")}
           />
           <FieldSeparator />
           <Toggle
             id="c-search-listed"
             label="Listed pages in site search"
-            description="Find this collection's listed pages from roam.pub/search. Pages on Discover are always searchable."
-            checked={s.searchListed}
+            description={
+              locked
+                ? "Not available while the collection page is locked."
+                : "Find this collection's listed pages from roam.pub/search. Pages on Discover are always searchable."
+            }
+            checked={s.searchListed && !locked}
+            disabled={locked}
             onChange={set("searchListed")}
           />
           <FieldSeparator />

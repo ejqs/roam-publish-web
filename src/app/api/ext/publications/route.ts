@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { collectionEntry, graph, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
-import { emptyTree, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
+import { emptyTree, encryptNewPageIfWanted, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
 import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
@@ -231,8 +231,14 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     })
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
+  // The page is published either way; a failure here leaves it readable behind its password.
+  const encrypted = await encryptNewPageIfWanted(created.id).catch((e) => {
+    console.error("Couldn't encrypt a new page", created.id, e);
+    return false;
+  });
   const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
   logChange(page, "publishing", `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
+  if (encrypted) logChange(page, "access", "Encrypted with password", `encrypted:${created.id}`);
   return json(req, {
     status: "created",
     url,

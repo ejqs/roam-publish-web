@@ -14,7 +14,8 @@ import { Description } from "@/lib/descriptions";
 import { clearGatedGraphDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { graphUnderModeration, purgeGraph } from "@/lib/deletion";
-import { dropLock, dropOrphanLockKeys, KeysError, setLockPassword } from "@/lib/encryption";
+import { canEncryptWith, dropLock, dropOrphanLockKeys, KeysError, setLockPassword } from "@/lib/encryption";
+import { encryptNewPagesBlocked } from "@/lib/encryption-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
@@ -251,6 +252,7 @@ const GraphAccess = z.object({
   views: z.enum(VIEWS_MODE),
   showViewCountries: z.boolean(),
   newPagesInGraph: z.boolean(),
+  encryptNewPages: z.boolean(),
   /** Collections new pages join; only ones the owner belongs to are kept. */
   defaultCollections: z.array(z.string()).max(50),
   /** A new graph password, or "" to keep the current one. */
@@ -282,6 +284,10 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
     const hasPassword = s.password ? true : s.clearPassword ? false : !!g.passwordHash;
     if ((s.indexAccess === "password" || s.defaultAccess === "password") && !hasPassword)
       return { ok: false, message: "Set a graph password to use password access." };
+    // Only kept while new pages start as Password: it does nothing otherwise.
+    const encryptNewPages = s.encryptNewPages && s.defaultAccess === "password";
+    if (encryptNewPages && !(await canEncryptWith({ scope: "graph", id: g.id }, s.password)))
+      return { ok: false, message: encryptNewPagesBlocked("graph") };
     if (
       ((!s.clearPassword && s.password) || s.currentPassword) &&
       !rateLimit(`password:user:${session.user.id}`, 30, 15 * 60 * 1000)
@@ -316,6 +322,7 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
           views: s.views,
           showViewCountries: s.showViewCountries,
           newPagesInGraph: s.newPagesInGraph,
+          encryptNewPages,
           ...(s.password
             ? { passwordHash: hashPassword(s.password), passwordVersion: g.passwordVersion + 1 }
             : s.clearPassword

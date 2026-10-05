@@ -108,16 +108,26 @@ export function GraphListingForm({
           <SettingSwitch
             id="indexable"
             label="Search engines"
-            description="Let search engines index your front page and listed pages. Unlisted pages are never indexed."
-            checked={settings.indexable}
+            description={
+              !indexOpen
+                ? "Not available while the front page is locked."
+                : "Let search engines index your front page and listed pages. Unlisted pages are never indexed."
+            }
+            checked={settings.indexable && indexOpen}
+            disabled={!indexOpen}
             onChange={set("indexable")}
           />
           <FieldSeparator />
           <SettingSwitch
             id="searchListed"
             label="Listed pages in site search"
-            description="Find your listed pages from roam.pub/search. Discoverable pages are always searchable."
-            checked={settings.searchListed}
+            description={
+              !indexOpen
+                ? "Not available while the front page is locked."
+                : "Find your listed pages from roam.pub/search. Discoverable pages are always searchable."
+            }
+            checked={settings.searchListed && indexOpen}
+            disabled={!indexOpen}
             onChange={set("searchListed")}
           />
           <FieldSeparator />

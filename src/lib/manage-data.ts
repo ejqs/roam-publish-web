@@ -159,7 +159,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
         visibility: pub.visibility,
         discoverable: pub.discoverable,
         frontPage: g.frontPage,
-        indexable: g.indexable,
+        // Search engines only reach a front page anyone can open.
+        indexable: g.indexable && g.indexAccess === "open",
         discoverBlocked: discoverBlocked(g),
         state: {
           access: pub.access,

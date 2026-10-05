@@ -132,7 +132,7 @@ export function PublicationList({
                       <Badge variant="outline">{p.visibility === "public" ? "Listed" : "Unlisted"}</Badge>
                     ) : (
                       <AccessMenu
-                        target={{ kind: "graph", publicationId: p.id, frontPage: g.frontPage, indexable: g.indexable }}
+                        target={{ kind: "graph", publicationId: p.id, frontPage: g.frontPage, indexable: g.indexable && g.indexAccess === "open" }}
                         access={p.visibility === "unlisted" ? "unlisted" : p.discoverable ? "discover" : "public"}
                         discoverBlocked={discoverBlocked}
                         place={m.graphPlace}
