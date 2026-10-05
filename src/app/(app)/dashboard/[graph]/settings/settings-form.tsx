@@ -138,11 +138,11 @@ export function GraphListingForm({
               !settings.frontPage
                 ? "Turn on the front page to offer an RSS feed."
                 : !indexOpen
-                  ? "The feed only works while anyone can open the front page. Change that above."
+                  ? "Not available while the front page is locked."
                   : `A feed at roam.pub/${graphName}/feed.xml with pages open to everyone.`
             }
-            checked={settings.rss && settings.frontPage}
-            disabled={!settings.frontPage}
+            checked={settings.rss && settings.frontPage && indexOpen}
+            disabled={!settings.frontPage || !indexOpen}
             onChange={set("rss")}
           />
           <FieldSeparator />
