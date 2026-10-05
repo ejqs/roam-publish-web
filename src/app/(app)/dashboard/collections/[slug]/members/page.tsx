@@ -5,7 +5,7 @@ import { MembersPanel } from "@/components/manage/members-panel";
 import { db } from "@/db";
 import { user } from "@/db/schema";
 import { collectionRole, loadCollection } from "@/lib/collections";
-import { membersOf, pendingInvitesOn } from "@/lib/invites";
+import { memberLabel, membersOf, pendingInvitesOn } from "@/lib/invites";
 import { requireSession } from "@/lib/session";
 import { collectionPagesPath } from "../../../filters";
 import { ResourceHeader, resourceTabs } from "../../../section-tabs";
@@ -20,12 +20,13 @@ export default async function CollectionMembersPage(props: PageProps<"/dashboard
   const role = await collectionRole(session.user.id, c.id);
   if (!role) notFound();
   const isOwner = role === "owner";
+  const viewer = { id: session.user.id, isOwner };
   const path = collectionPagesPath(c.slug);
 
   const [members, invites, owner] = await Promise.all([
     membersOf("collection", c.id),
     isOwner ? pendingInvitesOn("collection", c.id) : [],
-    db.query.user.findFirst({ where: eq(user.id, c.ownerId), columns: { email: true } }),
+    db.query.user.findFirst({ where: eq(user.id, c.ownerId), columns: { id: true, email: true, name: true } }),
   ]);
 
   return (
@@ -41,9 +42,9 @@ export default async function CollectionMembersPage(props: PageProps<"/dashboard
           type="collection"
           targetId={c.id}
           isOwner={isOwner}
-          ownerEmail={owner?.email ?? ""}
+          ownerLabel={owner ? memberLabel({ userId: owner.id, ...owner }, viewer) : ""}
           meId={session.user.id}
-          members={members}
+          members={members.map((m) => ({ userId: m.userId, label: memberLabel(m, viewer) }))}
           invites={invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() }))}
         />
       </div>

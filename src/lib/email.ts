@@ -5,7 +5,10 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
-/** Sends an email (or prints it without RESEND_API_KEY). Returns whether it went. */
+/**
+ * Sends an email. Without RESEND_API_KEY it's printed instead, outside production only: these emails
+ * carry sign-in, reset and delete links, which mustn't end up in the host's logs.
+ */
 export async function sendEmail({
   to,
   subject,
@@ -18,6 +21,10 @@ export async function sendEmail({
   replyTo?: string;
 }) {
   if (!resend) {
+    if (process.env.NODE_ENV === "production") {
+      console.error(`[email] not sent, RESEND_API_KEY is not set: ${subject}`);
+      return false;
+    }
     console.log(`\n[email] to=${to} subject=${subject}\n${text}\n`);
     return true;
   }

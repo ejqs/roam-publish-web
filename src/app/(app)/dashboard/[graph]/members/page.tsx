@@ -5,7 +5,7 @@ import { MembersPanel } from "@/components/manage/members-panel";
 import { db } from "@/db";
 import { graph, user } from "@/db/schema";
 import { graphRole } from "@/lib/graph-access";
-import { membersOf, pendingInvitesOn } from "@/lib/invites";
+import { memberLabel, membersOf, pendingInvitesOn } from "@/lib/invites";
 import { keysOf } from "@/lib/keys";
 import { requireSession } from "@/lib/session";
 import { graphPagesPath } from "../../filters";
@@ -23,19 +23,19 @@ export default async function GraphMembersPage(props: PageProps<"/dashboard/[gra
   const role = await graphRole(session.user.id, g.id);
   if (!role) notFound();
   const isOwner = role === "owner";
+  const viewer = { id: session.user.id, isOwner };
 
   const [members, invites, owner] = await Promise.all([
     membersOf("graph", g.id),
     isOwner ? pendingInvitesOn("graph", g.id) : [],
-    db.query.user.findFirst({ where: eq(user.id, g.userId), columns: { email: true } }),
+    db.query.user.findFirst({ where: eq(user.id, g.userId), columns: { id: true, email: true, name: true } }),
   ]);
   const rows = await Promise.all(
     members.map(async (m) => {
       const key = isOwner ? (await keysOf(m.userId)).find((k) => k.graphId === g.id) : undefined;
       return {
         userId: m.userId,
-        email: m.email,
-        name: m.name,
+        label: memberLabel(m, viewer),
         detail: isOwner
           ? key
             ? `Extension connected${key.lastRequest ? ` · last used ${fmt(key.lastRequest)}` : ""}`
@@ -58,7 +58,7 @@ export default async function GraphMembersPage(props: PageProps<"/dashboard/[gra
           type="graph"
           targetId={g.id}
           isOwner={isOwner}
-          ownerEmail={owner?.email ?? ""}
+          ownerLabel={owner ? memberLabel({ userId: owner.id, ...owner }, viewer) : ""}
           meId={session.user.id}
           members={rows}
           invites={invites.map((i) => ({ ...i, expiresAt: i.expiresAt.toISOString() }))}

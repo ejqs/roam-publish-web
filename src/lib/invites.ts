@@ -273,6 +273,14 @@ export async function removeMember(type: TargetType, targetId: string, memberId:
   return { ok: true, message: actorId === memberId ? "You left." : "Member removed." };
 }
 
+/**
+ * How one person shows in a members list. Emails are for the owner, who invites by them, and for
+ * yourself; other members see the name each person signed up with.
+ */
+export function memberLabel(person: { userId: string; email: string; name: string }, viewer: { id: string; isOwner: boolean }) {
+  return viewer.isOwner || person.userId === viewer.id ? person.email : person.name;
+}
+
 /** Members of a graph or collection, with their emails, oldest first. */
 export async function membersOf(type: TargetType, targetId: string) {
   if (type === "graph")
