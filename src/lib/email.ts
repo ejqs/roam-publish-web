@@ -7,7 +7,8 @@ const resend = process.env.RESEND_API_KEY
 
 /**
  * Sends an email. Without RESEND_API_KEY it's printed instead, outside production only: these emails
- * carry sign-in, reset and delete links, which mustn't end up in the host's logs.
+ * carry sign-in, reset and delete links, which mustn't end up in the host's logs. The tests set
+ * EMAIL_CONSOLE=on to read them, since staging's pre-deploy runs them with NODE_ENV=production.
  */
 export async function sendEmail({
   to,
@@ -21,7 +22,7 @@ export async function sendEmail({
   replyTo?: string;
 }) {
   if (!resend) {
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === "production" && process.env.EMAIL_CONSOLE !== "on") {
       console.error(`[email] not sent, RESEND_API_KEY is not set: ${subject}`);
       return false;
     }

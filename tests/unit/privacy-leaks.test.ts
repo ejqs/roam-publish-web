@@ -17,11 +17,12 @@ describe("members lists", () => {
 
 describe("emails without RESEND_API_KEY", () => {
   const env = process.env as Record<string, string | undefined>;
-  const nodeEnv = env.NODE_ENV;
-  afterEach(() => void (env.NODE_ENV = nodeEnv));
+  const { NODE_ENV, EMAIL_CONSOLE } = env;
+  afterEach(() => Object.assign(env, { NODE_ENV, EMAIL_CONSOLE }));
 
   test("production never prints the body, whose links sign people in", async () => {
     env.NODE_ENV = "production";
+    delete env.EMAIL_CONSOLE;
     const out = spyOn(console, "log");
     const err = spyOn(console, "error").mockImplementation(() => {});
     const sent = await sendEmail({ to: "ann@example.com", subject: "Reset", text: "https://roam.pub/reset?token=secret" });

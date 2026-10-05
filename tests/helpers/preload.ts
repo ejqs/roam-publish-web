@@ -20,6 +20,8 @@ process.env.EXTENSION_DEPOT_URL = "http://github.test/depot/roam-publish.json";
 process.env.EXTENSION_CHANGELOG_URL = "http://github.test/{sha}/CHANGELOG.md";
 process.env.EXTENSION_COMMITS_URL = "http://github.test/commits";
 delete process.env.RESEND_API_KEY;
+// Emails are printed, and read back by tests, even under staging's NODE_ENV=production (lib/email.ts).
+process.env.EMAIL_CONSOLE = "on";
 
 const { request } = await import("./request");
 
