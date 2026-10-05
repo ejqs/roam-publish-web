@@ -5,6 +5,12 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.6.1 (2026-10-05)
+
+### Dashboard
+- Fixed: **Show in roam.pub search** in a page's Manage dialog no longer says people can find the page through a
+  place where search can't reach it, such as a password-protected collection. It says why instead.
+
 ## 0.6.0 (2026-10-05)
 
 ### Published pages

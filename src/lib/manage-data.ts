@@ -17,7 +17,24 @@ export type ContainerDefaults = {
   showAuthors: boolean;
   views: ViewsMode;
   showViewCountries: boolean;
+  /** Why roam.pub search skips every page here, whatever the page chooses, if it does. */
+  searchBlocked?: string;
+  /** Its Listed pages may show in roam.pub search (Discoverable ones always do). */
+  searchListed: boolean;
 };
+
+/** Why roam.pub search skips a graph's or collection's pages, if it does. Mirrors lib/site-search.ts. */
+function searchBlocked(label: string, c: { suspendedAt: Date | null; indexAccess: string; indexable: boolean; frontPage?: boolean }) {
+  return c.suspendedAt
+    ? `${label} is suspended`
+    : c.frontPage === false
+      ? `${label}'s front page is off`
+      : c.indexAccess !== "open"
+        ? `${label}'s page is protected`
+        : !c.indexable
+          ? `search engines are off for ${label}`
+          : undefined;
+}
 
 /** Everything the Manage dialog needs for one page, as plain data for a client component. */
 export type ManageData = {
@@ -115,6 +132,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           showAuthors: c.showAuthors,
           views: c.views,
           showViewCountries: c.showViewCountries,
+          searchBlocked: searchBlocked(c.name, c),
+          searchListed: c.searchListed,
           discoverBlocked: c.suspendedAt
             ? "This collection is suspended."
             : c.indexAccess !== "open"
@@ -158,6 +177,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           showAuthors: g.showAuthors,
           views: g.views,
           showViewCountries: g.showViewCountries,
+          searchBlocked: searchBlocked(g.name, g),
+          searchListed: g.searchListed,
         },
       },
       entries,
