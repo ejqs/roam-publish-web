@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { whatsNewStamp } from "@/db/schema";
 import { forgetWhatsNew, loadWeb, newSince, parseSeen, seenValue, whatsNew } from "@/lib/whats-new";
@@ -56,24 +56,38 @@ describe("website entries", () => {
     expect(first.length).toBeGreaterThan(10);
     expect(first.every((e) => e.stampedAt.getTime() === e.date.getTime())).toBe(true);
 
-    // A new deploy with one more bullet: drop one stamp to stand in for it.
-    const added = first[0];
-    await db.delete(whatsNewStamp).where(eq(whatsNewStamp.id, added.id));
+    // A new deploy with a new version: drop its stamps to stand in for it.
+    const added = first.filter((e) => e.version === first[0].version);
+    const addedIds = added.map((e) => e.id);
+    await db.delete(whatsNewStamp).where(inArray(whatsNewStamp.id, addedIds));
     forgetWhatsNew();
     const deploy = Date.parse("2026-10-05T15:42:00Z");
     const second = await loadWeb(deploy);
-    expect(second.find((e) => e.id === added.id)!.stampedAt).toEqual(new Date(deploy));
-    expect(second.filter((e) => e.stampedAt.getTime() === deploy)).toHaveLength(1);
+    expect(second.filter((e) => e.stampedAt.getTime() === deploy).map((e) => e.id).sort()).toEqual(addedIds.sort());
 
-    // Someone who visited before that deploy sees just that entry as new.
-    const seen = parseSeen(seenValue(first.filter((e) => e.id !== added.id)) ?? undefined);
-    expect([...newSince(second, seen)]).toEqual([added.id]);
+    // Someone who visited before that deploy sees just those entries as new.
+    const seen = parseSeen(seenValue(first.filter((e) => !addedIds.includes(e.id))) ?? undefined);
+    expect([...newSince(second, seen)].sort()).toEqual(addedIds.sort());
 
     // Restarting the same deploy changes nothing.
     forgetWhatsNew();
     const third = await loadWeb(deploy + 60 * 60_000);
     expect(third.map((e) => e.stampedAt.getTime())).toEqual(second.map((e) => e.stampedAt.getTime()));
   });
+});
+
+test("a bullet reworded after its release keeps its release's place", async () => {
+  const first = await loadWeb(Date.parse("2026-10-05T12:00:00Z"));
+  const old = first.find((e) => e.version && first.some((o) => o !== e && o.version === e.version))!;
+  // The reworded bullet is a new id in a version that's already out: stand in for it with a fresh id.
+  await db.delete(whatsNewStamp).where(inArray(whatsNewStamp.id, [old.id]));
+  await db.update(whatsNewStamp).set({ firstSeenAt: new Date("2026-10-05T12:30:00Z") }).where(
+    inArray(whatsNewStamp.id, first.filter((e) => e.version === old.version && e.id !== old.id).map((e) => e.id)),
+  );
+  forgetWhatsNew();
+  const later = await loadWeb(Date.parse("2026-10-06T09:00:00Z"));
+  expect(later.find((e) => e.id === old.id)!.stampedAt).toEqual(new Date("2026-10-05T12:30:00Z"));
+  expect(later.some((e) => e.stampedAt.getTime() === Date.parse("2026-10-06T09:00:00Z"))).toBe(false);
 });
 
 describe("extension entries", () => {

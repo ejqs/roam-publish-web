@@ -12,6 +12,10 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
   and reports. Each one now checks who's asking. There were no users on the website yet for this vulnerability
   to be taken advantage of.
 
+### Site
+- Fixed: **What's new** no longer lists a change again at the top when its wording is corrected after release.
+  It keeps its place with the rest of its version.
+
 ## 0.7.2 (2026-10-05)
 
 ### Dashboard

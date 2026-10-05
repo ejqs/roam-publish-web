@@ -29,7 +29,7 @@ describe("parseChangelog", () => {
     expect(entries.some((e) => /^(New|Improved|Fixed):/.test(e.text))).toBe(false);
     expect(entries.some((e) => e.text.startsWith("**What's new** at `/updates`"))).toBe(true);
     // Continuation lines join the bullet.
-    expect(entries.find((e) => e.text.startsWith("**What's new**"))!.text).toContain("you haven't seen.");
+    expect(entries.find((e) => e.text.startsWith("**What's new** at `/updates`"))!.text).toContain("you haven't seen.");
   });
 
   test("the extension's file: versions and dates; Unreleased needs a date", () => {
