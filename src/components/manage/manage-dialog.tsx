@@ -401,7 +401,8 @@ function searchSkipped(access: ReadAccess, listing: EntryListing, container: Con
 
 /**
  * "Show in roam.pub search", under Visibility control. Discoverable pages are always searchable, so
- * it's locked on. The switch is page-wide; the line under it says whether search reaches the page here.
+ * it's locked on. The setting is page-wide, but where search can't reach the page (say, it's password
+ * protected here) the switch shows off and disabled, and says why.
  */
 function SearchToggle({
   searchable,
@@ -420,11 +421,10 @@ function SearchToggle({
   onChange: (searchable: boolean) => void;
 }) {
   const id = useId();
-  const on = searchable || locked;
-  const here = on && !skipped;
+  const on = !skipped && (searchable || locked);
   return (
     <div className="flex items-start gap-3">
-      {here ? (
+      {on ? (
         <SearchIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       ) : (
         <PRIVACY_ICONS.unsearchable className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -434,16 +434,16 @@ function SearchToggle({
           Show in roam.pub search
         </label>
         <span className="text-xs text-muted-foreground">
-          {!on
-            ? "Kept out of roam.pub/search. It's still Listed."
-            : skipped
-              ? `roam.pub/search can't show it from ${place}: ${skipped}.`
+          {skipped
+            ? `Not in roam.pub/search from ${place}: ${skipped}.`
+            : !on
+              ? "Kept out of roam.pub/search. It's still Listed."
               : locked
                 ? "Discoverable pages are always searchable."
                 : `People can find this page from roam.pub/search, through ${place}.`}
         </span>
       </div>
-      <Switch id={id} checked={on} disabled={disabled || locked} onCheckedChange={onChange} />
+      <Switch id={id} checked={on} disabled={disabled || locked || !!skipped} onCheckedChange={onChange} />
     </div>
   );
 }
