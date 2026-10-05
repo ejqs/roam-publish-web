@@ -11,9 +11,6 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 - Improved: **RSS feed** shows as off and can't be changed while a graph's front page or a collection's page is
   locked, since the feed only works while anyone can open it. Unlocking brings back what you had.
 
-### Site
-- Fixed: **Setting it up** no longer shows "Daily Notes" and "Roam Depot" as dotted links that go nowhere.
-
 ## 0.7.0 (2026-10-05)
 
 ### Dashboard
