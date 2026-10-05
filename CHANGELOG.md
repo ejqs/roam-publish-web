@@ -5,7 +5,7 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
-## 0.7.2 (2026-10-05)
+## 0.7.3 (2026-10-05)
 
 ### Dashboard
 - Improved: **Members** of a graph or collection see each other by name. Only the owner, who invites people
