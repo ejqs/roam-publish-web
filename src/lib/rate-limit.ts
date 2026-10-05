@@ -34,6 +34,10 @@ export function rateLimit(key: string, max: number, windowMs: number) {
  * The client's address as our proxy saw it, for rate limiting. X-Real-IP is set by the proxy; the
  * first X-Forwarded-For entry is whatever the client sent, so only the last one (added by the
  * proxy) is used. Same order as better-auth's ipAddressHeaders in auth.ts.
+ *
+ * Checked on staging (2026-10-05): Railway's edge overwrites an X-Real-IP the client sends. Six
+ * failed sign-ins, each with a different spoofed X-Real-IP, still hit the limit (429) on the 4th.
+ * So it can't be forged to dodge these limits; no need to re-test unless the host changes.
  */
 export function clientIp(headers: Headers) {
   return (

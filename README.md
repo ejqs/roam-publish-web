@@ -17,7 +17,8 @@ bun run db:migrate
 bun dev
 ```
 
-Without `RESEND_API_KEY`, verification and reset emails are printed to the server console.
+Without `RESEND_API_KEY`, verification and reset emails are printed to the server console, except in production,
+where they aren't sent and an error is logged instead (their links must never reach the host's logs).
 
 ## Tests
 

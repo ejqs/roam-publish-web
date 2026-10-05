@@ -16,7 +16,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { FieldDescription } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
-export type MemberRow = { userId: string; email: string; name: string; detail?: string };
+/** `label` is the email for the owner and for yourself, else the name (lib/invites.ts `memberLabel`). */
+export type MemberRow = { userId: string; label: string; detail?: string };
 export type InviteRow = { id: string; email: string; kind: "member" | "transfer"; expiresAt: string };
 
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { dateStyle: "medium" });
@@ -29,7 +30,7 @@ export function MembersPanel({
   type,
   targetId,
   isOwner,
-  ownerEmail,
+  ownerLabel,
   meId,
   members,
   invites,
@@ -37,7 +38,7 @@ export function MembersPanel({
   type: "graph" | "collection";
   targetId: string;
   isOwner: boolean;
-  ownerEmail: string;
+  ownerLabel: string;
   meId: string;
   members: MemberRow[];
   invites: InviteRow[];
@@ -70,13 +71,13 @@ export function MembersPanel({
       <CardContent className="flex flex-col gap-4 text-sm">
         <ul className="divide-y rounded-sm border">
           <li className="flex items-center justify-between gap-2 px-3 py-2">
-            <span className="truncate">{ownerEmail}</span>
+            <span className="truncate">{ownerLabel}</span>
             <Badge variant="outline">Owner</Badge>
           </li>
           {members.map((m) => (
             <li key={m.userId} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
               <div className="flex min-w-0 flex-col">
-                <span className="truncate">{m.email}</span>
+                <span className="truncate">{m.label}</span>
                 {m.detail && <span className="text-xs text-muted-foreground">{m.detail}</span>}
               </div>
               <div className="flex gap-1">
@@ -87,7 +88,7 @@ export function MembersPanel({
                       size="sm"
                       disabled={pending}
                       onClick={() => {
-                        if (confirm(`Offer ownership of this ${what} to ${m.email}? Nothing changes until they accept, then you become a member.`))
+                        if (confirm(`Offer ownership of this ${what} to ${m.label}? Nothing changes until they accept, then you become a member.`))
                           run(() => offerTransfer(type, targetId, m.userId));
                       }}
                     >
@@ -99,7 +100,7 @@ export function MembersPanel({
                       className="text-muted-foreground"
                       disabled={pending}
                       onClick={() => {
-                        if (confirm(`Remove ${m.email}?${type === "graph" ? " Their API key stops working; their pages stay." : ""}`))
+                        if (confirm(`Remove ${m.label}?${type === "graph" ? " Their API key stops working; their pages stay." : ""}`))
                           run(() => removeMemberAction(type, targetId, m.userId));
                       }}
                     >
