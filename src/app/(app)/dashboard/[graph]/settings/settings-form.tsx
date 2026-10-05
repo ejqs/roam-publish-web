@@ -63,12 +63,15 @@ export function GraphListingForm({
   graphId,
   graphName,
   indexOpen,
+  indexPassword,
   initial,
 }: {
   graphId: string;
   graphName: string;
   /** Anyone can open the front page; feeds only list open graphs. */
   indexOpen: boolean;
+  /** The front page needs a password, so its pages stay out of site search. */
+  indexPassword: boolean;
   initial: Listing;
 }) {
   const [settings, setSettings] = useState(initial);
@@ -116,8 +119,13 @@ export function GraphListingForm({
           <SettingSwitch
             id="searchListed"
             label="Listed pages in site search"
-            description="Find your listed pages from roam.pub/search. Discoverable pages are always searchable."
-            checked={settings.searchListed}
+            description={
+              indexPassword
+                ? "Not available while the front page needs a password."
+                : "Find your listed pages from roam.pub/search. Discoverable pages are always searchable."
+            }
+            checked={settings.searchListed && !indexPassword}
+            disabled={indexPassword}
             onChange={set("searchListed")}
           />
           <FieldSeparator />

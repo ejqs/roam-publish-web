@@ -221,15 +221,16 @@ export async function updateGraphSettings(graphId: string, input: Partial<GraphS
     }
     const current = await db.query.graph.findFirst({
       where: and(eq(graph.id, graphId), eq(graph.userId, session.user.id)),
-      columns: { frontPage: true, rss: true },
+      columns: { frontPage: true, rss: true, indexAccess: true },
     });
     if (!current) return { ok: false, message: "Graph not found." };
-    const s = { ...current, ...parsed.data };
+    const { indexAccess, ...kept } = current;
+    const s = { ...kept, ...parsed.data };
 
     const updated = await db
       .update(graph)
       // The feed lists the front page, so it can't outlive it.
-      .set({ ...s, rss: s.rss && s.frontPage })
+      .set({ ...s, rss: s.rss && s.frontPage, searchListed: s.searchListed && indexAccess !== "password" })
       .where(and(eq(graph.id, graphId), eq(graph.userId, session.user.id)))
       .returning({ name: graph.name });
     if (updated.length === 0) return { ok: false, message: "Graph not found." };
@@ -316,6 +317,8 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
           views: s.views,
           showViewCountries: s.showViewCountries,
           newPagesInGraph: s.newPagesInGraph,
+          // A password-protected front page keeps its pages out of site search.
+          ...(s.indexAccess === "password" ? { searchListed: false } : {}),
           ...(s.password
             ? { passwordHash: hashPassword(s.password), passwordVersion: g.passwordVersion + 1 }
             : s.clearPassword

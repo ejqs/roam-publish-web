@@ -56,6 +56,7 @@ export function CollectionSettingsForm({
   });
   const [hasPassword, setHasPassword] = useState(initialHasPassword);
   const [pending, start] = useTransition();
+  const passwordProtected = access.indexAccess === "password";
   const discoverOk = access.indexAccess === "open" && s.indexable;
   const set = <K extends keyof Initial>(k: K) => (v: Initial[K]) => setS((p) => ({ ...p, [k]: v }));
 
@@ -124,8 +125,13 @@ export function CollectionSettingsForm({
           <Toggle
             id="c-search-listed"
             label="Listed pages in site search"
-            description="Find this collection's listed pages from roam.pub/search. Pages on Discover are always searchable."
-            checked={s.searchListed}
+            description={
+              passwordProtected
+                ? "Not available while the collection page needs a password."
+                : "Find this collection's listed pages from roam.pub/search. Pages on Discover are always searchable."
+            }
+            checked={s.searchListed && !passwordProtected}
+            disabled={passwordProtected}
             onChange={set("searchListed")}
           />
           <FieldSeparator />

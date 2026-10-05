@@ -57,6 +57,7 @@ export default async function GraphSharingPage(props: PageProps<"/dashboard/[gra
           graphId={g.id}
           graphName={g.name}
           indexOpen={g.indexAccess === "open"}
+          indexPassword={g.indexAccess === "password"}
           initial={{
             frontPage: g.frontPage,
             indexable: g.indexable,

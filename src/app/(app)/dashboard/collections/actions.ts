@@ -127,7 +127,7 @@ export async function updateCollection(collectionId: string, input: CollectionSe
         views: s.views,
         showViewCountries: s.showViewCountries,
         indexable: s.indexable,
-        searchListed: s.searchListed,
+        searchListed: s.searchListed && s.indexAccess !== "password",
         featured: s.featured && open && s.defaultAccess === "open",
         discoverable: s.discoverable && open,
         rss: s.rss,

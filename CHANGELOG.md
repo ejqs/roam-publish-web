@@ -5,6 +5,12 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.6.3 (2026-10-05)
+
+### Dashboard
+- Improved: **Listed pages in site search** is off and can't be turned on for a graph or collection whose front page
+  needs a password.
+
 ## 0.6.2 (2026-10-05)
 
 ### Dashboard
