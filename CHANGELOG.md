@@ -7,15 +7,17 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 
 ## 0.7.3 (2026-10-05)
 
-### Dashboard
-- Improved: **Members** of a graph or collection see each other by name. Only the owner, who invites people
-  by email, sees their email addresses.
-
-## 0.7.1 (2026-10-05)
-
 ### Security
 - Fixed: **Moderation pages** could be read without an admin account, which would have exposed account emails
   and reports. Each one now checks who's asking. No one was affected: there were no users on roam.pub yet.
+
+## 0.7.2 (2026-10-05)
+
+### Dashboard
+- Improved: **Members** of a graph or collection see each other by name. Only the owner, who invites by
+  email, sees everyone's email address.
+
+## 0.7.1 (2026-10-05)
 
 ### Dashboard
 - Improved: **RSS feed** shows as off and can't be changed while a graph's front page or a collection's page is
