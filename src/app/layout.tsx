@@ -27,6 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Script
             src="https://cloud.umami.is/script.js"
             data-website-id={UMAMI_WEBSITE_ID}
+            data-performance="true"
             strategy="afterInteractive"
           />
         )}

@@ -65,7 +65,7 @@ const outline = [
   ]),
   block("**Analytics**", [
     block(
-      "The website uses [Umami](https://umami.is) (Umami Cloud) for aggregate statistics: page views, referrers, browsers, devices and countries. It sets no cookies and doesn't track you across sites.",
+      "The website uses [Umami](https://umami.is) (Umami Cloud) for aggregate statistics: page views, referrers, browsers, devices, countries and page load speed (Core Web Vitals). It sets no cookies and doesn't track you across sites.",
     ),
     block(
       "Published pages can show their view count and readers' countries, from these numbers plus signed-in readers. Countries with fewer than 3 views are grouped together. Page owners can hide view counts or turn them off.",
