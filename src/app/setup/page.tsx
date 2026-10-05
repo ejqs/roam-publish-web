@@ -13,9 +13,9 @@ const outline = [
   block("You'll need an active [Roam Research](https://roamresearch.com) account."),
   block("[[Sign up]] for Roam Publish."),
   block(
-    "Connect your personal graph with a temporary append-only token. It adds one block to your [[Daily Notes]] to prove the graph is yours.",
+    "Connect your personal graph with a temporary append-only token. It adds one block to your Daily Notes to prove the graph is yours.",
   ),
-  block("Install Roam Publish from [[Roam Depot]], then paste your API key from the dashboard into its settings."),
+  block("Install Roam Publish from Roam Depot, then paste your API key from the dashboard into its settings."),
   block("Shared graph? Whoever connects it first owns it here and invites everyone else, who each get their own key."),
   block("Right-click any page or block → **Publish**."),
 ];

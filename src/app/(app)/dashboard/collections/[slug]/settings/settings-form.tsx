@@ -168,11 +168,12 @@ export function CollectionSettingsForm({
             id="c-rss"
             label="RSS feed"
             description={
-              access.indexAccess === "open"
-                ? `Offer a feed at roam.pub/c/${slug}/feed.xml. Only open, listed pages are included.`
-                : "The feed only works while anyone can open the collection page."
+              locked
+                ? "Not available while the collection page is locked."
+                : `Offer a feed at roam.pub/c/${slug}/feed.xml. Only open, listed pages are included.`
             }
-            checked={s.rss}
+            checked={s.rss && !locked}
+            disabled={locked}
             onChange={set("rss")}
           />
         </FieldGroup>

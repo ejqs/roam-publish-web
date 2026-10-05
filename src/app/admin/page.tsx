@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { db } from "@/db";
 import { collection, graph, profile, publication, report, user } from "@/db/schema";
+import { requireAdminPage } from "@/lib/admin";
 import { graphPath } from "@/lib/graphs";
 import { collectionPath, publicationPath } from "@/lib/publications";
 import { REPORT_REASONS } from "@/lib/report-reasons";
@@ -20,6 +21,7 @@ type Status = (typeof STATUSES)[number];
 const SCAN_LIMIT = 2000;
 
 export default async function ReportsPage(props: PageProps<"/admin">) {
+  await requireAdminPage("/admin");
   const search = await props.searchParams;
   const s = param(search.status);
   const status: Status = STATUSES.includes(s as Status) ? (s as Status) : "open";
