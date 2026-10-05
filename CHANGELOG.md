@@ -8,8 +8,8 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 ## 0.6.1 (2026-10-05)
 
 ### Dashboard
-- Fixed: **Show in roam.pub search** in a page's Manage dialog no longer says people can find the page through a
-  place where search can't reach it, such as a password-protected collection. It says why instead.
+- Fixed: **Show in roam.pub search** in a page's Manage dialog is off and can't be turned on where search can't show
+  the page, such as a password-protected collection, and says why.
 
 ## 0.6.0 (2026-10-05)
 
