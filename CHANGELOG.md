@@ -5,6 +5,17 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.7.3 (2026-10-05)
+
+### Security
+- Fixed: **Moderation pages** could be read without an admin account, which would have exposed account emails
+  and reports. Each one now checks who's asking. There were no users on the website yet for this vulnerability
+  to be taken advantage of.
+
+### Site
+- Fixed: **What's new** no longer lists a change again at the top when its wording is corrected after release.
+  It keeps its place with the rest of its version.
+
 ## 0.7.2 (2026-10-05)
 
 ### Dashboard
@@ -12,10 +23,6 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
   email, sees everyone's email address.
 
 ## 0.7.1 (2026-10-05)
-
-### Security
-- Fixed: **Moderation pages** could be read without an admin account, which would have exposed account emails
-  and reports. Each one now checks who's asking. No one was affected: there were no users on roam.pub yet.
 
 ### Dashboard
 - Improved: **RSS feed** shows as off and can't be changed while a graph's front page or a collection's page is

@@ -129,18 +129,36 @@ export function mergeEntries(...lists: Entry[][]): Entry[] {
 /**
  * Stamps entries not stamped yet with `at(entry)`, and returns them all with their stamps. A stamp, once
  * written, never moves.
+ *
+ * Entries are told apart by their text, so a bullet reworded after its release reads as a new entry. It
+ * takes the time its version already went live instead, or /updates would list it again on top under an
+ * old version number.
  */
 async function stamp(entries: Entry[], source: Source, at: (e: Entry) => Date): Promise<Entry[]> {
   if (!entries.length) return entries;
-  await db
-    .insert(whatsNewStamp)
-    .values(entries.map((e) => ({ id: e.id, source, firstSeenAt: at(e) })))
-    .onConflictDoNothing();
-  const rows = await db
-    .select({ id: whatsNewStamp.id, at: whatsNewStamp.firstSeenAt })
-    .from(whatsNewStamp)
-    .where(inArray(whatsNewStamp.id, entries.map((e) => e.id)));
-  const byId = new Map(rows.map((r) => [r.id, r.at]));
+  const stamped = async () =>
+    new Map(
+      (
+        await db
+          .select({ id: whatsNewStamp.id, at: whatsNewStamp.firstSeenAt })
+          .from(whatsNewStamp)
+          .where(inArray(whatsNewStamp.id, entries.map((e) => e.id)))
+      ).map((r) => [r.id, r.at]),
+    );
+  const before = await stamped();
+  const released = new Map<string, Date>();
+  for (const e of entries) {
+    const t = before.get(e.id);
+    const prev = e.version ? released.get(e.version) : undefined;
+    if (t && e.version && (!prev || t > prev)) released.set(e.version, t);
+  }
+  const missing = entries.filter((e) => !before.has(e.id));
+  if (missing.length)
+    await db
+      .insert(whatsNewStamp)
+      .values(missing.map((e) => ({ id: e.id, source, firstSeenAt: (e.version && released.get(e.version)) || at(e) })))
+      .onConflictDoNothing();
+  const byId = missing.length ? await stamped() : before;
   return entries.map((e) => ({ ...e, stampedAt: byId.get(e.id) ?? e.stampedAt }));
 }
 
