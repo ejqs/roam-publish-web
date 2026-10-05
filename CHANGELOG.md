@@ -5,6 +5,12 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.6.0 (2026-10-05)
+
+### Published pages
+- New: A page's status link has a **Manage** button on each place it's in that you can manage, opening that graph's
+  or collection's dashboard at the page.
+
 ## 0.5.0 (2026-10-04)
 
 ### Site

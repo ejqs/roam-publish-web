@@ -1,7 +1,7 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { graph, type Node, publication, shortlink } from "@/db/schema";
+import { collectionEntry, graph, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
 import { emptyTree, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
@@ -78,6 +78,19 @@ export const GET = withRoute("GET /api/ext/publications", async (req: Request) =
   const links = new Map(
     (await db.select().from(shortlink).where(eq(shortlink.graphId, ctx.graphId))).map((l) => [l.rootUid, l]),
   );
+  // How many collections each page is in; with its graph place, the extension opens the status link
+  // instead of one of them when there's more than one.
+  const inCollections = new Map(
+    rows.length
+      ? (
+          await db
+            .select({ id: collectionEntry.publicationId, n: count() })
+            .from(collectionEntry)
+            .where(inArray(collectionEntry.publicationId, rows.map((p) => p.id)))
+            .groupBy(collectionEntry.publicationId)
+        ).map((r) => [r.id, r.n])
+      : [],
+  );
   return json(req, {
     changeLog: await changeLogStatusOf(ctx.graphId),
     publications: rows.map((p) => ({
@@ -87,6 +100,7 @@ export const GET = withRoute("GET /api/ext/publications", async (req: Request) =
       url: urls.get(p.id),
       shortUrl: links.has(p.rootUid) ? shortUrl(links.get(p.rootUid)!.id) : null,
       anchorUid: links.get(p.rootUid)?.anchorUid ?? null,
+      places: (p.inGraph ? 1 : 0) + (inCollections.get(p.id) ?? 0),
       contentHash: plainHash(p),
       visibility: p.visibility,
       ...extListing(g, p),
