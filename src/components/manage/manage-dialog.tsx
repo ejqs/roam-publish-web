@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import type { ManageData } from "@/lib/manage-data";
+import type { ContainerDefaults, ManageData } from "@/lib/manage-data";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
 import { AccessIcon } from "@/components/privacy-icon";
@@ -72,17 +72,21 @@ export function ManageDialog({
     (g.inGraph && gListing === "discover") ||
     data.entries.some((e) => e.state.listing === "discover" && effective(e.state, e.container.defaultAccess) === "open");
   const encryptionPanel = data.canManagePage ? <EncryptionSection data={data} onChanged={refresh} compact /> : null;
-  // Page-wide, so every place shows the same switch under its Visibility control.
-  const searchPanel = data.canManagePage ? (
-    <PasswordPanel>
-      <SearchToggle
-        searchable={data.searchable}
-        locked={onDiscover}
-        disabled={pending}
-        onChange={(searchable) => run(() => setPageSearchable(data.publicationId, searchable))}
-      />
-    </PasswordPanel>
-  ) : null;
+  // Page-wide, so every place shows the same switch under its Visibility control, saying whether
+  // search reaches the page through that place.
+  const searchPanel = (access: ReadAccess, listing: EntryListing, container: ContainerDefaults) =>
+    data.canManagePage ? (
+      <PasswordPanel>
+        <SearchToggle
+          searchable={data.searchable}
+          locked={onDiscover}
+          skipped={searchSkipped(access, listing, container)}
+          place={container.label}
+          disabled={pending}
+          onChange={(searchable) => run(() => setPageSearchable(data.publicationId, searchable))}
+        />
+      </PasswordPanel>
+    ) : null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -165,7 +169,7 @@ export function ManageDialog({
                   discoverBlocked={g.discoverBlocked}
                   place={g}
                   searchable={data.searchable}
-                  visibilityPanel={searchPanel}
+                  visibilityPanel={searchPanel(gAccess, gListing, g.container)}
                   passwordPanel={
                     <PasswordPanel>
                       <PlacePasswordForm
@@ -222,7 +226,7 @@ export function ManageDialog({
                       discoverBlocked={e.container.discoverBlocked}
                       place={e}
                       searchable={data.searchable}
-                      visibilityPanel={searchPanel}
+                      visibilityPanel={searchPanel(access, listing, e.container)}
                       passwordPanel={
                         <PasswordPanel>
                           <PlacePasswordForm
@@ -386,23 +390,41 @@ function PasswordPanel({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-col gap-3 rounded-sm bg-muted/50 p-3 [&>*+*]:border-t [&>*+*]:pt-3">{children}</div>;
 }
 
-/** "Show in roam.pub search", under Visibility control. Discoverable pages are always searchable, so it's locked on. */
+/** Why roam.pub search doesn't show the page through this place, if it doesn't. Mirrors lib/site-search.ts. */
+function searchSkipped(access: ReadAccess, listing: EntryListing, container: ContainerDefaults) {
+  if (listing === "unlisted") return "it's Unlisted here";
+  if (access === "password") return "it's password protected here";
+  if (access === "members") return "only members can read it here";
+  if (container.searchBlocked) return container.searchBlocked;
+  if (listing === "listed" && !container.searchListed) return `${container.label} keeps its Listed pages out of search`;
+}
+
+/**
+ * "Show in roam.pub search", under Visibility control. Discoverable pages are always searchable, so
+ * it's locked on. The switch is page-wide; the line under it says whether search reaches the page here.
+ */
 function SearchToggle({
   searchable,
   locked,
+  skipped,
+  place,
   disabled,
   onChange,
 }: {
   searchable: boolean;
   locked: boolean;
+  /** Why search doesn't show the page through this place, if it doesn't. */
+  skipped?: string;
+  place: string;
   disabled: boolean;
   onChange: (searchable: boolean) => void;
 }) {
   const id = useId();
   const on = searchable || locked;
+  const here = on && !skipped;
   return (
     <div className="flex items-start gap-3">
-      {on ? (
+      {here ? (
         <SearchIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       ) : (
         <PRIVACY_ICONS.unsearchable className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -412,11 +434,13 @@ function SearchToggle({
           Show in roam.pub search
         </label>
         <span className="text-xs text-muted-foreground">
-          {locked
-            ? "Discoverable pages are always searchable."
-            : on
-              ? "People can find this page from roam.pub/search where it's Listed."
-              : "Kept out of roam.pub/search. It's still Listed."}
+          {!on
+            ? "Kept out of roam.pub/search. It's still Listed."
+            : skipped
+              ? `roam.pub/search can't show it from ${place}: ${skipped}.`
+              : locked
+                ? "Discoverable pages are always searchable."
+                : `People can find this page from roam.pub/search, through ${place}.`}
         </span>
       </div>
       <Switch id={id} checked={on} disabled={disabled || locked} onCheckedChange={onChange} />
