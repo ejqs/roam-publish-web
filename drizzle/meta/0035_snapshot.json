@@ -1,5 +1,5 @@
 {
-  "id": "dd0d221d-a03e-4fbc-9ad0-3c7a7d415099",
+  "id": "2852f20f-a539-4bfd-b7b4-aa847f188191",
   "prevId": "9335247c-af14-41ea-8943-f5e32ff4a031",
   "version": "7",
   "dialect": "postgresql",
@@ -1156,8 +1156,22 @@
           "notNull": true,
           "default": true
         },
+        "featured": {
+          "name": "featured",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "discoverable": {
           "name": "discoverable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "encrypt_new_pages": {
+          "name": "encrypt_new_pages",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,

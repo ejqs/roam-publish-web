@@ -47,6 +47,7 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
             showViewCountries: c.showViewCountries,
             indexable: c.indexable,
             searchListed: c.searchListed,
+            featured: c.featured,
             discoverable: c.discoverable,
             rss: c.rss,
           }}

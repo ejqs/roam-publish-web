@@ -231,9 +231,14 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     })
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
-  await encryptNewPageIfWanted(created.id);
+  // The page is published either way; a failure here leaves it readable behind its password.
+  const encrypted = await encryptNewPageIfWanted(created.id).catch((e) => {
+    console.error("Couldn't encrypt a new page", created.id, e);
+    return false;
+  });
   const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
   logChange(page, "publishing", `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
+  if (encrypted) logChange(page, "access", "Encrypted with password", `encrypted:${created.id}`);
   return json(req, {
     status: "created",
     url,

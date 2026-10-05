@@ -30,7 +30,7 @@ const load = cache(async (username: string) => {
   // Profiles need a live, verified graph behind them; the name stays reserved meanwhile.
   if (!(await hasVerifiedGraph(p.userId))) return null;
   const graphs = await db
-    .select({ name: graph.name, indexable: graph.indexable })
+    .select({ name: graph.name, indexable: graph.indexable, indexAccess: graph.indexAccess })
     .from(graph)
     .where(and(eq(graph.userId, p.userId), eq(graph.frontPage, true), isNull(graph.suspendedAt)))
     .orderBy(graph.name);
@@ -44,7 +44,7 @@ export async function generateMetadata(props: PageProps<"/u/[username]">): Promi
   return {
     title: `@${data.p.username}`,
     description: data.p.bio || undefined,
-    robots: data.graphs.some((g) => g.indexable) ? undefined : { index: false },
+    robots: data.graphs.some((g) => g.indexable && g.indexAccess === "open") ? undefined : { index: false },
   };
 }
 

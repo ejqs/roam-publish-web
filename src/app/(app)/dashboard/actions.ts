@@ -14,7 +14,8 @@ import { Description } from "@/lib/descriptions";
 import { clearGatedGraphDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { graphUnderModeration, purgeGraph } from "@/lib/deletion";
-import { dropLock, dropOrphanLockKeys, KeysError, setLockPassword } from "@/lib/encryption";
+import { canEncryptWith, dropLock, dropOrphanLockKeys, KeysError, setLockPassword } from "@/lib/encryption";
+import { encryptNewPagesBlocked } from "@/lib/encryption-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
@@ -221,22 +222,15 @@ export async function updateGraphSettings(graphId: string, input: Partial<GraphS
     }
     const current = await db.query.graph.findFirst({
       where: and(eq(graph.id, graphId), eq(graph.userId, session.user.id)),
-      columns: { frontPage: true, rss: true, indexAccess: true },
+      columns: { frontPage: true, rss: true },
     });
     if (!current) return { ok: false, message: "Graph not found." };
-    const { indexAccess, ...kept } = current;
-    const s = { ...kept, ...parsed.data };
+    const s = { ...current, ...parsed.data };
 
     const updated = await db
       .update(graph)
       // The feed lists the front page, so it can't outlive it.
-      .set({
-        ...s,
-        rss: s.rss && s.frontPage,
-        // Search engines and site search only reach a front page anyone can open.
-        indexable: s.indexable && indexAccess === "open",
-        searchListed: s.searchListed && indexAccess === "open",
-      })
+      .set({ ...s, rss: s.rss && s.frontPage })
       .where(and(eq(graph.id, graphId), eq(graph.userId, session.user.id)))
       .returning({ name: graph.name });
     if (updated.length === 0) return { ok: false, message: "Graph not found." };
@@ -290,6 +284,10 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
     const hasPassword = s.password ? true : s.clearPassword ? false : !!g.passwordHash;
     if ((s.indexAccess === "password" || s.defaultAccess === "password") && !hasPassword)
       return { ok: false, message: "Set a graph password to use password access." };
+    // Only kept while new pages start as Password: it does nothing otherwise.
+    const encryptNewPages = s.encryptNewPages && s.defaultAccess === "password";
+    if (encryptNewPages && !(await canEncryptWith({ scope: "graph", id: g.id }, s.password)))
+      return { ok: false, message: encryptNewPagesBlocked("graph") };
     if (
       ((!s.clearPassword && s.password) || s.currentPassword) &&
       !rateLimit(`password:user:${session.user.id}`, 30, 15 * 60 * 1000)
@@ -324,9 +322,7 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
           views: s.views,
           showViewCountries: s.showViewCountries,
           newPagesInGraph: s.newPagesInGraph,
-          encryptNewPages: s.encryptNewPages,
-          // A locked front page keeps its pages out of search engines and site search.
-          ...(s.indexAccess !== "open" ? { indexable: false, searchListed: false } : {}),
+          encryptNewPages,
           ...(s.password
             ? { passwordHash: hashPassword(s.password), passwordVersion: g.passwordVersion + 1 }
             : s.clearPassword

@@ -84,6 +84,11 @@ export function ContainerAccessFields({
                 ? `Pages ${kind === "graph" ? "published" : "added"} from now on are stored encrypted with the ${kind} password, so not even roam.pub can read them. Needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Pages already here aren't changed.`
                 : `Only applies while new pages start as Password.`}
             </FieldDescription>
+            {value.encryptNewPages && value.defaultAccess === "password" && value.password && value.password.length < ENCRYPT_PASSWORD_MIN && (
+              <FieldDescription className="text-destructive">
+                The new password is too short to encrypt with.
+              </FieldDescription>
+            )}
           </div>
           <Switch
             id={`${kind}-encrypt-new`}

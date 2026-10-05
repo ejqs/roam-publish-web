@@ -394,6 +394,8 @@ export const collection = pgTable("collection", {
   indexable: boolean("indexable").notNull().default(true),
   /** Listed pages show up in roam.pub site search; pages on Discover always do. */
   searchListed: boolean("search_listed").notNull().default(true),
+  /** Starting listing of new pages: on Discover instead of only listed here. */
+  featured: boolean("featured").notNull().default(false),
   /** The collection itself is listed on /discover. */
   discoverable: boolean("discoverable").notNull().default(false),
   /** Pages added that end up password-protected here are encrypted when added. */

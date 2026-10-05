@@ -26,6 +26,7 @@ type Initial = {
   showViewCountries: boolean;
   indexable: boolean;
   searchListed: boolean;
+  featured: boolean;
   discoverable: boolean;
   rss: boolean;
 };
@@ -148,6 +149,19 @@ export function CollectionSettingsForm({
             checked={s.discoverable && discoverOk}
             disabled={!discoverOk}
             onChange={set("discoverable")}
+          />
+          <FieldSeparator />
+          <Toggle
+            id="c-featured"
+            label="List new pages on Discover"
+            description={
+              discoverOk && access.defaultAccess === "open"
+                ? "Pages added from now on start out on Discover. Existing pages keep their own setting."
+                : "Only open pages in an open, indexable collection can go on Discover."
+            }
+            checked={s.featured && discoverOk && access.defaultAccess === "open"}
+            disabled={!discoverOk || access.defaultAccess !== "open"}
+            onChange={set("featured")}
           />
           <FieldSeparator />
           <Toggle

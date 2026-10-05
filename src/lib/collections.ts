@@ -76,7 +76,7 @@ export async function addEntry(
 ) {
   return db.transaction(async (tx) => {
     const [row] = await tx
-      .select({ pub: publication, graphName: graph.name, defaultAccess: collection.defaultAccess })
+      .select({ pub: publication, graphName: graph.name, featured: collection.featured, defaultAccess: collection.defaultAccess, open: sql<boolean>`${collection.indexAccess} = 'open' and ${collection.defaultAccess} = 'open'` })
       .from(publication)
       .innerJoin(graph, eq(graph.id, publication.graphId))
       .innerJoin(collection, eq(collection.id, collectionId))
@@ -102,7 +102,8 @@ export async function addEntry(
         collectionId,
         publicationId,
         entryUid,
-        listing: "listed",
+        // New pages start from the collection's Discover default.
+        listing: row.featured && row.open ? "discover" : "listed",
         // Who can read starts as the collection's current default, like a new graph page.
         access: row.defaultAccess,
         addedBy,

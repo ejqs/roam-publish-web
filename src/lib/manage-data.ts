@@ -127,7 +127,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           label: c.name,
           defaultAccess: c.defaultAccess,
           // Mirrors addEntry in lib/collections.ts.
-          defaultListing: "listed" as EntryListing,
+          defaultListing: (c.featured && c.indexAccess === "open" && c.defaultAccess === "open" ? "discover" : "listed") as EntryListing,
           hasPassword: !!c.passwordHash,
           showAuthors: c.showAuthors,
           views: c.views,
@@ -159,7 +159,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
         visibility: pub.visibility,
         discoverable: pub.discoverable,
         frontPage: g.frontPage,
-        indexable: g.indexable,
+        // Search engines only reach a front page anyone can open.
+        indexable: g.indexable && g.indexAccess === "open",
         discoverBlocked: discoverBlocked(g),
         state: {
           access: pub.access,

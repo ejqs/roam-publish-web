@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
 import { setEncryption } from "@/app/(app)/dashboard/encryption-actions";
 import { updateGraphAccess } from "@/app/(app)/dashboard/actions";
+import { updateCollection } from "@/app/(app)/dashboard/collections/actions";
 import {
   addToCollection,
   bulkUpdatePublications,
@@ -16,7 +17,7 @@ import { unlock } from "@/app/unlock/actions";
 import { GateNotice } from "@/components/gate-notice";
 import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";
-import { collectionEntry, graph, lockKey, type Node, publication, publicationKey } from "@/db/schema";
+import { collection, collectionEntry, graph, graphDefaultCollection, lockKey, type Node, publication, publicationKey } from "@/db/schema";
 import { addEntry } from "@/lib/collections";
 import { contentHash } from "@/lib/content-hash";
 import { hashPassword } from "@/lib/gates";
@@ -325,5 +326,98 @@ describe("the graph password", () => {
     expect(await db.query.lockKey.findFirst({ where: and(eq(lockKey.scope, "graph"), eq(lockKey.targetId, g.id)) })).toBeDefined();
     await settings("short1");
     expect(await db.query.lockKey.findFirst({ where: and(eq(lockKey.scope, "graph"), eq(lockKey.targetId, g.id)) })).toBeUndefined();
+  });
+});
+
+describe("Encrypt new password pages", () => {
+  const LONG_PW = "another-long-one";
+  const access = (password: string, extra: Record<string, unknown> = {}) =>
+    updateGraphAccess(g.id, {
+      indexAccess: "open",
+      defaultAccess: "password",
+      showAuthors: false,
+      views: "show",
+      showViewCountries: false,
+      newPagesInGraph: true,
+      encryptNewPages: true,
+      defaultCollections: [],
+      password,
+      clearPassword: false,
+      ...extra,
+    });
+
+  async function publishNew() {
+    const t = tree(`n${Math.random().toString(36).slice(2, 8)}`);
+    const body = { rootUid: t.uid, kind: "page", title: "Plans", tree: t, contentHash: contentHash({ kind: "page", title: "Plans", tree: t }) };
+    const res = await (await POST(extRequest("/api/ext/publications", await keyFor(owner.id, g), { body }))).json();
+    expect(res.status).toBe("created");
+    return (await db.query.publication.findFirst({ where: and(eq(publication.graphId, g.id), eq(publication.rootUid, t.uid)) }))!;
+  }
+
+  test("can't be turned on with a password that can't encrypt", async () => {
+    // The graph password predates encryption: no key pair until it's typed again.
+    expect((await access(""))?.message).toContain("at least 10");
+    expect((await access("short1"))?.ok).toBe(false);
+    expect((await db.query.graph.findFirst({ where: eq(graph.id, g.id) }))!.encryptNewPages).toBe(false);
+    // Typing it again makes the key pair.
+    expect((await access(GRAPH_PW))?.ok).toBe(true);
+    expect((await db.query.graph.findFirst({ where: eq(graph.id, g.id) }))!.encryptNewPages).toBe(true);
+  });
+
+  test("is only kept while new pages start as Password", async () => {
+    expect((await access("", { defaultAccess: "open" }))?.ok).toBe(true);
+    expect((await db.query.graph.findFirst({ where: eq(graph.id, g.id) }))!.encryptNewPages).toBe(false);
+  });
+
+  test("new pages are stored encrypted and open with the password", async () => {
+    expect((await access(LONG_PW))?.ok).toBe(true);
+    const pub = await publishNew();
+    expect(pub).toMatchObject({ encrypted: true, searchText: "", tags: [], needsRepublish: false });
+    expect(JSON.stringify(pub.tree)).not.toContain(SECRET);
+    newReader();
+    await unlock({ scope: "graph", id: g.id, password: LONG_PW });
+    expect(textOf((await readerSees(await readGraphPage(pub))).tree)).toContain(SECRET);
+  });
+
+  test("off, new pages stay readable", async () => {
+    expect((await access(LONG_PW, { encryptNewPages: false }))?.ok).toBe(true);
+    expect((await publishNew()).encrypted).toBe(false);
+  });
+
+  test("a page also shown somewhere open isn't encrypted", async () => {
+    expect((await access(LONG_PW))?.ok).toBe(true);
+    const c = await makeCollection(owner.id, { defaultAccess: "open" });
+    await db.insert(graphDefaultCollection).values({ graphId: g.id, collectionId: c.id });
+    expect((await publishNew()).encrypted).toBe(false);
+  });
+
+  test("a collection's setting encrypts pages added to it", async () => {
+    const c = await makeCollection(owner.id);
+    const save = (extra: Record<string, unknown>) =>
+      updateCollection(c.id, {
+        name: c.name,
+        description: "",
+        indexAccess: "open",
+        defaultAccess: "password",
+        showAuthors: true,
+        views: "show",
+        showViewCountries: true,
+        indexable: true,
+        searchListed: true,
+        featured: false,
+        encryptNewPages: true,
+        discoverable: false,
+        rss: false,
+        password: "",
+        clearPassword: false,
+        ...extra,
+      });
+    expect((await save({ password: "short1" })).ok).toBe(false);
+    expect(await save({ password: LONG_PW })).toMatchObject({ ok: true });
+    expect((await db.query.collection.findFirst({ where: eq(collection.id, c.id) }))!.encryptNewPages).toBe(true);
+    // Pages go only to the collection, so it's their one place.
+    await db.update(graph).set({ newPagesInGraph: false, defaultAccess: "open" }).where(eq(graph.id, g.id));
+    await db.insert(graphDefaultCollection).values({ graphId: g.id, collectionId: c.id });
+    expect((await publishNew()).encrypted).toBe(true);
   });
 });

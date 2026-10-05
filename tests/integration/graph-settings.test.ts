@@ -1,10 +1,13 @@
-import { beforeEach, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { updateGraphSettings } from "@/app/(app)/dashboard/actions";
+import { updateGraphAccess, updateGraphSettings } from "@/app/(app)/dashboard/actions";
+import { updateCollection } from "@/app/(app)/dashboard/collections/actions";
 import { db } from "@/db";
-import { graph } from "@/db/schema";
+import { collection, graph } from "@/db/schema";
+import { addEntry } from "@/lib/collections";
+import { hashPassword } from "@/lib/gates";
 import { resetDb } from "../helpers/db";
-import { actAs, makeGraph, makeUser } from "../helpers/factories";
+import { actAs, makeCollection, makeGraph, makePublication, makeUser } from "../helpers/factories";
 
 beforeEach(resetDb);
 
@@ -40,4 +43,67 @@ test("only the owner can change them", async () => {
 
   expect((await updateGraphSettings(g.id, { description: "Theirs" }))?.ok).toBe(false);
   expect(await read(g.id)).toMatchObject({ description: "Mine" });
+});
+
+// Search only reaches an open front page, so locking hides these switches without forgetting them.
+test("locking a graph keeps its search settings for when it opens again", async () => {
+  const owner = await makeUser();
+  const g = await makeGraph(owner.id, { indexable: true, searchListed: true, passwordHash: hashPassword("graph-password-1") });
+  actAs(owner);
+  const res = await updateGraphAccess(g.id, {
+    indexAccess: "password",
+    defaultAccess: "password",
+    showAuthors: true,
+    views: "show",
+    showViewCountries: true,
+    newPagesInGraph: true,
+    encryptNewPages: false,
+    defaultCollections: [],
+    password: "",
+    clearPassword: false,
+  });
+  expect(res?.ok).toBe(true);
+  expect(await read(g.id)).toMatchObject({ indexAccess: "password", indexable: true, searchListed: true });
+});
+
+describe("collection settings", () => {
+  const save = (c: typeof collection.$inferSelect, extra: Record<string, unknown> = {}) =>
+    updateCollection(c.id, {
+      name: c.name,
+      description: "",
+      indexAccess: "open",
+      defaultAccess: "open",
+      showAuthors: true,
+      views: "show",
+      showViewCountries: true,
+      indexable: true,
+      searchListed: true,
+      featured: true,
+      encryptNewPages: false,
+      discoverable: false,
+      rss: false,
+      password: "",
+      clearPassword: false,
+      ...extra,
+    });
+  const readC = (id: string) => db.query.collection.findFirst({ where: eq(collection.id, id) });
+
+  test("locking keeps its search settings, and turns off new pages on Discover", async () => {
+    const owner = await makeUser();
+    const c = await makeCollection(owner.id, { passwordHash: hashPassword("collection-pw-1") });
+    actAs(owner);
+    expect((await save(c, { indexAccess: "password", defaultAccess: "password" })).ok).toBe(true);
+    expect(await readC(c.id)).toMatchObject({ indexable: true, searchListed: true, featured: false });
+  });
+
+  test("List new pages on Discover starts added pages on Discover", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    const c = await makeCollection(owner.id);
+    actAs(owner);
+    expect((await save(c)).ok).toBe(true);
+    expect((await readC(c.id))!.featured).toBe(true);
+    const entry = await addEntry(c.id, (await makePublication(g.id, owner.id)).id, owner.id);
+    expect(entry).toMatchObject({ listing: "discover" });
+  });
 });

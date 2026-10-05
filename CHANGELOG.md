@@ -8,12 +8,10 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 ## 0.7.0 (2026-10-05)
 
 ### Dashboard
-- New: **Encrypt new password pages** in a graph's or collection's access settings stores pages you add from now on
-  encrypted with its password, so not even roam.pub can read them.
-- Improved: Collections no longer have a **List new pages on Discover** setting. The extension already asks whether
-  to list each page on Discover when you publish it.
-- Improved: **Search engines** and **Listed pages in site search** are off and can't be turned on while a graph's front
-  page or a collection's page is locked, since neither can reach it.
+- New: **Encrypt new password pages** in a graph's or collection's access settings stores pages added from now on
+  encrypted with its password, so not even roam.pub can read them. It needs a password of at least 10 characters.
+- Improved: **Search engines** and **Listed pages in site search** show as off and can't be changed while a graph's
+  front page or a collection's page is locked. Unlocking brings back what you had.
 
 ## 0.6.2 (2026-10-05)
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
@@ -52,6 +53,7 @@ export function GraphAccessForm({
   const [views, setViews] = useState({ views: initial.views, countries: initial.showViewCountries });
   const [newPagesInGraph, setNewPagesInGraph] = useState(initial.newPagesInGraph);
   const [defaults, setDefaults] = useState(new Set(initial.defaultCollections));
+  const router = useRouter();
   const [pending, start] = useTransition();
 
   function save() {
@@ -69,6 +71,8 @@ export function GraphAccessForm({
       if (access.clearPassword) setHasPassword(false);
       setAccess((a) => ({ ...a, password: "", clearPassword: false, currentPassword: "", resetEncrypted: false }));
       toast.success(res.message);
+      // The Listing card below reads the saved front page access.
+      router.refresh();
     });
   }
 
