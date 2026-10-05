@@ -8,8 +8,8 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 ## 0.7.2 (2026-10-05)
 
 ### Dashboard
-- Improved: **Members** of a graph or collection see each other by name. Only the owner, who invites by
-  email, sees everyone's email address.
+- Improved: **Members** of a graph or collection see each other by name. Only the owner, who invites people
+  by email, sees their email addresses.
 
 ## 0.7.1 (2026-10-05)
 
