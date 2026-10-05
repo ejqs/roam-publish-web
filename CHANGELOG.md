@@ -14,8 +14,8 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 ## 0.7.1 (2026-10-05)
 
 ### Security
-- Fixed: **Moderation pages** could be read without an admin account, exposing account emails and
-  reports. Each one now checks who's asking.
+- Fixed: **Moderation pages** could be read without an admin account, which would have exposed account emails
+  and reports. Each one now checks who's asking. No one was affected: there were no users on roam.pub yet.
 
 ### Dashboard
 - Improved: **RSS feed** shows as off and can't be changed while a graph's front page or a collection's page is
