@@ -144,7 +144,9 @@ const outline = [
     block("Roam Publish isn't meant for children under 13. An account found to belong to one is deleted."),
   ]),
   block("**Changes**", [
-    block("If this policy changes in a way that matters, the date above changes and signed-up users are told by email."),
+    block(
+      "When this policy changes, the date above changes and signed-in users see a notice on the site for two weeks. If a change matters, signed-up users are also told by email.",
+    ),
     block("Every past version is in the [full change history](https://github.com/ejqs/roam-publish-web/commits/main/src/app/privacy/page.tsx)."),
   ]),
 ];

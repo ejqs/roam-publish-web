@@ -5,6 +5,11 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") await import("./lib/job-worker").then((m) => m.startJobWorker());
   // Stamps this deploy's new What's new entries with when it went live, not when someone first opens a page.
   if (process.env.NEXT_RUNTIME === "nodejs") void import("./lib/whats-new").then((m) => m.loadWeb());
+  // Tells signed-in people with a banner when this deploy changes the Terms or Privacy policy.
+  if (process.env.NEXT_RUNTIME === "nodejs")
+    void import("./lib/legal-notice")
+      .then((m) => m.announceLegalChanges())
+      .catch((err) => console.error("legal-notice:", err));
 }
 
 /**

@@ -14,5 +14,5 @@ type Ref = { id: string; source: "manual" | "auto"; key: string | null; startsAt
  */
 export const dismissId = (a: Ref) => (a.source === "auto" ? `${a.key}.${a.startsAt.getTime()}` : a.id);
 
-/** Only warnings can be dismissed: a critical banner stays until it ends. */
-export const dismissible = (a: { tone: "warning" | "critical" }) => a.tone === "warning";
+/** Only critical banners can't be dismissed: they stay until they end. */
+export const dismissible = (a: { tone: "info" | "warning" | "critical" }) => a.tone !== "critical";

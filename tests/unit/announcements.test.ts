@@ -41,6 +41,18 @@ describe("pickAnnouncement", () => {
     expect(pick([autoCrit, manualCrit, manualWarn])?.message).toBe("manual critical");
   });
 
+  test("info comes last, even an admin's", () => {
+    const manualInfo = ann({ tone: "info", message: "manual info" });
+    const autoWarn = ann({ source: "auto", key: "email", message: "auto warning" });
+    expect(pick([manualInfo, autoWarn])?.message).toBe("auto warning");
+    expect(pick([manualInfo])?.message).toBe("manual info");
+  });
+
+  test("an info banner can be dismissed", () => {
+    const info = ann({ tone: "info" });
+    expect(pick([info], { dismissed: dismissId(info) })).toBeNull();
+  });
+
   test("signed-in only banners skip readers", () => {
     const a = ann({ audience: "signed-in" });
     expect(pick([a])).toBeNull();

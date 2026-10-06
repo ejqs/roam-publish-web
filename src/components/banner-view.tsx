@@ -1,4 +1,4 @@
-import { CircleAlertIcon, TriangleAlertIcon } from "lucide-react";
+import { CircleAlertIcon, InfoIcon, TriangleAlertIcon } from "lucide-react";
 import { cn } from "cn";
 import type { AnnouncementTone } from "@/db/app-schema";
 import { dismissible, dismissId } from "@/lib/announcement-shared";
@@ -18,10 +18,11 @@ export type BannerData = {
 /** The site-wide banner itself. Also the live preview on /admin/announcement (`preview`). */
 export function BannerView({ announcement: a, preview }: { announcement: BannerData; preview?: boolean }) {
   const critical = a.tone === "critical";
-  const Icon = critical ? CircleAlertIcon : TriangleAlertIcon;
+  const info = a.tone === "info";
+  const Icon = critical ? CircleAlertIcon : info ? InfoIcon : TriangleAlertIcon;
   const body = (
     <>
-      <Icon aria-hidden className={cn("mt-0.5 size-4 shrink-0", critical ? "text-destructive" : "text-warning")} />
+      <Icon aria-hidden className={cn("mt-0.5 size-4 shrink-0", critical ? "text-destructive" : info ? "text-muted-foreground" : "text-warning")} />
       <p className="min-w-0 flex-1 break-words">
         {a.message}
         {a.linkUrl && (
@@ -37,7 +38,7 @@ export function BannerView({ announcement: a, preview }: { announcement: BannerD
   );
   const className = cn(
     "border-b text-sm text-foreground",
-    critical ? "border-destructive/30 bg-destructive/10" : "border-warning/30 bg-warning/10",
+    critical ? "border-destructive/30 bg-destructive/10" : info ? "bg-muted" : "border-warning/30 bg-warning/10",
   );
   const inner = "mx-auto flex max-w-5xl items-start gap-2.5 px-4 py-2";
   if (dismissible(a))

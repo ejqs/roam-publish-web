@@ -84,7 +84,9 @@ const outline = [
     block("This doesn't take away any rights you have under the consumer laws where you live."),
   ]),
   block("**Changes**", [
-    block("These terms may change. If a change matters, the date above changes and signed-up users are told by email."),
+    block(
+      "These terms may change. When they do, the date above changes and signed-in users see a notice on the site for two weeks. If a change matters, signed-up users are also told by email.",
+    ),
     block("Every past version is in the [full change history](https://github.com/ejqs/roam-publish-web/commits/main/src/app/terms/page.tsx)."),
     block("Questions: support@roam.pub."),
   ]),

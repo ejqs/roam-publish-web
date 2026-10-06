@@ -34,7 +34,8 @@ export default async function AdminAnnouncementPage() {
         <h2 className="text-lg font-semibold">Up now</h2>
         <p className="text-sm text-muted-foreground">
           The banner sits above every page, for urgent things only: downtime, an outage, something people must act on.
-          One shows at a time: critical before warning, and yours before an automatic one.
+          One shows at a time: critical before warning before info, and yours before an automatic one. A deploy that
+          changes the Terms or Privacy policy puts up an info banner for signed-in people for two weeks on its own.
         </p>
         {live.length === 0 && <p className="text-sm text-muted-foreground">Nothing. The site has no banner.</p>}
         {live.map((a) => {
@@ -45,7 +46,7 @@ export default async function AdminAnnouncementPage() {
                 <Badge variant="outline">{a.source === "auto" ? "Automatic" : "Posted by an admin"}</Badge>
                 <span>{a.audience === "everyone" ? "Everyone" : "Signed in only"}</span>
                 <span>· since {fmtDate(a.startsAt)}</span>
-                <span>· {a.source === "auto" ? "renewed while the problem lasts" : `ends ${fmtDate(a.endsAt)}`}</span>
+                <span>· {a.source === "auto" && a.tone !== "info" ? "renewed while the problem lasts" : `ends ${fmtDate(a.endsAt)}`}</span>
                 {muted && <Badge variant="secondary">Muted until {fmtDate(a.mutedUntil)}</Badge>}
               </div>
               <div className={muted ? "opacity-50" : undefined}>

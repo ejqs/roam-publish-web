@@ -6,17 +6,20 @@ import { dismissible, dismissId } from "./announcement-shared";
 export { DISMISS_COOKIE, dismissible, dismissId, MESSAGE_MAX } from "./announcement-shared";
 
 /**
- * The site-wide banner: urgent things only (downtime, an outage, something people must act on).
+ * The site-wide banner: urgent things only (downtime, an outage, something people must act on), plus
+ * an info notice when the Terms or Privacy policy change (lib/legal-notice.ts).
  * Admins post manual ones from /admin/announcement; the status-banner job posts auto ones
  * (lib/status-banner.ts). At most one shows at a time.
  */
 
 export type Announcement = typeof announcement.$inferSelect;
 
-const rank = (a: Announcement) => (a.tone === "critical" ? 2 : 0) + (a.source === "manual" ? 1 : 0);
+const TONE_RANK = { info: 0, warning: 2, critical: 4 } as const;
+const rank = (a: Announcement) => TONE_RANK[a.tone] + (a.source === "manual" ? 1 : 0);
 
 /**
- * The one banner to show: live, not muted, for this audience, not dismissed. Critical beats warning;
+ * The one banner to show: live, not muted, for this audience, not dismissed. Critical beats warning
+ * beats info;
  * at the same tone an admin's beats an automatic one; then the newest.
  */
 export function pickAnnouncement(

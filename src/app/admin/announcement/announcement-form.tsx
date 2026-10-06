@@ -46,6 +46,7 @@ export function AnnouncementForm() {
             value={tone}
             onChange={setTone}
             options={[
+              { value: "info", label: "Info" },
               { value: "warning", label: "Warning" },
               { value: "critical", label: "Critical" },
             ]}
@@ -92,7 +93,7 @@ export function AnnouncementForm() {
           placeholder="Scheduled maintenance Sun 5 Oct, 02:00–02:30 UTC. Published pages stay up; publishing from Roam will pause."
         />
         <FieldDescription>
-          {message.length}/{MESSAGE_MAX}. {tone === "warning" ? "People can dismiss a warning." : "A critical banner can't be dismissed."}
+          {message.length}/{MESSAGE_MAX}. {tone === "critical" ? "A critical banner can't be dismissed." : "People can dismiss it."}
         </FieldDescription>
       </Field>
       <div className="flex flex-wrap gap-4">
