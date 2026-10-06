@@ -91,7 +91,10 @@ const outline = [
   ]),
   block("**Who else handles it**", [
     block("[Railway](https://railway.com) hosts the website and its database, on servers in Singapore."),
-    block("[Resend](https://resend.com) sends account emails (verification, password reset, invites, moderation notices)."),
+    block(
+      "[Resend](https://resend.com) sends account emails (verification, password reset, invites, moderation notices). " +
+        "Emails you send to roam.pub, such as a reply to one of those, are kept by Resend and read by roam.pub's admins, who may write back.",
+    ),
     block("Umami runs the analytics above."),
     block("[Roam Research](https://roamresearch.com) receives the blocks roam.pub appends to your graph with your token."),
     block(

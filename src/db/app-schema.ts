@@ -348,6 +348,22 @@ export const moderationAction = pgTable(
   (t) => [index("moderation_action_created_idx").on(t.createdAt)],
 );
 
+/** Replies admins sent from the admin inbox; the emails themselves stay in Resend (lib/inbox.ts). */
+export const inboxReply = pgTable(
+  "inbox_reply",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    /** Resend's id of the received email this answers. */
+    emailId: text("email_id").notNull(),
+    adminId: text("admin_id").references(() => user.id, { onDelete: "set null" }),
+    to: text("to").notNull(),
+    subject: text("subject").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("inbox_reply_email_idx").on(t.emailId)],
+);
+
 export const BLOCKED_KINDS = ["email", "graph", "username"] as const;
 export type BlockedKind = (typeof BLOCKED_KINDS)[number];
 

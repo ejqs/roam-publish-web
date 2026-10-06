@@ -5,6 +5,12 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.7.6 (2026-10-06)
+
+### Site
+- Improved: **Privacy policy** says what happens to emails you send to roam.pub, such as a reply to a moderation
+  notice: Resend keeps them, and roam.pub's admins read them and may write back.
+
 ## 0.7.5 (2026-10-06)
 
 ### Site
