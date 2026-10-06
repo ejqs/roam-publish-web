@@ -26,6 +26,10 @@ alias ends in a hash of its content (`rp-verify-email-1a2b…`), so a changed em
 production never overwrite each other's. If Resend's templates fail, the same email is sent as plain HTML instead.
 Old `rp-*` templates can be deleted from the Resend dashboard once nothing sends them.
 
+Admins read and answer email sent to the domain at `/admin/inbox`. It lists what Resend's receiving API holds (so
+receiving must be turned on for the domain in Resend) and needs no other setup; replies go out from `EMAIL_FROM` with
+`MODERATION_REPLY_TO` as their Reply-To, and are logged in the `inbox_reply` table.
+
 ## Tests
 
 ```bash

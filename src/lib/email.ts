@@ -4,13 +4,13 @@ import { escapeHtml, renderEmail } from "./email-layout";
 import { renderTemplate, type TemplateEmail } from "./email-templates";
 import { timed } from "./telemetry";
 
-const resend = process.env.RESEND_API_KEY
+export const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
 const from = () => process.env.EMAIL_FROM ?? "Roam Publish <onboarding@resend.dev>";
 
-type Content = TemplateEmail | { subject: string; text: string; html?: string };
+type Content = TemplateEmail | { subject: string; text: string; html?: string; headers?: Record<string, string> };
 
 /**
  * Sends an email: a Resend template from lib/email-templates.ts (`template` + `values`), or a one-off
@@ -21,7 +21,8 @@ type Content = TemplateEmail | { subject: string; text: string; html?: string };
  */
 export async function sendEmail(email: { to: string; replyTo?: string } & Content) {
   const { to, replyTo } = email;
-  const inline = "template" in email ? renderTemplate(email) : email;
+  const inline: { subject: string; text: string; html?: string; headers?: Record<string, string> } =
+    "template" in email ? renderTemplate(email) : email;
   if (!resend) {
     if (process.env.NODE_ENV === "production" && process.env.EMAIL_CONSOLE !== "on") {
       console.error(`[email] not sent, RESEND_API_KEY is not set: ${inline.subject}`);
@@ -47,7 +48,15 @@ export async function sendEmail(email: { to: string; replyTo?: string } & Conten
   // One-off emails, and the fallback when Resend's templates fail, so a sign-in link still goes out.
   const { error } = await timed(
     "resend",
-    () => resend.emails.send({ from: from(), to, subject: inline.subject, text: inline.text, html: inline.html, replyTo }),
+    () => resend.emails.send({
+        from: from(),
+        to,
+        subject: inline.subject,
+        text: inline.text,
+        html: inline.html,
+        replyTo,
+        headers: inline.headers,
+      }),
     (r) => r.error?.message,
   );
   if (error) console.error("[email] send failed", error);

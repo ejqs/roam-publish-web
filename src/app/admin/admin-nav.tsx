@@ -6,6 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 
 const TABS = [
   { href: "/admin", label: "Reports" },
+  { href: "/admin/inbox", label: "Inbox" },
   { href: "/admin/publications", label: "Publications" },
   { href: "/admin/graphs", label: "Graphs" },
   { href: "/admin/collections", label: "Collections" },
