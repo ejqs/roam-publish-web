@@ -2,6 +2,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
 import { announcement, backgroundJob, type JobResult, user } from "@/db/schema";
 import { sendEmail } from "./email";
+import { renderEmail } from "./email-layout";
 import { type JobDef, jobStatus } from "./jobs";
 import {
   ERROR_RATE_FLAG,
@@ -134,22 +135,35 @@ export async function runAlerts(
   const subject = problems.length
     ? `[Roam Publish] ${problems.length} problem${problems.length === 1 ? "" : "s"}: ${problems[0].text.split(":")[0]}${problems.length > 1 ? " and more" : ""}`
     : "[Roam Publish] All clear";
-  const section = (title: string, lines: string[]) => (lines.length ? `${title}\n${lines.map((l) => `- ${l}`).join("\n")}\n\n` : "");
-  const text =
-    section("New problems:", started.map((p) => p.text)) +
-    section("Still going:", ongoing.map((p) => `${p.text} (since ${next[p.key].since})`)) +
-    section("Fixed:", ended) +
-    section(
-      "Banner on the site:",
-      banners.map((b) => `${b.tone}: ${b.message}${b.mutedUntil && b.mutedUntil > now ? " (muted)" : ""}`),
-    ) +
-    `Details: ${process.env.NEXT_PUBLIC_APP_URL ?? ""}/admin/status\n` +
-    `Checked the last ${ALERT_WINDOW_MS / 60_000} minutes. Reminders every ${REMIND_MS / 3_600_000} hours while a problem lasts.`;
+  const site = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const { text, html } = renderEmail({
+    audience: "admin",
+    preview: [
+      started.length && `${started.length} new`,
+      ongoing.length && `${ongoing.length} still going`,
+      ended.length && `${ended.length} fixed`,
+    ]
+      .filter(Boolean)
+      .join(", "),
+    heading: problems.length ? `${problems.length} problem${problems.length === 1 ? "" : "s"} on roam.pub` : "All clear on roam.pub",
+    blocks: [
+      { section: "New problems", tone: "new", items: started.map((p) => p.text) },
+      { section: "Still going", tone: "ongoing", items: ongoing.map((p) => `${p.text} (since ${next[p.key].since})`) },
+      { section: "Fixed", tone: "fixed", items: ended },
+      {
+        section: "Banner on the site",
+        tone: "info",
+        items: banners.map((b) => `${b.tone}: ${b.message}${b.mutedUntil && b.mutedUntil > now ? " (muted)" : ""}`),
+      },
+    ],
+    action: { label: "Open status page", url: `${site}/admin/status` },
+    note: `Checked the last ${ALERT_WINDOW_MS / 60_000} minutes. Reminders every ${REMIND_MS / 3_600_000} hours while a problem lasts.`,
+  });
 
   // The cursor is saved even when a run fails, so only move on once the email went: a failed send
   // finds the same problems new next time and tries again.
   const failed: string[] = [];
-  for (const address of to) if (!(await sendEmail({ to: address, subject, text }))) failed.push(address);
+  for (const address of to) if (!(await sendEmail({ to: address, subject, text, html }))) failed.push(address);
   if (failed.length === to.length) throw new Error(`Couldn't send the alert email to ${failed.join(", ")}`);
   cursor.open = next;
   cursor.lastSentAt = now.toISOString();
