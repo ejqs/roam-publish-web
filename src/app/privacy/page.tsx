@@ -4,18 +4,16 @@ import { PageLinks } from "@/components/roam/markup";
 import { block, siteLinks } from "@/components/roam/outline";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { lastUpdated } from "@/lib/last-updated";
 
 export const metadata: Metadata = {
   title: "Privacy · Roam Publish",
   description: "What Roam Publish collects, why, who else handles it, and how to delete it.",
 };
 
-const UPDATED = "October 3rd, 2026";
-
 const links = new PageLinks([...siteLinks, ["encrypted pages", "/privacy/encryption"]]);
 
 const outline = [
-  block(`Last updated ${UPDATED}.`),
   block("**In short**", [
     block(
       "Roam Publish (roam.pub and the Roam Publish extension) is run by one person, [@ejqs](https://ejqs.net), from the Philippines. It isn't affiliated with Roam Research.",
@@ -146,19 +144,22 @@ const outline = [
     block("Roam Publish isn't meant for children under 13. An account found to belong to one is deleted."),
   ]),
   block("**Changes**", [
-    block("If this policy changes in a way that matters, the date above changes and signed-up users are told by email."),
+    block(
+      "When this policy changes, the date above changes and signed-in users see a notice on the site for two weeks. If a change matters, signed-up users are also told by email.",
+    ),
     block("Every past version is in the [full change history](https://github.com/ejqs/roam-publish-web/commits/main/src/app/privacy/page.tsx)."),
   ]),
 ];
 
 export default function PrivacyPage() {
+  const updated = lastUpdated("privacy");
   return (
     <>
       <SiteHeader />
       <main className="flex-1 px-3 py-4 sm:px-4 sm:py-12">
         <article className="mx-auto w-full max-w-[700px] rounded-sm bg-card px-5 py-8 text-[16px] shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)] sm:px-12 sm:py-12">
           <h1 className="mb-6 text-[32px] sm:text-[42px] leading-tight font-semibold">Privacy</h1>
-          <BlockList nodes={outline} links={links} />
+          <BlockList nodes={updated ? [block(`Last updated ${updated}.`), ...outline] : outline} links={links} />
         </article>
       </main>
       <SiteFooter />

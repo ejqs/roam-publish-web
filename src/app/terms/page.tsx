@@ -4,13 +4,12 @@ import { block, siteLinks } from "@/components/roam/outline";
 import { PageLinks } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { lastUpdated } from "@/lib/last-updated";
 
 export const metadata: Metadata = {
   title: "Terms · Roam Publish",
   description: "The rules for using Roam Publish.",
 };
-
-const UPDATED = "October 3rd, 2026";
 
 const links = new PageLinks([
   ...siteLinks,
@@ -18,8 +17,9 @@ const links = new PageLinks([
   ["encrypted pages", "/privacy/encryption"],
 ]);
 
+const intro = "By using Roam Publish (roam.pub and the Roam Publish extension) you agree to these terms.";
+
 const outline = [
-  block(`Last updated ${UPDATED}. By using Roam Publish (roam.pub and the Roam Publish extension) you agree to these terms.`),
   block("**The service**", [
     block(
       "Roam Publish is a free service run by one person, [@ejqs](https://ejqs.net). It isn't affiliated with or endorsed by Roam Research.",
@@ -84,20 +84,23 @@ const outline = [
     block("This doesn't take away any rights you have under the consumer laws where you live."),
   ]),
   block("**Changes**", [
-    block("These terms may change. If a change matters, the date above changes and signed-up users are told by email."),
+    block(
+      "These terms may change. When they do, the date above changes and signed-in users see a notice on the site for two weeks. If a change matters, signed-up users are also told by email.",
+    ),
     block("Every past version is in the [full change history](https://github.com/ejqs/roam-publish-web/commits/main/src/app/terms/page.tsx)."),
     block("Questions: support@roam.pub."),
   ]),
 ];
 
 export default function TermsPage() {
+  const updated = lastUpdated("terms");
   return (
     <>
       <SiteHeader />
       <main className="flex-1 px-3 py-4 sm:px-4 sm:py-12">
         <article className="mx-auto w-full max-w-[700px] rounded-sm bg-card px-5 py-8 text-[16px] shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)] sm:px-12 sm:py-12">
           <h1 className="mb-6 text-[32px] sm:text-[42px] leading-tight font-semibold">Terms</h1>
-          <BlockList nodes={outline} links={links} />
+          <BlockList nodes={[block(updated ? `Last updated ${updated}. ${intro}` : intro), ...outline]} links={links} />
         </article>
       </main>
       <SiteFooter />

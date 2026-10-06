@@ -746,7 +746,7 @@ export const endpointMetric = pgTable(
   (t) => [primaryKey({ columns: [t.name, t.minute] }), index("endpoint_metric_minute_idx").on(t.minute)],
 );
 
-export const ANNOUNCEMENT_TONES = ["warning", "critical"] as const;
+export const ANNOUNCEMENT_TONES = ["info", "warning", "critical"] as const;
 export type AnnouncementTone = (typeof ANNOUNCEMENT_TONES)[number];
 export const ANNOUNCEMENT_AUDIENCES = ["everyone", "signed-in"] as const;
 export type AnnouncementAudience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
@@ -754,7 +754,8 @@ export type AnnouncementAudience = (typeof ANNOUNCEMENT_AUDIENCES)[number];
 /**
  * The site-wide banner, for urgent things only. Admins post `manual` ones; the status-banner job keeps
  * one `auto` row per kind of problem (`key`), pushing `endsAt` forward while the problem lasts, so it
- * goes away on its own when the problem does, or when the job stops running.
+ * goes away on its own when the problem does, or when the job stops running. The one `info` use is
+ * lib/legal-notice.ts: a `legal:` row per version of the Terms and Privacy policy.
  */
 export const announcement = pgTable(
   "announcement",

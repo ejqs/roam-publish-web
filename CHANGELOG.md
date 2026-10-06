@@ -5,6 +5,14 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.8.0 (2026-10-06)
+
+### Site
+- New: **Terms and Privacy changes** are announced on the site: when either changes, signed-in people see
+  a notice for two weeks that links to it, which they can dismiss.
+- Fixed: **Terms and Privacy** show when each was really last changed. The "Last updated" date comes from
+  the site's history, so it no longer lags behind edits.
+
 ## 0.7.6 (2026-10-06)
 
 ### Site
