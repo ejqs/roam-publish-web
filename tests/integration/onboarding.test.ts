@@ -69,9 +69,9 @@ describe("verifyGraph", () => {
   });
 
   // /search and /settings are routes too, so a graph with that name would have no reachable front page.
-  test("search, settings, privacy and terms are reserved too", async () => {
+  test("search, settings, privacy, terms, costs, updates and _next are reserved too", async () => {
     actAs(await makeUser());
-    for (const name of ["search", "settings", "privacy", "terms"]) expect((await verifyGraph(input(name))).ok).toBe(false);
+    for (const name of ["search", "settings", "privacy", "terms", "costs", "updates", "_next"]) expect((await verifyGraph(input(name))).ok).toBe(false);
   });
 
   test("signed out or with a malformed token, nothing is sent to Roam", async () => {

@@ -18,6 +18,7 @@ import {
   Field,
   FieldContent,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -27,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { KeyReveal } from "@/components/key-reveal";
+import { graphNameError } from "@/lib/graph-names";
 import { verifyGraph } from "./actions";
 
 function todayMMDDYYYY() {
@@ -65,6 +67,8 @@ export function OnboardingFlow({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [keepToken, setKeepToken] = useState(true);
+  const [graphName, setGraphName] = useState(initialGraph);
+  const nameError = graphNameError(graphName);
   const changeLog = changeLogAvailable && keepToken;
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const ready = hasGraph || PREREQUISITES.every((p) => checked.has(p.id));
@@ -185,12 +189,24 @@ export function OnboardingFlow({
                     </FieldGroup>
                   </FieldSet>
                 )}
-                <Field>
+                <Field data-invalid={!!nameError}>
                   <FieldLabel htmlFor="graphName">Graph name</FieldLabel>
-                  <Input id="graphName" name="graphName" defaultValue={initialGraph} placeholder="my-graph" required />
-                  <FieldDescription>
-                    As it appears in your Roam URL: roamresearch.com/#/app/<strong>my-graph</strong>
-                  </FieldDescription>
+                  <Input
+                    id="graphName"
+                    name="graphName"
+                    value={graphName}
+                    onChange={(e) => setGraphName(e.target.value)}
+                    placeholder="my-graph"
+                    aria-invalid={!!nameError}
+                    required
+                  />
+                  {nameError ? (
+                    <FieldError>{nameError}</FieldError>
+                  ) : (
+                    <FieldDescription>
+                      As it appears in your Roam URL: roamresearch.com/#/app/<strong>my-graph</strong>
+                    </FieldDescription>
+                  )}
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="token">Append-only API token</FieldLabel>
@@ -231,7 +247,7 @@ export function OnboardingFlow({
                     )}
                   </AlertDescription>
                 </Alert>
-                <Button type="submit" disabled={pending || !ready}>
+                <Button type="submit" disabled={pending || !ready || !!nameError}>
                   {pending && <Spinner data-icon="inline-start" />}
                   Verify graph
                 </Button>
