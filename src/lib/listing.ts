@@ -69,10 +69,27 @@ export function pageDiscoverBlocked(
   );
 }
 
-/** What the extension shows for a page's listing: where it is, and why Discover is off limits. */
+/**
+ * Why a listed page isn't actually listed anywhere, if it isn't: with its graph's front page off,
+ * nothing shows it, so only people with the link find it.
+ */
+export function listedNote(g: { frontPage: boolean }, pub: { visibility: string; inGraph: boolean }) {
+  return pub.visibility === "public" && pub.inGraph && !g.frontPage
+    ? "Your graph's front page is off, so nothing lists this page yet: only people with the link will find it. Turn the front page on in the graph's Sharing settings on roam.pub."
+    : null;
+}
+
+/**
+ * What the extension shows for a page's listing: where it is, why Discover is off limits, and why
+ * Listed doesn't list it anywhere.
+ */
 export function extListing(
   g: Parameters<typeof pageDiscoverBlocked>[0],
   pub: { visibility: string; discoverable: boolean; access: string; inGraph: boolean },
 ) {
-  return { listing: listingOf(pub), discoverBlocked: pageDiscoverBlocked(g, pub) ?? null };
+  return {
+    listing: listingOf(pub),
+    discoverBlocked: pageDiscoverBlocked(g, pub) ?? null,
+    listedNote: listedNote(g, pub),
+  };
 }
