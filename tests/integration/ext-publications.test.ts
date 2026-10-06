@@ -268,3 +268,46 @@ describe("CORS", () => {
     expect(bad.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
+
+describe("the graph the extension is in", () => {
+  const inGraph = (req: Request, name: string) => {
+    req.headers.set("x-roam-graph", name);
+    return req;
+  };
+
+  test("a key used from another graph is refused with both names, and nothing is published", async () => {
+    const res = await POST(inGraph(extRequest("/api/ext/publications", ownerKey, { body: payload() }), "someone-else"));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toContain(g.name);
+    expect(body.error).toContain("someone-else");
+    expect(body.keyGraph).toBe(g.name);
+    expect(await db.query.publication.findFirst({ where: eq(publication.graphId, g.id) })).toBeUndefined();
+    expect((await GET(inGraph(extRequest("/api/ext/publications", ownerKey), "someone-else"))).status).toBe(409);
+  });
+
+  test("the key's own graph, or no graph named (older extensions), works", async () => {
+    expect((await POST(inGraph(extRequest("/api/ext/publications", ownerKey, { body: payload() }), g.name))).status).toBe(200);
+    expect((await publish(ownerKey, payload())).status).toBe(200);
+  });
+
+  test("the header is allowed by CORS", async () => {
+    const res = await OPTIONS(extRequest("/api/ext/publications", null, { method: "OPTIONS" }));
+    expect(res.headers.get("access-control-allow-headers")).toContain("x-roam-graph");
+  });
+});
+
+describe("listing with the front page off", () => {
+  test("says nothing lists the page, until the front page is back on", async () => {
+    const p = payload();
+    await publish(ownerKey, p);
+    await db.update(graph).set({ frontPage: false }).where(eq(graph.id, g.id));
+    const listed = await (await byUid("PATCH", ownerKey, p.rootUid, { listing: "listed" })).json();
+    expect(listed.listing).toBe("listed");
+    expect(listed.listedNote).toContain("front page is off");
+    const unlisted = await (await byUid("PATCH", ownerKey, p.rootUid, { listing: "unlisted" })).json();
+    expect(unlisted.listedNote).toBeNull();
+    await db.update(graph).set({ frontPage: true }).where(eq(graph.id, g.id));
+    expect((await (await byUid("PATCH", ownerKey, p.rootUid, { listing: "listed" })).json()).listedNote).toBeNull();
+  });
+});

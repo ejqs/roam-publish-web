@@ -49,6 +49,10 @@ type PublishPayload = {
   regenerated and revoked on the website at `/dashboard/keys`; regenerating revokes the previous key. Only a hash is
   stored, so a key is shown once. A lost key is replaced by regenerating it.
 - The owner is the account that verified the graph first. Members join by invite (see Members).
+- Extension requests also carry `x-roam-graph: <Roam graph name>`. When it doesn't match the key's graph, every
+  authenticated endpoint answers `409 { error, keyGraph }` and changes nothing, so a key pasted into another graph
+  can't publish that graph's pages under this one's name. Requests without the header (older extensions) aren't
+  checked.
 
 ## Endpoints (base: server URL)
 
@@ -95,7 +99,13 @@ hash but a different `author` updates only the byline (`status: "updated"`); omi
 bytes).
 
 ### `PATCH /api/ext/publications/:rootUid`
-Body `{ visibility: "public" | "unlisted" }` → `200 { visibility, url }`. Lists or unlists the page in its graph.
+Body `{ listing: "unlisted" | "listed" | "discover" }` (older extensions: `{ visibility: "public" | "unlisted" }`)
+→ `200 { visibility, listing, discoverBlocked, listedNote, url }`. Sets where the page is listed. `discover` is
+refused with `400 { error }` saying why when the page can't be Discoverable.
+
+`listing`, `discoverBlocked` and `listedNote` are also on every publication in the list and on publish responses.
+`discoverBlocked` is why the page can't be made Discoverable (null when it can). `listedNote` is set when the page
+is listed but nothing shows it (its graph's front page is off); the extension shows it instead of "Now listed".
 `400` bad body · `403` removed by a moderator or not yours · `404` not published.
 
 ### `DELETE /api/ext/publications/:rootUid`
@@ -115,7 +125,7 @@ Moderators can remove a page, suspend a graph, or ban an account. The extension 
 
 ## CORS
 
-Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. Allowed headers: `content-type, x-api-key`. Methods: `GET, POST, PATCH, DELETE, OPTIONS`.
+Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. Allowed headers: `content-type, x-api-key, x-roam-graph`. Methods: `GET, POST, PATCH, DELETE, OPTIONS`.
 
 ## Graph verification
 

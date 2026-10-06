@@ -18,7 +18,8 @@ export type ExtContext = {
 /**
  * Resolves the x-api-key header to the person and graph it was issued for, or the error response to
  * return: 401 for a bad key, a banned key holder or owner, or someone no longer in the graph; 403
- * for a graph a moderator suspended; 429 once the key has made too many requests this minute.
+ * for a graph a moderator suspended; 409 when the extension says it's running in a different graph
+ * than the key's; 429 once the key has made too many requests this minute.
  */
 export async function requireExtKey(req: Request): Promise<ExtContext | Response> {
   const invalid = () => json(req, { error: "Invalid API key" }, 401);
@@ -61,7 +62,22 @@ export async function requireExtKey(req: Request): Promise<ExtContext | Response
   if (holder?.banned || row.ownerBanned) return json(req, { error: "This account has been suspended" }, 401);
   if (row.g.suspendedAt)
     return json(req, { error: "This graph was suspended by a moderator", reason: row.g.suspendedReason }, 403);
+  // The extension says which Roam graph it's in; a key pasted into another graph would otherwise
+  // publish that graph's pages under this one's name. Older extensions don't send it.
+  const inGraph = req.headers.get("x-roam-graph");
+  if (inGraph !== null && inGraph !== row.g.name) return wrongGraphResponse(req, row.g.name, inGraph);
   return { userId: holderId, ownerId: row.g.userId, role, graphId: row.g.id, graphName: row.g.name };
+}
+
+export function wrongGraphResponse(req: Request, keyGraph: string, inGraph: string) {
+  return json(
+    req,
+    {
+      error: `This API key is for the graph ${keyGraph}, but you're in ${inGraph}. Each graph has its own key: open Settings → Roam Publish → Open dashboard to get the key for ${inGraph}.`,
+      keyGraph,
+    },
+    409,
+  );
 }
 
 export function removedResponse(req: Request, reason: string | null) {

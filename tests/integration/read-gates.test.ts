@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import GraphFrontPage from "@/app/[graph]/page";
 import GraphTags from "@/app/[graph]/tags/page";
+import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
 import CPage from "@/app/c/[id]/[[...slug]]/page";
 import { PageList } from "@/components/page-list";
+import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";
 import { collectionEntry, publication } from "@/db/schema";
 import { searchPages } from "@/lib/site-search";
@@ -13,6 +15,7 @@ import { actAs, makeCollection, makeGraph, makePublication, makeUser } from "../
 import { findElements, renderNested, textOf } from "../helpers/render";
 import { resetRequest } from "../helpers/request";
 import { indexFields } from "@/lib/tags";
+import { addEntry } from "@/lib/collections";
 import type { Node } from "@/db/schema";
 
 const SECRET = "zanzibar";
@@ -239,5 +242,51 @@ describe("site search", () => {
     const { rows } = await find();
     expect(rows).toHaveLength(1);
     expect(rows[0].source.label).toBe(c.name);
+  });
+});
+
+describe("[[links]] between published pages", () => {
+  const linkTree = (uid: string): Node => ({
+    uid,
+    string: "",
+    children: [{ uid: `${uid}c`, string: "See [[Listed Notes]] and [[Draft Idea]]", children: [] }],
+  });
+  const linksOf = (out: unknown) => findElements(out as never, PublicationView)[0].props.links as Map<string, string>;
+
+  test("lead to listed pages, never to unlisted ones, in a graph", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    const tree = linkTree("linkfrom1");
+    await makePublication(g.id, owner.id, { rootUid: tree.uid, title: "Home", tree, visibility: "public" });
+    await makePublication(g.id, owner.id, { rootUid: "listed001", title: "Listed Notes", visibility: "public" });
+    await makePublication(g.id, owner.id, { rootUid: "draft0001", title: "Draft Idea", visibility: "unlisted" });
+    actAs(null);
+    const links = linksOf(await GraphPage({ params: Promise.resolve({ graph: g.name, uid: tree.uid }) } as never));
+    expect(links.has("listed notes")).toBe(true);
+    expect(links.has("draft idea")).toBe(false);
+  });
+
+  test("lead to listed entries, never to unlisted ones, in a collection", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    const c = await makeCollection(owner.id);
+    const tree = linkTree("linkfrom2");
+    const pages = [
+      { rootUid: tree.uid, title: "Home", tree, listing: "listed" as const },
+      { rootUid: "listed002", title: "Listed Notes", listing: "listed" as const },
+      { rootUid: "draft0002", title: "Draft Idea", listing: "unlisted" as const },
+    ];
+    const entryUids: string[] = [];
+    for (const { listing, ...p } of pages) {
+      const pub = await makePublication(g.id, owner.id, { ...p, visibility: "public" });
+      const entry = (await addEntry(c.id, pub.id, owner.id))!;
+      await db.update(collectionEntry).set({ listing }).where(eq(collectionEntry.id, entry.id));
+      entryUids.push(entry.entryUid);
+    }
+    actAs(null);
+    const out = await CPage({ params: Promise.resolve({ id: c.slug, slug: [entryUids[0], "home"] }) } as never);
+    const links = linksOf(await renderNested(out, "EntryPage"));
+    expect(links.has("listed notes")).toBe(true);
+    expect(links.has("draft idea")).toBe(false);
   });
 });

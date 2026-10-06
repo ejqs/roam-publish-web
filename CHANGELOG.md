@@ -5,6 +5,19 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.8.1 (2026-10-06)
+
+### Publishing
+- Fixed: **An API key pasted into the wrong graph** no longer publishes that graph's pages under another graph's
+  name. Publishing says which graph the key is for and where to get the right one. Needs the next extension
+  release.
+- Fixed: **Make listed** in the extension no longer says a page is on your graph's front page when the front page
+  is turned off. It says nothing lists the page yet and where to turn the front page on.
+
+### Published pages
+- Fixed: **Links between pages** only lead to listed pages. A link to an unlisted page shows as plain text, so its
+  address isn't handed to everyone who reads the page linking to it.
+
 ## 0.8.0 (2026-10-06)
 
 ### Site

@@ -305,10 +305,11 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
           }),
         ),
   ]);
-  // [[links]] resolve to other pages in this collection.
+  // [[links]] resolve to other pages in this collection, never to unlisted ones: a link would hand
+  // their address to every reader.
   const links = new PageLinks(
     siblings
-      .filter(({ pub: p }) => p.kind === "page")
+      .filter(({ entry: e, pub: p }) => p.kind === "page" && e.listing !== "unlisted")
       .map(({ entry: e, pub: p }) => [p.title.toLowerCase(), entryPath(c.slug, e.entryUid, p.title)]),
     (t) => collectionTagPath(c.slug, t),
   );

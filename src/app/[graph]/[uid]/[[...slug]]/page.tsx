@@ -120,7 +120,14 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
       .select({ title: publication.title, rootUid: publication.rootUid })
       .from(publication)
       .where(
-        and(eq(publication.graphId, g.id), eq(publication.kind, "page"), eq(publication.inGraph, true), livePublication),
+        and(
+          eq(publication.graphId, g.id),
+          eq(publication.kind, "page"),
+          eq(publication.inGraph, true),
+          // [[links]] never lead to unlisted pages: a link would hand their address to every reader.
+          eq(publication.visibility, "public"),
+          livePublication,
+        ),
       ),
     showBreadcrumbs && g.showOwner ? publicProfile(g.userId) : null,
     listed
