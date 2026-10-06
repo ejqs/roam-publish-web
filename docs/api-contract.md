@@ -108,6 +108,22 @@ refused with `400 { error }` saying why when the page can't be Discoverable.
 is listed but nothing shows it (its graph's front page is off); the extension shows it instead of "Now listed".
 `400` bad body · `403` removed by a moderator or not yours · `404` not published.
 
+### `GET /api/ext/publications/:rootUid/collections`
+→ `200 { collections: [{ id, name, url, listing, access, entryUrl, movesOutOfGraph }] }`: the collections the key's
+holder owns or belongs to (suspended ones left out). `listing` (`listed` or `discover`) and `access` are how the page
+would start there, from the collection's defaults. `entryUrl` is the page's link there, or null when it isn't in it.
+`movesOutOfGraph` is true when adding it would take it out of its graph (below).
+`403` removed by a moderator or not yours · `404` not published.
+
+### `POST /api/ext/publications/:rootUid/collections`
+Body `{ collectionId }` → `200 { name, entryUrl, listing, access, movedOutOfGraph, encrypted, url }`. Adds the page
+with the collection's defaults, as the website does. When the collection's default access is `password` or `members`
+and differs from the page's access in its graph, the page leaves its graph (`inGraph` false), so its graph link
+can't get around the collection's lock; `url` is then the collection link. A collection that encrypts new pages
+encrypts it once every place it's shown is locked. `403` not in that collection, removed by a moderator or not
+yours · `404` not published · `409` already there, or the page is encrypted (added on the website, which asks for
+its password).
+
 ### `DELETE /api/ext/publications/:rootUid`
 → `200 { deleted: true }` (from the graph and every collection) · `403` removed by a moderator or not yours · `404` not published.
 
@@ -229,4 +245,4 @@ own. Password-protected and members-only pages are never on Discover, never in R
 are listed. Bylines (`showAuthors` on the graph or collection, overridable per place) show the extension's Author
 name, else the publisher's public @username.
 
-None of this is exposed to the extension.
+The extension can only add a page to a collection (above); everything else here is set on the website.

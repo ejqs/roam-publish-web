@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { ENTRY_LISTING, graph, publication } from "@/db/schema";
@@ -6,26 +6,11 @@ import { logChange } from "@/lib/changelog";
 import { dropOrphanLockKeys } from "@/lib/encryption";
 import { json, preflight } from "@/lib/cors";
 import { extListing, LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
-import { type ExtContext, notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
+import { ownPage, requireExtKey } from "@/lib/ext-auth";
 import { primaryUrls } from "@/lib/places";
 import { withRoute } from "@/lib/telemetry";
 
 export const OPTIONS = preflight;
-
-/**
- * The page this key may change, or the error to return: 404 not published, 403 removed by a
- * moderator, 403 published by another member.
- */
-async function ownPage(req: Request, ctx: ExtContext, rootUid: string) {
-  const pub = await db.query.publication.findFirst({
-    where: and(eq(publication.graphId, ctx.graphId), eq(publication.rootUid, rootUid)),
-  });
-  if (!pub) return json(req, { error: "Not published" }, 404);
-  // A removed page stays put, so deleting and republishing can't get around the takedown.
-  if (pub.removedAt) return removedResponse(req, pub.removedReason);
-  if (ctx.role !== "owner" && pub.publishedBy !== ctx.userId) return notYoursResponse(req);
-  return pub;
-}
 
 export const DELETE = withRoute("DELETE /api/ext/publications/[rootUid]", async (
   req: Request,
@@ -48,8 +33,8 @@ const PatchBody = z.union([
 ]);
 
 /**
- * Sets where the page is listed: unlisted, on its graph's front page, or also on Discover. Access
- * and collections are set on the website.
+ * Sets where the page is listed: unlisted, on its graph's front page, or also on Discover. Access is
+ * set on the website; collections through ./collections.
  */
 export const PATCH = withRoute("PATCH /api/ext/publications/[rootUid]", async (
   req: Request,
