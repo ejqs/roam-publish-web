@@ -1,4 +1,6 @@
 import type { NextConfig } from "next";
+import { PHASE_DEVELOPMENT_SERVER, PHASE_PRODUCTION_BUILD } from "next/constants";
+import { datePages } from "./src/lib/last-updated";
 
 /**
  * Signed-in and account pages can't be put in a frame, so another site can't trick someone into
@@ -33,8 +35,13 @@ const everywhere = [
     : []),
 ];
 
-const nextConfig: NextConfig = {
+const nextConfig = async (phase: string): Promise<NextConfig> => ({
   poweredByHeader: false,
+  // Dated only when building (or in dev): `next start` uses what the build baked in.
+  env:
+    phase === PHASE_PRODUCTION_BUILD || phase === PHASE_DEVELOPMENT_SERVER
+      ? { LEGAL_UPDATED: await datePages() }
+      : {},
   async headers() {
     return [
       { source: "/:path*", headers: everywhere },
@@ -42,6 +49,6 @@ const nextConfig: NextConfig = {
       { source: `/:area(${UNFRAMEABLE})/:rest*`, headers: noFraming },
     ];
   },
-};
+});
 
 export default nextConfig;
