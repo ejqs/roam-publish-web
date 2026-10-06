@@ -61,7 +61,8 @@ describe("website entries", () => {
     const addedIds = added.map((e) => e.id);
     await db.delete(whatsNewStamp).where(inArray(whatsNewStamp.id, addedIds));
     forgetWhatsNew();
-    const deploy = Date.parse("2026-10-05T15:42:00Z");
+    // After everything already live, as a real deploy is (a fixed date breaks once the changelog passes it).
+    const deploy = Math.max(...first.map((e) => e.stampedAt.getTime())) + 60 * 60_000;
     const second = await loadWeb(deploy);
     expect(second.filter((e) => e.stampedAt.getTime() === deploy).map((e) => e.id).sort()).toEqual(addedIds.sort());
 

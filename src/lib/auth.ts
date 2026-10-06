@@ -8,6 +8,7 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { deleteAccountData, isBlocked } from "@/lib/deletion";
 import { sendEmail } from "@/lib/email";
+import { deleteAccount, email, resetPassword, verifyEmail } from "@/lib/email-templates";
 
 /** Bootstrap admins by user id; anyone with role "admin" is also an admin. */
 export const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "")
@@ -32,8 +33,7 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }) => {
       void sendEmail({
         to: user.email,
-        subject: "Reset your Roam Publish password",
-        text: `Reset your password: ${url}\n\nIf you didn't request this, ignore this email.`,
+        ...email(resetPassword, { address: user.email, url }),
       });
     },
   },
@@ -44,8 +44,7 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }) => {
       void sendEmail({
         to: user.email,
-        subject: "Verify your Roam Publish email",
-        text: `Verify your email: ${url}`,
+        ...email(verifyEmail, { address: user.email, url }),
       });
     },
   },
@@ -56,10 +55,7 @@ export const auth = betterAuth({
       sendDeleteAccountVerification: async ({ user, url }) => {
         void sendEmail({
           to: user.email,
-          subject: "Confirm deleting your Roam Publish account",
-          text:
-            `Open this link to permanently delete your account, your graphs, their pages and your collections:\n${url}\n\n` +
-            "This can't be undone. If you didn't ask for this, ignore this email.",
+          ...email(deleteAccount, { address: user.email, url }),
         });
       },
       beforeDelete: async (user) => {

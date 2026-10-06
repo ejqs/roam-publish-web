@@ -2,6 +2,7 @@ import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, collectionMember, graph, graphMember, invite, user } from "@/db/schema";
 import { sendEmail } from "./email";
+import * as templates from "./email-templates";
 import { canReceiveInvite } from "./graph-access";
 import { revokeKeys } from "./keys";
 
@@ -44,6 +45,11 @@ async function isMember(tx: Tx | typeof db, type: TargetType, targetId: string, 
 }
 
 const label = (type: TargetType, name: string) => (type === "graph" ? `the graph ${name}` : `the collection ${name}`);
+const emailTarget = (type: TargetType, name: string) => ({
+  type,
+  typeLabel: type === "graph" ? "Graph" : "Collection",
+  name,
+});
 
 /** Invite someone by email to join (kind "member") or take over (kind "transfer", members only). */
 export async function createInvite(opts: {
@@ -88,18 +94,13 @@ export async function createInvite(opts: {
       message: opts.kind === "transfer" ? "A transfer is already waiting for an answer." : "They already have an invite.",
     };
 
-  const what = label(opts.type, t.name);
   void sendEmail({
     to: invitee.email,
-    subject:
-      opts.kind === "transfer"
-        ? `You've been offered ownership of ${what} on Roam Publish`
-        : `You've been invited to ${what} on Roam Publish`,
-    text:
-      (opts.kind === "transfer"
-        ? `The owner of ${what} wants to make you its owner. They will stay on as a member.`
-        : `You've been invited to publish to ${what}.`) +
-      `\n\nNothing changes until you accept. Review it here (expires in ${INVITE_DAYS} days):\n${appUrl()}/dashboard/invites`,
+    ...templates.email(opts.kind === "transfer" ? templates.transferOffer : templates.invite, {
+      ...emailTarget(opts.type, t.name),
+      url: `${appUrl()}/dashboard/invites`,
+      days: String(INVITE_DAYS),
+    }),
   });
   return {
     ok: true,
@@ -215,14 +216,18 @@ export async function respondToInvite(inviteId: string, userId: string, accept: 
           if (oldOwner)
             void sendEmail({
               to: oldOwner.email,
-              subject: `Ownership of ${what} was transferred`,
-              text: `${newOwner?.email ?? "The new owner"} accepted ownership of ${what}. You're now a member.`,
+              ...templates.email(templates.transferDoneOldOwner, {
+                ...emailTarget(i.targetType, t.name),
+                newOwner: newOwner?.email ?? "The new owner",
+              }),
             });
           if (newOwner)
             void sendEmail({
               to: newOwner.email,
-              subject: `You now own ${what}`,
-              text: `You accepted ownership of ${what} on Roam Publish. Manage it at ${appUrl()}/dashboard`,
+              ...templates.email(templates.transferDoneNewOwner, {
+                ...emailTarget(i.targetType, t.name),
+                url: `${appUrl()}/dashboard`,
+              }),
             });
         },
       };

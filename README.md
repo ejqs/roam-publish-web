@@ -20,6 +20,12 @@ bun dev
 Without `RESEND_API_KEY`, verification and reset emails are printed to the server console, except in production,
 where they aren't sent and an error is logged instead (their links must never reach the host's logs).
 
+Emails are Resend templates, defined in `src/lib/email-templates.ts` with the layout in `src/lib/email-layout.ts`.
+There's nothing to set up in Resend: the first time each one is sent, the server publishes it as a template whose
+alias ends in a hash of its content (`rp-verify-email-1a2b…`), so a changed email is a new template and staging and
+production never overwrite each other's. If Resend's templates fail, the same email is sent as plain HTML instead.
+Old `rp-*` templates can be deleted from the Resend dashboard once nothing sends them.
+
 ## Tests
 
 ```bash
