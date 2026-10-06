@@ -108,6 +108,9 @@ refused with `400 { error }` saying why when the page can't be Discoverable.
 is listed but nothing shows it (its graph's front page is off); the extension shows it instead of "Now listed".
 `400` bad body · `403` removed by a moderator or not yours · `404` not published.
 
+`collections` on the publication list and on publish responses counts the collections the key's holder can add
+pages to; the extension offers **Add to collection** only when it's above zero.
+
 ### `GET /api/ext/publications/:rootUid/collections`
 → `200 { collections: [{ id, name, url, listing, access, entryUrl, movesOutOfGraph }] }`: the collections the key's
 holder owns or belongs to (suspended ones left out). `listing` (`listed` or `discover`) and `access` are how the page

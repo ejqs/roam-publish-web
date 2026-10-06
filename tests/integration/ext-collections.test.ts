@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { GET, POST } from "@/app/api/ext/publications/[rootUid]/collections/route";
-import { POST as PUBLISH } from "@/app/api/ext/publications/route";
+import { GET as LIST, POST as PUBLISH } from "@/app/api/ext/publications/route";
 import { db } from "@/db";
 import { collectionEntry, graph, publication } from "@/db/schema";
 import { resetDb } from "../helpers/db";
@@ -51,6 +51,17 @@ describe("listing collections for a page", () => {
 
   test("404s for a page that isn't published", async () => {
     expect((await list(ownerKey, "nope")).status).toBe(404);
+  });
+});
+
+describe("collection count", () => {
+  test("publish and the published list say how many collections the holder can add to", async () => {
+    const p = payload();
+    expect((await (await publish(ownerKey, p)).json()).collections).toBe(0);
+    await makeCollection(owner.id);
+    await makeCollection(owner.id, { suspendedAt: new Date() });
+    expect((await (await publish(ownerKey, p)).json()).collections).toBe(1);
+    expect((await (await LIST(extRequest("/api/ext/publications", ownerKey))).json()).collections).toBe(1);
   });
 });
 

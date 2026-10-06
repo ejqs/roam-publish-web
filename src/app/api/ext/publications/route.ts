@@ -8,7 +8,7 @@ import { keyedHash } from "@/lib/keyed-hash";
 import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
 import { changeLogStatusOf, logChange, validTimeZone } from "@/lib/changelog";
-import { addEntry } from "@/lib/collections";
+import { addEntry, collectionsOf } from "@/lib/collections";
 import { notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
 import { extListing } from "@/lib/listing";
 import { defaultCollectionsFor, primaryUrls } from "@/lib/places";
@@ -65,6 +65,9 @@ function tooDeep(body: unknown) {
 
 export const OPTIONS = preflight;
 
+/** How many collections the key's holder can add pages to; the extension offers "Add to collection" when there are any. */
+const collectionCount = async (userId: string) => (await collectionsOf(userId)).filter((c) => !c.suspendedAt).length;
+
 export const GET = withRoute("GET /api/ext/publications", async (req: Request) => {
   const ctx = await requireExtKey(req);
   if (ctx instanceof Response) return ctx;
@@ -93,6 +96,7 @@ export const GET = withRoute("GET /api/ext/publications", async (req: Request) =
   );
   return json(req, {
     changeLog: await changeLogStatusOf(ctx.graphId),
+    collections: await collectionCount(ctx.userId),
     publications: rows.map((p) => ({
       rootUid: p.rootUid,
       kind: p.kind,
@@ -169,7 +173,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     // A republish that needs its keys again (a password was reset) isn't "unchanged".
     const same = before === hash && !existing.needsRepublish;
     if (same && !authorChanged)
-      return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility, ...listing, changeLog: await changeLogStatusOf(ctx.graphId) });
+      return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility, ...listing, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
     await db.transaction(async (tx) => {
       // An encrypted page stays encrypted: the new content is sealed to its passwords' public keys.
       const content = existing.encrypted
@@ -205,7 +209,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     if (same)
       logChange(page, "publishing", `Byline changed to "${authorName ?? "(none)"}"`, key(`byline:${from}:${existing.authorName ?? ""}>${authorName ?? ""}`));
     else logChange(page, "publishing", "Republished", key(`content:${from}>${hash}`));
-    return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, ...listing, changeLog: await changeLogStatusOf(ctx.graphId) });
+    return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, ...listing, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
   }
 
   // New pages go where the graph's "New pages go to" setting says. If that leaves them nowhere
@@ -247,5 +251,6 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     visibility: created.visibility,
     ...extListing(g, created),
     changeLog: await changeLogStatusOf(ctx.graphId),
+    collections: await collectionCount(ctx.userId),
   });
 });
