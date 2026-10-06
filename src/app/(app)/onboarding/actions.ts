@@ -9,26 +9,14 @@ import { graph } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { isBlocked } from "@/lib/deletion";
 import { rateLimit } from "@/lib/rate-limit";
+import { GraphName } from "@/lib/graph-names";
 import { canStoreTokens, encryptToken } from "@/lib/append-token";
 import { validTimeZone } from "@/lib/changelog";
 import { appendToDailyNote } from "@/lib/roam-append";
 import { withAction } from "@/lib/telemetry";
 
-// Routes that would shadow /{graph} or /dashboard/{graph}.
-const ROUTES = new Set([
-  "admin", "api", "c", "collection", "collections", "dashboard", "discover", "forgot-password",
-  "invites", "keys", "login", "onboarding", "p", "privacy", "report", "reset-password", "search", "settings",
-  "setup", "signup", "terms", "u", "unlock", "verify-email",
-]);
-
 const Input = z.object({
-  graphName: z
-    .string()
-    .trim()
-    .min(1, "Enter your graph name")
-    .max(200)
-    .regex(/^[A-Za-z0-9_-]+$/, "Graph names only contain letters, numbers, - and _")
-    .refine((n) => !ROUTES.has(n.toLowerCase()), "This graph name can't be published on roam.pub."),
+  graphName: GraphName,
   token: z.string().trim().startsWith("roam-graph-token-", "Tokens start with roam-graph-token-"),
   date: z.string().regex(/^\d{2}-\d{2}-\d{4}$/),
   timeZone: z.string().max(64).optional(),
