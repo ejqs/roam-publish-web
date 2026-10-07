@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { encryptExistingPages } from "@/app/(app)/dashboard/encryption-actions";
+import { decryptExistingPages, encryptExistingPages } from "@/app/(app)/dashboard/encryption-actions";
 import { db } from "@/db";
 import { lockKey, type Node, publication } from "@/db/schema";
 import { addEntry } from "@/lib/collections";
@@ -58,7 +58,7 @@ describe("encryptExistingPages", () => {
     for (const p of [ready, openInGraph, theirs]) await addEntry(c.id, p.id, owner.id);
 
     const preview = await encryptExistingPages("collection", c.id, { preview: true });
-    expect(preview.encrypt).toEqual(["Ready"]);
+    expect(preview.pages).toEqual(["Ready"]);
     expect(preview.skipped).toEqual([
       { title: "Open in graph", reason: `Open in ${g.name}`, manageHref: `/${g.name}/${openInGraph.rootUid}/open-in-graph?manage` },
       { title: "Theirs", reason: "Published by another member" },
@@ -66,7 +66,7 @@ describe("encryptExistingPages", () => {
     expect((await row(ready.id))!.encrypted).toBe(false);
 
     const res = await encryptExistingPages("collection", c.id);
-    expect(res).toMatchObject({ ok: true, message: "Encrypted 1 page. 2 left as they were.", encrypt: ["Ready"] });
+    expect(res).toMatchObject({ ok: true, message: "Encrypted 1 page. 2 left as they were.", pages: ["Ready"] });
     const after = (await row(ready.id))!;
     expect(after.encrypted).toBe(true);
     expect(JSON.stringify(after.tree)).not.toContain("secret");
@@ -86,7 +86,7 @@ describe("encryptExistingPages", () => {
     await addEntry(old.id, inOld.id, owner.id);
 
     const res = await encryptExistingPages("graph", g.id);
-    expect(res.encrypt).toEqual(["Ready"]);
+    expect(res.pages).toEqual(["Ready"]);
     expect(res.skipped).toEqual([
       {
         title: "In old collection",
@@ -103,5 +103,33 @@ describe("encryptExistingPages", () => {
 
     actAs(await makeUser());
     expect(await encryptExistingPages("collection", c.id)).toMatchObject({ ok: false, message: expect.stringMatching(/Only the collection.s owner/) });
+  });
+});
+
+describe("decryptExistingPages", () => {
+  test("decrypts the pages one password opens and leaves the rest encrypted", async () => {
+    const shared = await page(g.id, owner.id, "Shared");
+    const own = await page(g.id, owner.id, "Own password", "password");
+    await db.update(publication).set({ passwordHash: hashPassword("its-own-pw-1") }).where(eq(publication.id, own.id));
+    await db.insert(lockKey).values({ scope: "publication", targetId: own.id, ...newLockKey("its-own-pw-1") });
+    expect((await encryptExistingPages("graph", g.id)).pages).toEqual(["Own password", "Shared"]);
+
+    const preview = await decryptExistingPages("graph", g.id, GRAPH_PW, { preview: true });
+    expect(preview).toMatchObject({ ok: true, pages: ["Shared"], skipped: [{ title: "Own password", reason: "Encrypted with a different password" }] });
+    expect((await row(shared.id))!.encrypted).toBe(true);
+
+    expect(await decryptExistingPages("graph", g.id, "wrong-password")).toMatchObject({ ok: false, pages: [] });
+    const res = await decryptExistingPages("graph", g.id, GRAPH_PW);
+    expect(res).toMatchObject({ ok: true, message: "Decrypted 1 page. 1 still encrypted." });
+    const after = (await row(shared.id))!;
+    expect(after).toMatchObject({ encrypted: false, cipher: null });
+    expect(JSON.stringify(after.tree)).toContain("secret of Shared");
+    expect((await row(own.id))!.encrypted).toBe(true);
+  });
+
+  test("needs the password, and is only for the owner", async () => {
+    expect(await decryptExistingPages("graph", g.id, "")).toMatchObject({ ok: false, message: expect.stringMatching(/Enter the password/) });
+    actAs(await makeUser());
+    expect(await decryptExistingPages("graph", g.id, GRAPH_PW)).toMatchObject({ ok: false, message: expect.stringMatching(/Only the graph's owner/) });
   });
 });

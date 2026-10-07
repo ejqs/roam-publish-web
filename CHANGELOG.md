@@ -13,6 +13,9 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
   and they can be encrypted with its password.
 
 ### Security
+- New: **Decrypt existing pages** in a graph's or collection's settings turns off encryption on every page there
+  that one password opens. It shows which pages that password opens and which it skips, such as pages encrypted
+  with a different password, before you confirm.
 - Improved: **Encrypt existing pages** links each page it leaves readable to that page, with Manage already open,
   so you can set it to Password there. Coming back to settings checks the pages again.
 

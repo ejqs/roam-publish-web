@@ -5,10 +5,10 @@ import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { collection, collectionEntry, graph, lockKey, publication, publicationKey } from "@/db/schema";
+import { collection, collectionEntry, graph, lockKey, type Node, publication, publicationKey } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { type Change, logChange, logChanges } from "@/lib/changelog";
-import { encryptExistingPagesBlocked } from "@/lib/control-rules";
+import { decryptExistingPagesBlocked, encryptExistingPagesBlocked } from "@/lib/control-rules";
 import { DISCOVER_TAG } from "@/lib/discover";
 import {
   contentKeyFor,
@@ -19,6 +19,7 @@ import {
   lockKeyOf,
   locksOf,
   newLockKey,
+  passwordOpener,
   plainHash,
   spotsOf,
   unprotectedSpots,
@@ -60,6 +61,17 @@ async function lockHash(l: VersionedLock) {
           ? await db.query.publication.findFirst({ where: eq(publication.id, l.id), columns: cols })
           : await db.query.collectionEntry.findFirst({ where: eq(collectionEntry.id, l.id), columns: cols });
   return row?.passwordHash ?? null;
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Stores an encrypted page readable again, with the tree its password opened. */
+async function storeReadable(tx: Tx, pub: typeof publication.$inferSelect, tree: Node) {
+  await tx
+    .update(publication)
+    .set({ tree, ...indexFields(tree, pub), contentHash: plainHash(pub), encrypted: false, cipher: null, needsRepublish: false })
+    .where(eq(publication.id, pub.id));
+  await tx.delete(publicationKey).where(eq(publicationKey.publicationId, pub.id));
 }
 
 function revalidateAll() {
@@ -109,14 +121,7 @@ export async function setEncryption(publicationId: string, raw: z.input<typeof I
           message: input.currentPassword ? "That password doesn't open this page." : "Enter the page's password to turn off encryption.",
         };
       }
-      const hash = plainHash(pub);
-      await db.transaction(async (tx) => {
-        await tx
-          .update(publication)
-          .set({ tree, ...indexFields(tree, pub), contentHash: hash, encrypted: false, cipher: null, needsRepublish: false })
-          .where(eq(publication.id, pub.id));
-        await tx.delete(publicationKey).where(eq(publicationKey.publicationId, pub.id));
-      });
+      await db.transaction((tx) => storeReadable(tx, pub, tree));
       logChange(pub, "access", "Encryption turned off");
       revalidateAll();
       return { ok: true, message: "Encryption turned off." };
@@ -171,12 +176,12 @@ const skippedAt = (title: string, b: { reason: string; spot: { path: string; sho
   manageHref: b.spot.shown ? `${b.spot.path}?manage` : undefined,
 });
 
-export type EncryptExistingResult = {
+export type BulkEncryptionResult = {
   ok: boolean;
   message: string;
-  /** Pages that would be encrypted, or were. */
-  encrypt?: string[];
-  /** Readable pages left as they are, and why, with where to open Manage on the page to fix it. */
+  /** Pages that would be encrypted (or decrypted), or were. */
+  pages?: string[];
+  /** Pages left as they are, and why, with where to open Manage on the page to fix it. */
   skipped?: SkippedPage[];
 };
 
@@ -190,7 +195,7 @@ export async function encryptExistingPages(
   kind: "graph" | "collection",
   containerId: string,
   opts: { preview?: boolean } = {},
-): Promise<EncryptExistingResult> {
+): Promise<BulkEncryptionResult> {
   return withAction("dashboard.encryption.encryptExistingPages", async () => {
     const session = await auth.api.getSession({ headers: await headers() });
     const uid = session?.user.id;
@@ -231,8 +236,8 @@ export async function encryptExistingPages(
       else encrypt.push(pub);
     }
     const titles = encrypt.map((p) => p.title);
-    if (opts.preview) return { ok: true, message: "", encrypt: titles, skipped };
-    if (!encrypt.length) return { ok: false, message: "No pages here can be encrypted right now.", encrypt: [], skipped };
+    if (opts.preview) return { ok: true, message: "", pages: titles, skipped };
+    if (!encrypt.length) return { ok: false, message: "No pages here can be encrypted right now.", pages: [], skipped };
 
     const done: Change[] = [];
     const doneTitles: string[] = [];
@@ -259,8 +264,81 @@ export async function encryptExistingPages(
     return {
       ok: n > 0,
       message: n ? `Encrypted ${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}.${left}` : "No pages here can be encrypted right now.",
-      encrypt: doneTitles,
+      pages: doneTitles,
       skipped,
     };
+  });
+}
+
+const PasswordInput = z.string().max(200);
+
+/**
+ * Turns off encryption on the pages in a graph or collection that one typed password opens, like
+ * turning it off page by page. Pages encrypted with another password are skipped and listed, and so
+ * are pages the owner doesn't manage. `preview` changes nothing, to show what would happen first.
+ */
+export async function decryptExistingPages(
+  kind: "graph" | "collection",
+  containerId: string,
+  password: string,
+  opts: { preview?: boolean } = {},
+): Promise<BulkEncryptionResult> {
+  return withAction("dashboard.encryption.decryptExistingPages", async () => {
+    const session = await auth.api.getSession({ headers: await headers() });
+    const uid = session?.user.id;
+    if (!uid) return { ok: false, message: "Your session expired. Please log in again." };
+    const parsed = PasswordInput.safeParse(password);
+    if (!parsed.success) return { ok: false, message: "Something went wrong. Try again." };
+    const blocked = decryptExistingPagesBlocked(parsed.data);
+    if (blocked) return { ok: false, message: blocked };
+    if (!rateLimit(`encrypt:user:${uid}`, 30, 15 * 60 * 1000))
+      return { ok: false, message: "Too many tries. Wait a few minutes and try again." };
+    const c =
+      kind === "graph"
+        ? await db.query.graph.findFirst({ where: and(eq(graph.id, containerId), eq(graph.userId, uid)) })
+        : await db.query.collection.findFirst({ where: and(eq(collection.id, containerId), eq(collection.ownerId, uid)) });
+    if (!c) return { ok: false, message: `Only the ${kind}'s owner can do this.` };
+
+    const inContainer =
+      kind === "graph"
+        ? eq(publication.graphId, c.id)
+        : inArray(
+            publication.id,
+            db.select({ id: collectionEntry.publicationId }).from(collectionEntry).where(eq(collectionEntry.collectionId, c.id)),
+          );
+    const encrypted = and(inContainer, eq(publication.encrypted, true), isNull(publication.removedAt));
+    const pages = await db
+      .select({ pub: publication, mine: sql<boolean>`${manageablePublications(uid)}` })
+      .from(publication)
+      .where(encrypted)
+      .orderBy(publication.title);
+    if (!pages.length) return { ok: false, message: `No pages in this ${kind} are encrypted.` };
+
+    const open = passwordOpener(parsed.data);
+    const decrypt: { pub: typeof publication.$inferSelect; tree: Node }[] = [];
+    const skipped: SkippedPage[] = [];
+    for (const { pub, mine } of pages) {
+      if (!mine) {
+        skipped.push({ title: pub.title, reason: "Published by another member" });
+        continue;
+      }
+      const tree = await open(db, pub);
+      if (tree) decrypt.push({ pub, tree });
+      else
+        skipped.push({
+          title: pub.title,
+          reason: pub.needsRepublish ? "Needs republishing from Roam first" : "Encrypted with a different password",
+        });
+    }
+    const titles = decrypt.map((d) => d.pub.title);
+    if (opts.preview) return { ok: true, message: "", pages: titles, skipped };
+    if (!decrypt.length) return { ok: false, message: "That password doesn't open any of these pages.", pages: [], skipped };
+
+    for (const { pub, tree } of decrypt) await db.transaction((tx) => storeReadable(tx, pub, tree));
+    logChanges(decrypt.map(({ pub }) => ({ graphId: pub.graphId, rootUid: pub.rootUid, category: "access" as const, text: "Encryption turned off" })));
+    revalidateAll();
+    const n = decrypt.length;
+    const left = skipped.length ? ` ${skipped.length.toLocaleString("en-US")} still encrypted.` : "";
+    return { ok: true, message: `Decrypted ${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}.${left}`, pages: titles, skipped };
   });
 }

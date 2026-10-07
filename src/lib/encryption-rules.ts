@@ -7,6 +7,11 @@ export const ENCRYPT_PASSWORD_MIN = 10;
 export const encryptNewPagesBlocked = (kind: "graph" | "collection") =>
   `Encrypting new pages needs a ${kind} password of at least ${ENCRYPT_PASSWORD_MIN} characters. Enter the password again, or set a longer one, to encrypt with it.`;
 
+/** Why "Decrypt existing pages" can't check or decrypt yet: it needs the password they share. */
+export function decryptExistingPagesBlocked(password: string) {
+  if (!password) return "Enter the password the pages are encrypted with.";
+}
+
 /**
  * Why "Encrypt existing pages" can't be used yet. It encrypts with the saved password, so it waits
  * for one with a key pair (`canEncrypt`) and for unsaved password changes to be saved.

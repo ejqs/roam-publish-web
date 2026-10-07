@@ -9,7 +9,7 @@
  */
 import { ENCRYPT_PASSWORD_MIN } from "./encryption-rules";
 
-export { encryptExistingPagesBlocked, encryptNewPagesBlocked } from "./encryption-rules";
+export { decryptExistingPagesBlocked, encryptExistingPagesBlocked, encryptNewPagesBlocked } from "./encryption-rules";
 
 type Kind = "graph" | "collection";
 type Access = "open" | "password" | "members";

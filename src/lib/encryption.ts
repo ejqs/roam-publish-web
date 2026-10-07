@@ -308,6 +308,35 @@ export async function contentKeyFor(tx: Db, pub: { id: string }, creds: Credenti
   return null;
 }
 
+/**
+ * Opens encrypted pages with one typed password and nothing else (not the viewer's cookies), so
+ * only pages that password opens. Each password key is derived once per lock, since each costs an
+ * scrypt. Null for a page the password doesn't open.
+ */
+export function passwordOpener(password: string) {
+  const keys = new Map<string, KeyObject | null>();
+  return async (tx: Db, pub: { id: string; cipher: string | null }): Promise<Node | null> => {
+    if (!pub.cipher) return null;
+    const sealed = await tx
+      .select({ k: publicationKey, lk: lockKey })
+      .from(publicationKey)
+      .innerJoin(lockKey, and(eq(lockKey.scope, publicationKey.scope), eq(lockKey.targetId, publicationKey.targetId)))
+      .where(eq(publicationKey.publicationId, pub.id));
+    for (const { k, lk } of sealed) {
+      const id = lockId({ scope: k.scope, id: k.targetId });
+      if (!keys.has(id)) {
+        const kek = passwordKeyFor(lk.wrappedPrivateKey, password);
+        keys.set(id, kek && unwrapPrivateKey(lk.wrappedPrivateKey, kek));
+      }
+      const key = keys.get(id);
+      const ck = key && openContentKey(k.sealedKey, key);
+      const tree = ck && decryptTree(ck, pub.cipher, pub.id);
+      if (tree) return tree;
+    }
+    return null;
+  };
+}
+
 /** Current password versions, to check cookies against. */
 async function lockVersions(tx: Db, locks: LockRef[]) {
   const ids = (scope: LockScope) => locks.filter((l) => l.scope === scope).map((l) => l.id);

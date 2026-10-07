@@ -1,11 +1,11 @@
 "use client";
 
-import { ExternalLinkIcon, RefreshCwIcon, SearchIcon, TypeIcon, UsersIcon } from "lucide-react";
+import { ExternalLinkIcon, LockOpenIcon, RefreshCwIcon, SearchIcon, TypeIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { encryptExistingPages, type EncryptExistingResult } from "@/app/(app)/dashboard/encryption-actions";
+import { decryptExistingPages, encryptExistingPages, type BulkEncryptionResult, type SkippedPage } from "@/app/(app)/dashboard/encryption-actions";
 import { applyAccessToAllPages } from "@/app/(app)/dashboard/place-actions";
 import { EncryptedIcon } from "@/components/encrypted-icon";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FieldDescription, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { ENCRYPT_PASSWORD_MIN, encryptExistingPagesBlocked } from "@/lib/encryption-rules";
+import { decryptExistingPagesBlocked, ENCRYPT_PASSWORD_MIN, encryptExistingPagesBlocked } from "@/lib/encryption-rules";
 import type { Access } from "@/db/schema";
 import { Choice, readOptions } from "./choice";
 
@@ -205,6 +205,7 @@ export function ContainerAccessFields({
             blocked={encryptExistingPagesBlocked(kind, { canEncrypt: hasPassword && canEncrypt, unsavedPassword: !!value.password || value.clearPassword })}
           />
         )}
+        {encrypted > 0 && <DecryptExistingDialog kind={kind} label={label} containerId={containerId} />}
       </FieldSet>
       <FieldSeparator />
       <div className="flex flex-col gap-2">
@@ -419,9 +420,9 @@ function EncryptExistingDialog({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [plan, setPlan] = useState<EncryptExistingResult | null>(null);
+  const [plan, setPlan] = useState<BulkEncryptionResult | null>(null);
   const [pending, start] = useTransition();
-  const n = plan?.encrypt?.length ?? 0;
+  const n = plan?.pages?.length ?? 0;
   const pages = `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
   const skipped = plan?.skipped ?? [];
 
@@ -484,43 +485,10 @@ function EncryptExistingDialog({
           </DialogHeader>
           {plan && n > 0 && <EncryptConsequences />}
           {plan && skipped.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-sm font-medium">
-                {skipped.length.toLocaleString("en-US")} {skipped.length === 1 ? "page stays" : "pages stay"} readable
-              </p>
-              <ul className="max-h-40 divide-y overflow-y-auto rounded-sm border text-sm">
-                {skipped.map((p, i) => (
-                  <li key={i}>
-                    {p.manageHref ? (
-                      <a
-                        href={p.manageHref}
-                        target="_blank"
-                        rel="noopener"
-                        className="group flex items-center gap-2 px-3 py-2 hover:bg-muted"
-                        title="Open the page with Manage, in a new tab"
-                      >
-                        <span className="flex min-w-0 flex-1 flex-col">
-                          <span className="break-words text-link group-hover:underline">{p.title}</span>
-                          <span className="text-xs text-muted-foreground">{p.reason}</span>
-                        </span>
-                        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                          Manage <ExternalLinkIcon className="size-3" />
-                        </span>
-                      </a>
-                    ) : (
-                      <div className="flex flex-col px-3 py-2">
-                        <span className="break-words">{p.title}</span>
-                        <span className="text-xs text-muted-foreground">{p.reason}</span>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs text-muted-foreground">
-                Pages are only encrypted where every place shows them with a password. Open one to set it to Password in
-                Manage, then come back and encrypt.
-              </p>
-            </div>
+            <SkippedList skipped={skipped} still="readable">
+              Pages are only encrypted where every place shows them with a password. Open one to set it to Password in
+              Manage, then come back and encrypt.
+            </SkippedList>
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending && !!plan}>
@@ -534,5 +502,159 @@ function EncryptExistingDialog({
       </Dialog>
       {blocked && <FieldDescription>{blocked}</FieldDescription>}
     </div>
+  );
+}
+
+/** Pages a bulk change leaves as they are, each linking to its page with Manage open when it can. */
+function SkippedList({ skipped, still, children }: { skipped: SkippedPage[]; still: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-sm font-medium">
+        {skipped.length.toLocaleString("en-US")} {skipped.length === 1 ? "page stays" : "pages stay"} {still}
+      </p>
+      <ul className="max-h-40 divide-y overflow-y-auto rounded-sm border text-sm">
+        {skipped.map((p, i) => (
+          <li key={i}>
+            {p.manageHref ? (
+              <a
+                href={p.manageHref}
+                target="_blank"
+                rel="noopener"
+                className="group flex items-center gap-2 px-3 py-2 hover:bg-muted"
+                title="Open the page with Manage, in a new tab"
+              >
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="break-words text-link group-hover:underline">{p.title}</span>
+                  <span className="text-xs text-muted-foreground">{p.reason}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                  Manage <ExternalLinkIcon className="size-3" />
+                </span>
+              </a>
+            ) : (
+              <div className="flex flex-col px-3 py-2">
+                <span className="break-words">{p.title}</span>
+                <span className="text-xs text-muted-foreground">{p.reason}</span>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted-foreground">{children}</p>
+    </div>
+  );
+}
+
+/**
+ * Turns off encryption on the pages here that one password opens, after showing which ones it
+ * opens and which it leaves encrypted (another password, or another member's page).
+ */
+function DecryptExistingDialog({ kind, label, containerId }: { kind: "graph" | "collection"; label: string; containerId: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [plan, setPlan] = useState<BulkEncryptionResult | null>(null);
+  const [pending, start] = useTransition();
+  const blocked = decryptExistingPagesBlocked(password);
+  const n = plan?.pages?.length ?? 0;
+  const pages = `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
+  const skipped = plan?.skipped ?? [];
+
+  function check() {
+    start(async () => {
+      const res = await decryptExistingPages(kind, containerId, password, { preview: true });
+      if (!res.ok) return void toast.error(res.message);
+      setPlan(res);
+    });
+  }
+
+  function decrypt() {
+    start(async () => {
+      const res = await decryptExistingPages(kind, containerId, password);
+      if (!res.ok) return void toast.error(res.message);
+      toast.success(res.message);
+      setOpen(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        setPassword("");
+        setPlan(null);
+      }}
+    >
+      <DialogTrigger
+        render={
+          <Button type="button" variant="link" size="sm" className="self-start px-0">
+            <LockOpenIcon /> Decrypt existing pages…
+          </Button>
+        }
+      />
+      <DialogContent className="sm:max-w-md">
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (blocked || pending) return;
+            if (plan && n) decrypt();
+            else check();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="break-words">Decrypt pages in {label}?</DialogTitle>
+            <DialogDescription>
+              Enter the password the pages are encrypted with. Every page here it opens is stored readable again; pages
+              encrypted with a different password stay encrypted.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={`${kind}-decrypt-password`} className="text-sm font-medium">
+              Password
+            </label>
+            <Input
+              id={`${kind}-decrypt-password`}
+              type="password"
+              autoComplete="current-password"
+              autoFocus
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setPlan(null);
+              }}
+            />
+          </div>
+          {plan && (
+            <p className="text-sm">
+              {n
+                ? `It opens ${pages}. Decrypting ${n === 1 ? "it" : "them"} keeps who can read ${n === 1 ? "it" : "them"} as it is, but roam.pub can read ${n === 1 ? "it" : "them"} again, and search, tags, related pages and excerpts come back.`
+                : "That password doesn't open any of the encrypted pages here."}
+            </p>
+          )}
+          {plan && skipped.length > 0 && (
+            <SkippedList skipped={skipped} still="encrypted">
+              Decrypt them with their own password here, or one by one in Manage on the dashboard.
+            </SkippedList>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending && !!plan}>
+              Cancel
+            </Button>
+            {plan && n ? (
+              <Button type="submit" variant="destructive" disabled={pending}>
+                <LockOpenIcon /> {pending ? "Decrypting…" : `Decrypt ${pages}`}
+              </Button>
+            ) : (
+              <Button type="submit" disabled={pending || !!blocked}>
+                {pending ? "Checking…" : "Check pages"}
+              </Button>
+            )}
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
