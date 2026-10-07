@@ -24,7 +24,7 @@ import { ChangeLogIssues } from "./change-log-issues";
 import { DashboardShell } from "./dashboard-shell";
 import { missingChangeLogBlocks } from "@/lib/changelog";
 import { AddCollectionDialog } from "./collections/create-form";
-import { type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "./filters";
+import { type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "@/lib/dashboard-filters";
 import { ProfileCard } from "./profile-card";
 import { LevelLegend, type ResourceItem, ResourceList } from "./resource-list";
 

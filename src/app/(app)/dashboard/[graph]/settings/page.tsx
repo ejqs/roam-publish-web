@@ -8,7 +8,7 @@ import { requireSession } from "@/lib/session";
 import { ChangeLogForm } from "./change-log-form";
 import { DeleteGraphCard } from "./delete-graph";
 import { GraphSettingsForm } from "./settings-form";
-import { graphPagesPath } from "../../filters";
+import { graphPagesPath } from "@/lib/dashboard-filters";
 import { ResourceHeader, resourceTabs } from "../../section-tabs";
 
 export const metadata: Metadata = { title: "Graph settings · Roam Publish" };

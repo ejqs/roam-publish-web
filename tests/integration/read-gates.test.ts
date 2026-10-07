@@ -9,7 +9,7 @@ import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";
 import { collectionEntry, publication } from "@/db/schema";
 import { searchPages } from "@/lib/site-search";
-import { setAccess, setPageSearchable } from "@/app/(app)/dashboard/actions";
+import { setAccess, setPageSearchable } from "@/server/actions/dashboard";
 import { eq } from "drizzle-orm";
 import { resetDb } from "../helpers/db";
 import { actAs, makeCollection, makeGraph, makePublication, makeUser } from "../helpers/factories";

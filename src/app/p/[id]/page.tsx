@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import { collectionPagesPath, graphPagesPath } from "@/app/(app)/dashboard/filters";
+import { collectionPagesPath, graphPagesPath } from "@/lib/dashboard-filters";
 import { CopyButton } from "@/components/copy-button";
 import { ACCESS_LABELS, LISTING_LABELS, notSearchable } from "@/components/manage/labels";
 import { Badge } from "@/components/ui/badge";

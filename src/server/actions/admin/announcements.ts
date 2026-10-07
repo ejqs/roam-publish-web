@@ -1,5 +1,6 @@
 "use server";
 
+import "server-only";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -7,7 +8,7 @@ import { ANNOUNCEMENT_AUDIENCES, ANNOUNCEMENT_TONES, moderationAction } from "@/
 import { requireAdmin } from "@/lib/admin";
 import { endAnnouncement, MESSAGE_MAX, muteAnnouncement, postAnnouncement } from "@/lib/announcements";
 import { withAction } from "@/lib/telemetry";
-import type { ActionState } from "../actions";
+import type { ActionState } from "@/server/actions/admin/moderation";
 
 const HOUR = 60 * 60_000;
 export type Duration = "1h" | "6h" | "1d" | "3d" | "7d";

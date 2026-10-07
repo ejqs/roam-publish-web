@@ -1,3 +1,4 @@
+import "server-only";
 import { and, count, desc, eq, or, type SQL, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { db } from "@/db";
@@ -6,7 +7,7 @@ import { liveGraph, livePublication } from "@/lib/moderation";
 import { graphPlaceOpen } from "@/lib/places";
 import { collectionPath, entryPath, graphPath, publicationPath } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
-import type { DiscoverSort } from "@/app/discover/sort";
+import type { DiscoverSort } from "@/lib/discover-sort";
 
 /** Cache tag for everything on /discover and the home page's trending list. */
 export const DISCOVER_TAG = "discover";

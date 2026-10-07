@@ -1,3 +1,4 @@
+import "server-only";
 import { and, count, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { collectionEntry, publication } from "@/db/schema";

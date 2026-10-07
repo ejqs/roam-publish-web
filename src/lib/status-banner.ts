@@ -1,3 +1,4 @@
+import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type AnnouncementAudience, type AnnouncementTone, announcement, backgroundJob, type JobResult } from "@/db/schema";

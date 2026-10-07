@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { verifyGraph } from "@/app/(app)/onboarding/actions";
+import { verifyGraph } from "@/server/actions/onboarding";
 import { db } from "@/db";
 import { blockedIdentity, graph } from "@/db/schema";
 import { decryptToken } from "@/lib/append-token";

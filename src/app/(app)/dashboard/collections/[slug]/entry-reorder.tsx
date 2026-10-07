@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { moveEntry } from "../actions";
+import { moveEntry } from "@/server/actions/collections";
 
 /** Up and down for the owner's order of pages in a collection. */
 export function EntryReorder({ entryId, first, last }: { entryId: string; first: boolean; last: boolean }) {

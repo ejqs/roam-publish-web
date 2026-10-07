@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { collectionEntry } from "@/db/schema";
 import { collectionRole, loadCollection } from "@/lib/collections";
 import { requireSession } from "@/lib/session";
-import { collectionPagesPath } from "../../../filters";
+import { collectionPagesPath } from "@/lib/dashboard-filters";
 import { lockKeyOf, sealedPageTitles } from "@/lib/encryption";
 import { CollectionSettingsForm } from "./settings-form";
 import { ResourceHeader, resourceTabs } from "../../../section-tabs";

@@ -29,7 +29,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { KeyReveal } from "@/components/key-reveal";
 import { graphNameError } from "@/lib/graph-names";
-import { verifyGraph } from "./actions";
+import { verifyGraph } from "@/server/actions/onboarding";
 
 function todayMMDDYYYY() {
   const d = new Date();

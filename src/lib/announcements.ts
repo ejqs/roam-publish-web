@@ -1,3 +1,4 @@
+import "server-only";
 import { and, eq, gt, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { announcement, type AnnouncementAudience, type AnnouncementTone } from "@/db/schema";

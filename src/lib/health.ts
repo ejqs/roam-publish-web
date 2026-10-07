@@ -1,3 +1,4 @@
+import "server-only";
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { backgroundJob } from "@/db/schema";

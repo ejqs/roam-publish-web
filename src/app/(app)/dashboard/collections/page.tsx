@@ -7,7 +7,7 @@ import { collectionsOf } from "@/lib/collections";
 import { canReceiveInvite } from "@/lib/graph-access";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
-import { collectionPagesPath } from "../filters";
+import { collectionPagesPath } from "@/lib/dashboard-filters";
 import { AddCollectionDialog } from "./create-form";
 
 export const metadata: Metadata = { title: "Collections · Roam Publish" };

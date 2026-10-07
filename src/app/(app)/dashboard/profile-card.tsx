@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
-import { claimUsername, setProfilePublic, updateBio } from "./actions";
+import { claimUsername, setProfilePublic, updateBio } from "@/server/actions/dashboard";
 
 export function ProfileCard({
   username,

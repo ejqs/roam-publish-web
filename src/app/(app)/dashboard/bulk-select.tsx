@@ -18,9 +18,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Access as ReadAccess } from "@/db/schema";
 import { ICONS, LABELS, type Option, Section } from "./access-menu";
-import type { Access } from "./actions";
-import { bulkUnpublish, bulkUpdateEntries, bulkUpdatePublications } from "./place-actions";
-import { bulkSetTags } from "./tag-actions";
+import type { Access } from "@/server/actions/dashboard";
+import { bulkUnpublish, bulkUpdateEntries, bulkUpdatePublications } from "@/server/actions/places";
+import { bulkSetTags } from "@/server/actions/tags";
 
 type Ctx = {
   selected: Set<string>;

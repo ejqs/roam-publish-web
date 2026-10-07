@@ -222,7 +222,7 @@ sends nothing new and the hash is unchanged.
 - **Search text** (`publication.search_text`): plain text of every block. `publication.search` is a generated
   `tsvector` (`simple` config, title weighted above body).
 - **Website edits**: people who can manage a page add or remove tags in its Manage dialog
-  (`src/app/(app)/dashboard/tag-actions.ts`). They're stored as `tags_added` and `tags_hidden` and reapplied
+  (`src/server/actions/tags.ts`). They're stored as `tags_added` and `tags_hidden` and reapplied
   on every republish, so a Roam `#tag` removed on the website stays removed. `tags` is always
   (tags from the tree ∪ `tags_added`) − `tags_hidden`. The dashboard's graph and collection lists can add and
   remove tags on many pages at once (`bulkSetTags`); pages the viewer can't manage are skipped.

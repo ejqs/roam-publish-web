@@ -4,7 +4,7 @@ import { GET, POST } from "@/app/api/ext/publications/[rootUid]/collections/rout
 import { GET as LIST, POST as PUBLISH } from "@/app/api/ext/publications/route";
 import { db } from "@/db";
 import { collectionEntry, graph, graphDefaultCollection, publication } from "@/db/schema";
-import { addToCollection } from "@/app/(app)/dashboard/place-actions";
+import { addToCollection } from "@/server/actions/places";
 import { resetDb } from "../helpers/db";
 import { actAs, addCollectionMember, addGraphMember, extRequest, keyFor, makeCollection, makeGraph, makeUser, payload } from "../helpers/factories";
 import { resetRequest } from "../helpers/request";

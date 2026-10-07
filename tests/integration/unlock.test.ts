@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { unlock } from "@/app/unlock/actions";
+import { unlock } from "@/server/actions/unlock";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { graph, passwordUnlock } from "@/db/schema";

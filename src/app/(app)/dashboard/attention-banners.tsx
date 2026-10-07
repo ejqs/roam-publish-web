@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import type { graph, profile } from "@/db/schema";
-import { type AccessCounts, graphPagesPath } from "./filters";
+import { type AccessCounts, graphPagesPath } from "@/lib/dashboard-filters";
 
 type Severity = "destructive" | "warning" | "default";
 type Item = { id: string; severity: Severity; title: string; body: string; action?: { label: string; href: string } };

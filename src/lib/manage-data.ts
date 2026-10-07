@@ -1,7 +1,8 @@
+import "server-only";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, collectionEntry, type EntryListing, graph, publication, type ViewsMode } from "@/db/schema";
-import { discoverBlocked } from "@/app/(app)/dashboard/filters";
+import { discoverBlocked } from "@/lib/dashboard-filters";
 import { canManageEntry, collectionsOf } from "./collections";
 import { canManage, graphsOf } from "./graph-access";
 import { entryPath, publicationPath } from "./publications";

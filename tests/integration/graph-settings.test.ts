@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { updateGraphAccess, updateGraphSettings } from "@/app/(app)/dashboard/actions";
-import { updateCollection } from "@/app/(app)/dashboard/collections/actions";
+import { updateGraphAccess, updateGraphSettings } from "@/server/actions/dashboard";
+import { updateCollection } from "@/server/actions/collections";
 import { db } from "@/db";
 import { collection, graph } from "@/db/schema";
 import { addEntry } from "@/lib/collections";

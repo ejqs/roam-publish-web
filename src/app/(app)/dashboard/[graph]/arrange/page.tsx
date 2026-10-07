@@ -7,8 +7,8 @@ import { loadFolders } from "@/lib/front-page";
 import { livePublication } from "@/lib/moderation";
 import { requireSession } from "@/lib/session";
 import { ArrangeForm } from "../../arrange-form";
-import { arrangeKey } from "../../arrange-key";
-import { graphPagesPath } from "../../filters";
+import { arrangeKey } from "@/lib/arrange-key";
+import { graphPagesPath } from "@/lib/dashboard-filters";
 import { ResourceHeader, resourceTabs } from "../../section-tabs";
 
 export const metadata: Metadata = { title: "Arrange graph · Roam Publish" };

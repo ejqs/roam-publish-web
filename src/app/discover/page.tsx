@@ -17,7 +17,7 @@ import {
 import { DISCOVER_FEED_PATH } from "@/lib/feeds";
 import { collectionPath } from "@/lib/publications";
 import { DiscoverList, DiscoverSortTabs, RankingNote } from "./discover-list";
-import { PAGE_SIZE, parsePage, parseSort } from "./sort";
+import { PAGE_SIZE, parsePage, parseSort } from "@/lib/discover-sort";
 
 export const metadata: Metadata = {
   title: "Discover · Roam Publish",

@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { ListUpvote, ListVotesHint, ListVotesProvider } from "@/components/upvote-button";
 import type { DiscoverRow } from "@/lib/discover";
 import { plainText } from "@/lib/slug";
-import { type DiscoverSort, listHref, PAGE_SIZE } from "./sort";
+import { type DiscoverSort, listHref, PAGE_SIZE } from "@/lib/discover-sort";
 
 const SORT_LABELS: [DiscoverSort, string][] = [
   ["recent", "Recent"],

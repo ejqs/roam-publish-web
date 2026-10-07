@@ -14,7 +14,7 @@ import { arrangeBlocked } from "@/lib/control-rules";
 import { flatten, FOLDER_NAME_MAX, folderTree, type FolderRow, MAX_FOLDERS, subtreeIds, suggestFromNamespaces, titleInFolder, folderChain } from "@/lib/folders";
 import { plainText } from "@/lib/slug";
 import { changed, useUnsavedChanges } from "@/lib/unsaved-changes";
-import { type ArrangeTarget, saveArrangement } from "./arrange-actions";
+import { type ArrangeTarget, saveArrangement } from "@/server/actions/arrange";
 
 export type ArrangeItem = { id: string; title: string; kind: "page" | "block"; folderId: string | null };
 

@@ -8,7 +8,7 @@ import { requireSession } from "@/lib/session";
 import { lockKeyOf, sealedPageTitles } from "@/lib/encryption";
 import { GraphAccessForm } from "./access-form";
 import { GraphListingForm } from "../settings/settings-form";
-import { graphPagesPath } from "../../filters";
+import { graphPagesPath } from "@/lib/dashboard-filters";
 import { ResourceHeader, resourceTabs } from "../../section-tabs";
 
 export const metadata: Metadata = { title: "Graph sharing · Roam Publish" };

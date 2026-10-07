@@ -3,7 +3,7 @@
 import { LockIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { unlock } from "@/app/unlock/actions";
+import { unlock } from "@/server/actions/unlock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 

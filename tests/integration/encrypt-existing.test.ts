@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { decryptExistingPages, encryptExistingPages } from "@/app/(app)/dashboard/encryption-actions";
+import { decryptExistingPages, encryptExistingPages } from "@/server/actions/encryption";
 import { db } from "@/db";
 import { lockKey, type Node, publication } from "@/db/schema";
 import { addEntry } from "@/lib/collections";

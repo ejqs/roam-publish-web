@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { endAnnouncementAction, muteAnnouncementAction, postAnnouncementAction } from "@/app/admin/announcement/actions";
+import { endAnnouncementAction, muteAnnouncementAction, postAnnouncementAction } from "@/server/actions/admin/announcements";
 import { AnnouncementBanner } from "@/components/announcement-banner";
 import { db } from "@/db";
 import { announcement, moderationAction, user } from "@/db/schema";

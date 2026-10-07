@@ -6,7 +6,7 @@ import { apikey, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { resetDb } from "../helpers/db";
 import { actAs, extRequest, makeGraph, makeUser, payload, type TestUser } from "../helpers/factories";
-import { generateKey } from "@/app/(app)/dashboard/keys/actions";
+import { generateKey } from "@/server/actions/keys";
 import { resetRequest } from "../helpers/request";
 
 /** Calls a better-auth endpoint over HTTP, as a browser would. */

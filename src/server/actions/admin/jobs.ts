@@ -1,5 +1,6 @@
 "use server";
 
+import "server-only";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin";
 import { requestRun } from "@/lib/jobs";

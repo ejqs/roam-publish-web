@@ -21,8 +21,8 @@ import type { PlaceViews, Access as ReadAccess, ShowAuthor } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
 import { showsViewCountries, viewsMode } from "@/lib/views";
 import { cn } from "cn";
-import { type Access, setAccess } from "./actions";
-import { updateEntry, updateGraphPlace } from "./place-actions";
+import { type Access, setAccess } from "@/server/actions/dashboard";
+import { updateEntry, updateGraphPlace } from "@/server/actions/places";
 
 // Listed is a document, so the globe only ever means Anyone.
 export const ICONS = { unlisted: PRIVACY_ICONS.unlisted, public: FileTextIcon, discover: CompassIcon };

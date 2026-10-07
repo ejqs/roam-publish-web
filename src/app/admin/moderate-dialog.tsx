@@ -17,7 +17,7 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { type ModerationNotice, moderationEmail } from "@/lib/moderation-email-templates";
-import { type ActionState, type ModerationOp, moderate } from "./actions";
+import { type ActionState, type ModerationOp, moderate } from "@/server/actions/admin/moderation";
 
 const COPY: Record<ModerationOp, { title: string; confirm: string; destructive: boolean }> = {
   remove: { title: "Remove page", confirm: "Remove page", destructive: true },

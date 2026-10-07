@@ -1,5 +1,6 @@
 "use server";
 
+import "server-only";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";

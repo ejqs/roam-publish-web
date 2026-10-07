@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { generateKey } from "@/app/(app)/dashboard/keys/actions";
-import { deleteGraph, setAccess, unpublish } from "@/app/(app)/dashboard/actions";
-import { setAppendToken } from "@/app/(app)/dashboard/[graph]/settings/change-log-actions";
-import { deleteCollection, moveEntry } from "@/app/(app)/dashboard/collections/actions";
-import { inviteByEmail, removeMemberAction } from "@/app/(app)/dashboard/member-actions";
+import { generateKey } from "@/server/actions/keys";
+import { deleteGraph, setAccess, unpublish } from "@/server/actions/dashboard";
+import { setAppendToken } from "@/server/actions/change-log";
+import { deleteCollection, moveEntry } from "@/server/actions/collections";
+import { inviteByEmail, removeMemberAction } from "@/server/actions/members";
 import {
   applyAccessToAllPages,
   bulkUpdatePublications,
   removeEntry,
   updateEntry,
   updateGraphPlace,
-} from "@/app/(app)/dashboard/place-actions";
-import { setPageTags } from "@/app/(app)/dashboard/tag-actions";
+} from "@/server/actions/places";
+import { setPageTags } from "@/server/actions/tags";
 import { db } from "@/db";
 import { apikey, collection, collectionEntry, graph, graphMember, publication } from "@/db/schema";
 import { addEntry } from "@/lib/collections";
