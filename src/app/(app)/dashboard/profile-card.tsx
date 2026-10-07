@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { claimUsername, setProfilePublic, updateBio } from "./actions";
 
 export function ProfileCard({
@@ -206,6 +207,7 @@ function BioForm({ bio, onDone }: { bio: string; onDone: () => void }) {
   const [state, action, pending] = useActionState(updateBio, null);
   const [value, setValue] = useState(bio);
   const dirty = value.replace(/\s+/g, " ").trim() !== bio;
+  useUnsavedChanges(dirty);
 
   return (
     <form action={action} className="flex max-w-xl flex-col gap-2">

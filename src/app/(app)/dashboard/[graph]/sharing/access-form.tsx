@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import type { Access, ViewsMode } from "@/db/schema";
 import { saveContainerAccessBlocked } from "@/lib/control-rules";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
+import { changed, useUnsavedChanges } from "@/lib/unsaved-changes";
 import { updateGraphAccess } from "../../actions";
 
 /** Defaults for every page in the graph: access, bylines, view counts, and where new pages go. */
@@ -61,6 +62,18 @@ export function GraphAccessForm({
   const router = useRouter();
   const [pending, start] = useTransition();
   const blocked = saveContainerAccessBlocked("graph", access, hasPassword, encryptedPages.length);
+  const form = (a: ContainerAccess, encrypt: boolean) => ({
+    ...accessToSave(a, encrypt),
+    currentPassword: undefined,
+    resetEncrypted: undefined,
+    showAuthors,
+    views,
+    newPagesInGraph,
+    defaultCollections: [...defaults].sort(),
+  });
+  const [saved, setSaved] = useState(() => form(access, canEncrypt));
+  const dirty = changed(form(access, canEncrypt), saved);
+  useUnsavedChanges(dirty);
 
   function save() {
     start(async () => {
@@ -74,15 +87,13 @@ export function GraphAccessForm({
       });
       if (!res?.ok) return void toast.error(res?.message ?? "Couldn't save.");
       // A new password long enough to encrypt with gets a key pair when it's saved.
-      if (access.password) {
-        setHasPassword(true);
-        setCanEncrypt(access.password.length >= ENCRYPT_PASSWORD_MIN);
-      }
-      if (access.clearPassword) {
-        setHasPassword(false);
-        setCanEncrypt(false);
-      }
-      setAccess((a) => ({ ...a, password: "", clearPassword: false, currentPassword: "", resetEncrypted: false }));
+      const encrypt = access.password ? access.password.length >= ENCRYPT_PASSWORD_MIN : !access.clearPassword && canEncrypt;
+      if (access.password) setHasPassword(true);
+      if (access.clearPassword) setHasPassword(false);
+      setCanEncrypt(encrypt);
+      const next = { ...access, password: "", clearPassword: false, currentPassword: "", resetEncrypted: false };
+      setAccess(next);
+      setSaved(form(next, encrypt));
       toast.success(res.message);
       // The Listing card below reads the saved front page access.
       router.refresh();
@@ -154,7 +165,8 @@ export function GraphAccessForm({
       </CardContent>
       <CardFooter className="justify-end gap-3">
         {blocked && <p className="text-xs text-destructive">{blocked}</p>}
-        <Button onClick={save} disabled={pending || !!blocked}>
+        {!blocked && dirty && !pending && <p className="text-xs text-muted-foreground">Unsaved changes</p>}
+        <Button onClick={save} disabled={pending || !dirty || !!blocked}>
           {pending ? "Saving…" : "Save"}
         </Button>
       </CardFooter>

@@ -10,6 +10,7 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Textarea } from "@/components/ui/textarea";
 import type { AnnouncementAudience, AnnouncementTone } from "@/db/app-schema";
 import { MESSAGE_MAX } from "@/lib/announcement-shared";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import type { ActionState } from "../actions";
 import { type Duration, postAnnouncementAction } from "./actions";
 
@@ -22,6 +23,7 @@ export function AnnouncementForm() {
   const [message, setMessage] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkText, setLinkText] = useState("");
+  useUnsavedChanges(!!(message.trim() || linkUrl.trim() || linkText.trim()));
   const [state, action, pending] = useActionState(async (prev: ActionState, formData: FormData) => {
     const res = await postAnnouncementAction(prev, formData);
     if (res?.ok) {
