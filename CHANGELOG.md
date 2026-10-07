@@ -5,6 +5,13 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.8.2 (2026-10-07)
+
+### Security
+- Fixed: **Encrypt new password pages** in a graph's or collection's settings can only be switched on once there's
+  a password it can encrypt with, at least 10 characters, and it asks you to confirm what encrypting changes first.
+  Before, it could be switched on without either.
+
 ## 0.8.1 (2026-10-06)
 
 ### Publishing

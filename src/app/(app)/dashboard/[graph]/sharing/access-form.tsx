@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
+import { accessToSave, ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
 import { ContainerViewsFields } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import type { Access, ViewsMode } from "@/db/schema";
+import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { updateGraphAccess } from "../../actions";
 
 /** Defaults for every page in the graph: access, bylines, view counts, and where new pages go. */
@@ -31,6 +32,8 @@ export function GraphAccessForm({
     indexAccess: Access;
     defaultAccess: Access;
     hasPassword: boolean;
+    /** The saved password can encrypt new pages without being typed again. */
+    canEncrypt: boolean;
     showAuthors: boolean;
     views: ViewsMode;
     showViewCountries: boolean;
@@ -49,6 +52,7 @@ export function GraphAccessForm({
     clearPassword: false,
   });
   const [hasPassword, setHasPassword] = useState(initial.hasPassword);
+  const [canEncrypt, setCanEncrypt] = useState(initial.canEncrypt);
   const [showAuthors, setShowAuthors] = useState(initial.showAuthors);
   const [views, setViews] = useState({ views: initial.views, countries: initial.showViewCountries });
   const [newPagesInGraph, setNewPagesInGraph] = useState(initial.newPagesInGraph);
@@ -59,7 +63,7 @@ export function GraphAccessForm({
   function save() {
     start(async () => {
       const res = await updateGraphAccess(graphId, {
-        ...access,
+        ...accessToSave(access, canEncrypt),
         showAuthors,
         views: views.views,
         showViewCountries: views.countries,
@@ -67,8 +71,15 @@ export function GraphAccessForm({
         defaultCollections: [...defaults],
       });
       if (!res?.ok) return void toast.error(res?.message ?? "Couldn't save.");
-      if (access.password) setHasPassword(true);
-      if (access.clearPassword) setHasPassword(false);
+      // A new password long enough to encrypt with gets a key pair when it's saved.
+      if (access.password) {
+        setHasPassword(true);
+        setCanEncrypt(access.password.length >= ENCRYPT_PASSWORD_MIN);
+      }
+      if (access.clearPassword) {
+        setHasPassword(false);
+        setCanEncrypt(false);
+      }
       setAccess((a) => ({ ...a, password: "", clearPassword: false, currentPassword: "", resetEncrypted: false }));
       toast.success(res.message);
       // The Listing card below reads the saved front page access.
@@ -87,6 +98,7 @@ export function GraphAccessForm({
             pageCount={pageCount}
             value={access}
             hasPassword={hasPassword}
+            canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
             onChange={setAccess}
           />

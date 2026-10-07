@@ -1,9 +1,12 @@
 "use client";
 
+import { RefreshCwIcon, SearchIcon, TypeIcon, UsersIcon } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { applyAccessToAllPages } from "@/app/(app)/dashboard/place-actions";
+import { EncryptedIcon } from "@/components/encrypted-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FieldDescription, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
@@ -27,6 +30,20 @@ export type ContainerAccess = {
   resetEncrypted?: boolean;
 };
 
+/**
+ * Whether new pages can be encrypted with the password the form would save: a new one long enough,
+ * or the saved one when it already has a key pair (`canEncrypt`).
+ */
+export function encryptablePassword(value: ContainerAccess, canEncrypt: boolean) {
+  if (value.password) return value.password.length >= ENCRYPT_PASSWORD_MIN;
+  return !value.clearPassword && canEncrypt;
+}
+
+/** The settings to save: "Encrypt new password pages" only stays on while it can work. */
+export function accessToSave(value: ContainerAccess, canEncrypt: boolean): ContainerAccess {
+  const on = value.encryptNewPages && value.defaultAccess === "password" && encryptablePassword(value, canEncrypt);
+  return { ...value, encryptNewPages: on };
+}
 
 /**
  * A graph's or collection's two access settings: who can open its front page, and what new pages
@@ -40,6 +57,7 @@ export function ContainerAccessFields({
   pageCount,
   value,
   hasPassword,
+  canEncrypt,
   encryptedPages = [],
   onChange,
 }: {
@@ -51,16 +69,23 @@ export function ContainerAccessFields({
   value: ContainerAccess;
   /** Saved password, not the one being typed. */
   hasPassword: boolean;
+  /** The saved password has a key pair, so pages can be encrypted with it without typing it again. */
+  canEncrypt: boolean;
   /** Titles of encrypted pages that open with this password. */
   encryptedPages?: string[];
   onChange: (v: ContainerAccess) => void;
 }) {
   const [resetOpen, setResetOpen] = useState(false);
+  const [confirmEncrypt, setConfirmEncrypt] = useState(false);
   const encrypted = encryptedPages.length;
   const pagesWord = `${encrypted.toLocaleString("en-US")} encrypted ${encrypted === 1 ? "page" : "pages"}`;
   const set = (patch: Partial<ContainerAccess>) => onChange({ ...value, ...patch });
   const usesPassword = value.indexAccess === "password" || value.defaultAccess === "password";
   const willHavePassword = value.password ? true : value.clearPassword ? false : hasPassword;
+  const passwordDefault = value.defaultAccess === "password";
+  const canTurnOnEncrypt = passwordDefault && encryptablePassword(value, canEncrypt);
+  const encryptOn = accessToSave(value, canEncrypt).encryptNewPages;
+  const pagesVerb = kind === "graph" ? "published" : "added";
   return (
     <>
       <FieldSet>
@@ -80,23 +105,77 @@ export function ContainerAccessFields({
           <div className="flex flex-col gap-1">
             <FieldLabel htmlFor={`${kind}-encrypt-new`}>Encrypt new password pages</FieldLabel>
             <FieldDescription>
-              {value.defaultAccess === "password"
-                ? `Pages ${kind === "graph" ? "published" : "added"} from now on are stored encrypted with the ${kind} password, so not even roam.pub can read them. Needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Pages already here aren't changed.`
+              {passwordDefault
+                ? `Pages ${pagesVerb} from now on are stored encrypted with the ${kind} password, so not even roam.pub can read them. Needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Pages already here aren't changed.`
                 : `Only applies while new pages start as Password.`}
             </FieldDescription>
-            {value.encryptNewPages && value.defaultAccess === "password" && value.password && value.password.length < ENCRYPT_PASSWORD_MIN && (
-              <FieldDescription className="text-destructive">
-                The new password is too short to encrypt with.
+            {passwordDefault && !canTurnOnEncrypt && (
+              <FieldDescription className={value.encryptNewPages ? "text-destructive" : undefined}>
+                {value.password
+                  ? `The new password is too short to encrypt with.`
+                  : hasPassword && !value.clearPassword
+                    ? `To turn it on, enter the ${kind} password again below, or set one of at least ${ENCRYPT_PASSWORD_MIN} characters.`
+                    : `To turn it on, set a ${kind} password of at least ${ENCRYPT_PASSWORD_MIN} characters below.`}
               </FieldDescription>
             )}
           </div>
           <Switch
             id={`${kind}-encrypt-new`}
-            checked={value.encryptNewPages && value.defaultAccess === "password"}
-            disabled={value.defaultAccess !== "password"}
-            onCheckedChange={(encryptNewPages) => set({ encryptNewPages })}
+            checked={encryptOn}
+            disabled={!encryptOn && !canTurnOnEncrypt}
+            onCheckedChange={(on) => (on ? setConfirmEncrypt(true) : set({ encryptNewPages: false }))}
           />
         </div>
+        <Dialog open={confirmEncrypt} onOpenChange={setConfirmEncrypt}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="break-words">Encrypt new password pages in {label}?</DialogTitle>
+              <DialogDescription>
+                Pages {pagesVerb} from now on that start as Password are stored encrypted with the {kind} password.
+                Readers still open them with it. What changes for those pages:
+              </DialogDescription>
+            </DialogHeader>
+            <ul className="flex flex-col gap-2.5 text-sm">
+              <li className="flex gap-2.5">
+                <UsersIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                Everyone needs the password, including members and you.
+              </li>
+              <li className="flex gap-2.5">
+                <SearchIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                Search, tags, related pages and excerpts are off for them.
+              </li>
+              <li className="flex gap-2.5">
+                <TypeIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                Titles aren&apos;t encrypted. They&apos;re in the link and on listings.
+              </li>
+              <li className="flex gap-2.5">
+                <RefreshCwIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                If the password is forgotten, we can&apos;t recover them. Republish them from Roam to bring them back.
+              </li>
+            </ul>
+            <p className="rounded-sm bg-muted px-3 py-2.5 text-xs text-muted-foreground">
+              This isn&apos;t end-to-end encryption: roam.pub decrypts pages to show them to readers, so they&apos;re only as
+              safe as you trust roam.pub and its host.{" "}
+              <Link href="/privacy/encryption" target="_blank" className="text-link hover:underline">
+                How encrypted pages work
+              </Link>
+            </p>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setConfirmEncrypt(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  set({ encryptNewPages: true });
+                  setConfirmEncrypt(false);
+                }}
+              >
+                <EncryptedIcon /> Encrypt new pages
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         {pageCount > 0 && (
           <ApplyToPagesDialog
             kind={kind}

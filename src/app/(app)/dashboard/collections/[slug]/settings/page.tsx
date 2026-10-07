@@ -6,7 +6,7 @@ import { collectionEntry } from "@/db/schema";
 import { collectionRole, loadCollection } from "@/lib/collections";
 import { requireSession } from "@/lib/session";
 import { collectionPagesPath } from "../../../filters";
-import { sealedPageTitles } from "@/lib/encryption";
+import { lockKeyOf, sealedPageTitles } from "@/lib/encryption";
 import { CollectionSettingsForm } from "./settings-form";
 import { ResourceHeader, resourceTabs } from "../../../section-tabs";
 
@@ -52,6 +52,7 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
             rss: c.rss,
           }}
           hasPassword={!!c.passwordHash}
+          canEncrypt={!!c.passwordHash && !!(await lockKeyOf(db, { scope: "collection", id: c.id }))}
           pageCount={pages?.n ?? 0}
           encryptedPages={await sealedPageTitles({ scope: "collection", id: c.id })}
         />
