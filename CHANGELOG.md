@@ -5,6 +5,21 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.8.3 (2026-10-07)
+
+### Dashboard
+- Improved: **Removing a page from a collection** in Manage asks first, and says when it's the page's last place
+  and goes back to your graph as Unlisted.
+- Fixed: **Show in graph** in Manage is off-limits when the graph is the only place a page is shown, instead of
+  failing after you flip it. Add it to a collection first, or unpublish it.
+- Fixed: **Saving a graph's or collection's access settings** waits until they can be saved: a password for
+  Password access, at least 10 characters when the password opens encrypted pages, and the current password to
+  change it. The reason shows next to Save. A collection also needs a name.
+- Fixed: **A page's own password** can't be changed to one too short to encrypt with on an encrypted page, and
+  **Remove it** no longer shows when there's no graph or collection password to fall back on.
+- Improved: **Revoke** on API keys, **Remove token** for the Roam change log, **Claim** for a username and
+  **Decline** on an invite each ask before doing something you can't take back from there.
+
 ## 0.8.2 (2026-10-07)
 
 ### Security

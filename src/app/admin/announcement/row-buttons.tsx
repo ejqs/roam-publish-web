@@ -20,7 +20,12 @@ export function RowButtons({ id, muted, auto }: { id: string; muted: boolean; au
         </Button>
       )}
       {!auto && (
-        <Button variant="outline" size="sm" disabled={pending} onClick={() => run(() => endAnnouncementAction(id))}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending}
+          onClick={() => confirm("Take this announcement down for everyone?") && run(() => endAnnouncementAction(id))}
+        >
           Take down
         </Button>
       )}

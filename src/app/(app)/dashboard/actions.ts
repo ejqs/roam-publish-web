@@ -15,7 +15,7 @@ import { clearGatedGraphDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { graphUnderModeration, purgeGraph } from "@/lib/deletion";
 import { canEncryptWith, dropLock, dropOrphanLockKeys, KeysError, setLockPassword } from "@/lib/encryption";
-import { encryptNewPagesBlocked } from "@/lib/encryption-rules";
+import { encryptNewPagesBlocked, saveContainerAccessBlocked } from "@/lib/control-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
@@ -282,8 +282,8 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
     if (!g) return { ok: false, message: "Graph not found." };
 
     const hasPassword = s.password ? true : s.clearPassword ? false : !!g.passwordHash;
-    if ((s.indexAccess === "password" || s.defaultAccess === "password") && !hasPassword)
-      return { ok: false, message: "Set a graph password to use password access." };
+    const blocked = saveContainerAccessBlocked("graph", s, !!g.passwordHash, 0);
+    if (blocked) return { ok: false, message: blocked };
     // Only kept while new pages start as Password: it does nothing otherwise.
     const encryptNewPages = s.encryptNewPages && s.defaultAccess === "password";
     if (encryptNewPages && !(await canEncryptWith({ scope: "graph", id: g.id }, s.password)))

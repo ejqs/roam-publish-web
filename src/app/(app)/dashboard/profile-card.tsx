@@ -61,7 +61,15 @@ export function ProfileCard({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={claim} className="flex max-w-md items-start gap-2">
+          <form
+            action={claim}
+            onSubmit={(e) => {
+              // A username can't be changed later, so ask before claiming it.
+              const name = String(new FormData(e.currentTarget).get("username") ?? "").trim();
+              if (name && !confirm(`Claim @${name}? You can't change it yourself later.`)) e.preventDefault();
+            }}
+            className="flex max-w-md items-start gap-2"
+          >
             <Field className="flex-1" data-invalid={state && !state.ok ? true : undefined}>
               <Input
                 name="username"

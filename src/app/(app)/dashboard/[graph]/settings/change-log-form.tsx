@@ -75,6 +75,8 @@ export function ChangeLogForm({
   }
 
   function remove() {
+    if (!confirm("Remove the token? roam.pub stops writing the change log in Roam, and you'd need a new append-only token from Roam to turn it back on."))
+      return;
     startTransition(async () => {
       const res = await removeAppendToken(graphId);
       if (!res?.ok) return void toast.error(res?.message ?? "Couldn't remove the token.");

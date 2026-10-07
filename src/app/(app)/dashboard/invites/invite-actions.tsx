@@ -21,7 +21,11 @@ export function InviteActions({ inviteId, disabled }: { inviteId: string; disabl
       <Button disabled={pending || disabled} onClick={() => answer(true)}>
         Accept
       </Button>
-      <Button variant="outline" disabled={pending} onClick={() => answer(false)}>
+      <Button
+        variant="outline"
+        disabled={pending}
+        onClick={() => confirm("Decline it? If you change your mind, they'd need to send a new one.") && answer(false)}
+      >
         Decline
       </Button>
     </div>

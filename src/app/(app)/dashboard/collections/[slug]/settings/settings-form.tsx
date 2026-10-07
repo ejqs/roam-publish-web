@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { Access, ViewsMode } from "@/db/schema";
+import { saveCollectionBlocked } from "@/lib/control-rules";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { deleteCollection, updateCollection } from "../../actions";
@@ -65,6 +66,7 @@ export function CollectionSettingsForm({
   const [pending, start] = useTransition();
   const locked = access.indexAccess !== "open";
   const discoverOk = access.indexAccess === "open" && s.indexable;
+  const blocked = saveCollectionBlocked(s.name, access, hasPassword, encryptedPages.length);
   const set = <K extends keyof Initial>(k: K) => (v: Initial[K]) => setS((p) => ({ ...p, [k]: v }));
 
   function save() {
@@ -207,9 +209,12 @@ export function CollectionSettingsForm({
         >
           Delete collection
         </Button>
-        <Button onClick={save} disabled={pending}>
-          {pending ? "Saving…" : "Save"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {blocked && <p className="text-xs text-destructive">{blocked}</p>}
+          <Button onClick={save} disabled={pending || !!blocked}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

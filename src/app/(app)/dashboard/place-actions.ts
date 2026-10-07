@@ -23,6 +23,7 @@ import type { ChangeCategory } from "@/lib/changelog-categories";
 import { addEntry, canManageEntry, collectionRole } from "@/lib/collections";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { clearGatedCollectionDiscover, clearGatedGraphDiscover } from "@/lib/discover-rules";
+import { hideFromGraphBlocked } from "@/lib/control-rules";
 import {
   contentKeyFor,
   dropLock,
@@ -177,8 +178,8 @@ export async function updateGraphPlace(
       const inCollections = await db.query.collectionEntry.findFirst({
         where: eq(collectionEntry.publicationId, pub.id),
       });
-      if (!inCollections)
-        return { ok: false, message: "Add it to a collection first, or unpublish it instead." };
+      const blocked = hideFromGraphBlocked(inCollections ? 1 : 0);
+      if (blocked) return { ok: false, message: blocked };
     }
 
     const ck = await preKey(pub, input.currentPassword);

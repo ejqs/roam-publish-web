@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import type { Access, ViewsMode } from "@/db/schema";
+import { saveContainerAccessBlocked } from "@/lib/control-rules";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { updateGraphAccess } from "../../actions";
 
@@ -59,6 +60,7 @@ export function GraphAccessForm({
   const [defaults, setDefaults] = useState(new Set(initial.defaultCollections));
   const router = useRouter();
   const [pending, start] = useTransition();
+  const blocked = saveContainerAccessBlocked("graph", access, hasPassword, encryptedPages.length);
 
   function save() {
     start(async () => {
@@ -150,8 +152,9 @@ export function GraphAccessForm({
           </FieldSet>
         </FieldGroup>
       </CardContent>
-      <CardFooter className="justify-end">
-        <Button onClick={save} disabled={pending}>
+      <CardFooter className="justify-end gap-3">
+        {blocked && <p className="text-xs text-destructive">{blocked}</p>}
+        <Button onClick={save} disabled={pending || !!blocked}>
           {pending ? "Saving…" : "Save"}
         </Button>
       </CardFooter>
