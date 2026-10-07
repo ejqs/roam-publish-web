@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { graph, graphMember, user } from "@/db/schema";
+import { graph, graphMember, publication, user } from "@/db/schema";
 import { auth } from "./auth";
 import { json } from "./cors";
 import type { GraphRole } from "./graph-access";
@@ -90,4 +90,19 @@ export function notYoursResponse(req: Request) {
     { error: "Only the person who published this page or the graph owner can change it" },
     403,
   );
+}
+
+/**
+ * The page this key may change, or the error to return: 404 not published, 403 removed by a
+ * moderator, 403 published by another member.
+ */
+export async function ownPage(req: Request, ctx: ExtContext, rootUid: string) {
+  const pub = await db.query.publication.findFirst({
+    where: and(eq(publication.graphId, ctx.graphId), eq(publication.rootUid, rootUid)),
+  });
+  if (!pub) return json(req, { error: "Not published" }, 404);
+  // A removed page stays put, so deleting and republishing can't get around the takedown.
+  if (pub.removedAt) return removedResponse(req, pub.removedReason);
+  if (ctx.role !== "owner" && pub.publishedBy !== ctx.userId) return notYoursResponse(req);
+  return pub;
 }
