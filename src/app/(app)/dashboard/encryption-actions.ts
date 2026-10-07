@@ -1,25 +1,25 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
 import { collection, collectionEntry, graph, lockKey, publication, publicationKey } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { logChange } from "@/lib/changelog";
+import { type Change, logChange, logChanges } from "@/lib/changelog";
+import { encryptExistingPagesBlocked } from "@/lib/control-rules";
 import { DISCOVER_TAG } from "@/lib/discover";
 import {
   contentKeyFor,
   decryptTree,
-  emptyTree,
   ENCRYPT_PASSWORD_MIN,
+  encryptBlocker,
+  encryptPage,
   lockKeyOf,
   locksOf,
   newLockKey,
   plainHash,
-  sealHash,
-  sealNewContent,
   spotsOf,
   unprotectedSpots,
   type VersionedLock,
@@ -154,24 +154,99 @@ export async function setEncryption(publicationId: string, raw: z.input<typeof I
     if (need.length)
       return { ok: false, need, message: `Enter the ${need.map((n) => n.label).join(" and ")} password once to encrypt with it.` };
 
-    const hash = plainHash(pub);
-    await db.transaction(async (tx) => {
-      const { cipher, needsRepublish } = await sealNewContent(tx, pub.id, pub.tree);
-      await tx
-        .update(publication)
-        .set({
-          encrypted: true,
-          cipher,
-          needsRepublish,
-          tree: emptyTree(pub.rootUid),
-          searchText: "",
-          tags: [],
-          contentHash: sealHash(pub.id, hash),
-        })
-        .where(eq(publication.id, pub.id));
-    });
+    await db.transaction((tx) => encryptPage(tx, pub));
     logChange(pub, "access", "Encrypted with password");
     revalidateAll();
     return { ok: true, message: "Encrypted." };
+  });
+}
+
+export type EncryptExistingResult = {
+  ok: boolean;
+  message: string;
+  /** Pages that would be encrypted, or were. */
+  encrypt?: string[];
+  /** Readable pages left as they are, and why. */
+  skipped?: { title: string; reason: string }[];
+};
+
+/**
+ * Encrypts the pages already in a graph or collection, with the passwords of every place each is
+ * shown, like turning on encryption page by page. Only its owner, and only pages they manage. A page
+ * shown somewhere without a password, or behind one with no key pair, is skipped with the reason.
+ * `preview` changes nothing: the dialog shows what would happen before it's confirmed.
+ */
+export async function encryptExistingPages(
+  kind: "graph" | "collection",
+  containerId: string,
+  opts: { preview?: boolean } = {},
+): Promise<EncryptExistingResult> {
+  return withAction("dashboard.encryption.encryptExistingPages", async () => {
+    const session = await auth.api.getSession({ headers: await headers() });
+    const uid = session?.user.id;
+    if (!uid) return { ok: false, message: "Your session expired. Please log in again." };
+    const c =
+      kind === "graph"
+        ? await db.query.graph.findFirst({ where: and(eq(graph.id, containerId), eq(graph.userId, uid)) })
+        : await db.query.collection.findFirst({ where: and(eq(collection.id, containerId), eq(collection.ownerId, uid)) });
+    if (!c) return { ok: false, message: `Only the ${kind}'s owner can do this.` };
+    const blocked = encryptExistingPagesBlocked(kind, {
+      canEncrypt: !!c.passwordHash && !!(await lockKeyOf(db, { scope: kind, id: c.id })),
+    });
+    if (blocked) return { ok: false, message: blocked };
+
+    const inContainer =
+      kind === "graph"
+        ? eq(publication.graphId, c.id)
+        : inArray(
+            publication.id,
+            db.select({ id: collectionEntry.publicationId }).from(collectionEntry).where(eq(collectionEntry.collectionId, c.id)),
+          );
+    const readable = and(inContainer, eq(publication.encrypted, false), isNull(publication.removedAt));
+    const pages = await db
+      .select({ pub: publication, mine: sql<boolean>`${manageablePublications(uid)}` })
+      .from(publication)
+      .where(readable)
+      .orderBy(publication.title);
+
+    const encrypt: (typeof publication.$inferSelect)[] = [];
+    const skipped: { title: string; reason: string }[] = [];
+    for (const { pub, mine } of pages) {
+      const reason = mine ? await encryptBlocker(db, await spotsOf(db, pub.id)) : "Published by another member";
+      if (reason) skipped.push({ title: pub.title, reason });
+      else encrypt.push(pub);
+    }
+    const titles = encrypt.map((p) => p.title);
+    if (opts.preview) return { ok: true, message: "", encrypt: titles, skipped };
+    if (!encrypt.length) return { ok: false, message: "No pages here can be encrypted right now.", encrypt: [], skipped };
+
+    const done: Change[] = [];
+    const doneTitles: string[] = [];
+    for (const pub of encrypt) {
+      // One page at a time, checked again inside its transaction, so a page changed since the
+      // preview is skipped rather than encrypted where it shouldn't be.
+      const reason = await db.transaction(async (tx) => {
+        const [now] = await tx.select().from(publication).where(and(eq(publication.id, pub.id), readable)).for("update");
+        if (!now) return "Changed since";
+        const why = await encryptBlocker(tx, await spotsOf(tx, pub.id));
+        if (!why) await encryptPage(tx, now);
+        return why;
+      });
+      if (reason) skipped.push({ title: pub.title, reason });
+      else {
+        done.push({ graphId: pub.graphId, rootUid: pub.rootUid, category: "access", text: "Encrypted with password" });
+        doneTitles.push(pub.title);
+      }
+    }
+    logChanges(done);
+    revalidateAll();
+    const n = done.length;
+    const left = skipped.length ? ` ${skipped.length.toLocaleString("en-US")} left as ${skipped.length === 1 ? "it was" : "they were"}.` : "";
+    return {
+      ok: n > 0,
+      message: n ? `Encrypted ${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}.${left}` : "No pages here can be encrypted right now.",
+      encrypt: doneTitles,
+      skipped,
+    };
   });
 }

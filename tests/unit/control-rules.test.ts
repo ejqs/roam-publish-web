@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  encryptExistingPagesBlocked,
   hideFromGraphBlocked,
   removeOwnPasswordBlocked,
   saveCollectionBlocked,
@@ -63,5 +64,13 @@ describe("other control rules", () => {
 
   test("a collection needs a name", () => {
     expect(saveCollectionBlocked("  ", value(), false, 0)).toMatch(/name/);
+  });
+});
+
+describe("encryptExistingPagesBlocked", () => {
+  test("needs a saved password it can encrypt with", () => {
+    expect(encryptExistingPagesBlocked("collection", { canEncrypt: true })).toBeUndefined();
+    expect(encryptExistingPagesBlocked("collection", { canEncrypt: false })).toMatch(/saved collection password of at least 10/);
+    expect(encryptExistingPagesBlocked("graph", { canEncrypt: true, unsavedPassword: true })).toMatch(/Save the new graph password/);
   });
 });
