@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { blockedIdentity, collection, cPath } from "@/db/schema";
 import { requireAdminPage } from "@/lib/admin";
 import { emailHash } from "@/lib/deletion";
-import { adminLiftBlock, adminReleaseCollectionSlug } from "../actions";
+import { adminLiftBlock, adminReleaseCollectionSlug } from "@/server/actions/admin/moderation";
 import { ADMIN_PAGE_SIZE, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
 import { LiftButton } from "./lift-button";
 

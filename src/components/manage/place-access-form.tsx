@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { updateEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
+import { updateEntry, updateGraphPlace } from "@/server/actions/places";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { EntryListing, PlaceAccess, PlaceViews, ShowAuthor } from "@/db/schema";

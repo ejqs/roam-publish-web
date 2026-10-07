@@ -8,7 +8,7 @@ import { graphRole } from "@/lib/graph-access";
 import { memberLabel, membersOf, pendingInvitesOn } from "@/lib/invites";
 import { keysOf } from "@/lib/keys";
 import { requireSession } from "@/lib/session";
-import { graphPagesPath } from "../../filters";
+import { graphPagesPath } from "@/lib/dashboard-filters";
 import { ResourceHeader, resourceTabs } from "../../section-tabs";
 
 export const metadata: Metadata = { title: "Graph members · Roam Publish" };

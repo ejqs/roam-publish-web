@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
-import { type GraphSettings, updateGraphSettings } from "../../actions";
+import { type GraphSettings, updateGraphSettings } from "@/server/actions/dashboard";
 
 export function GraphSettingsForm({ graphId, initial }: { graphId: string; initial: { description: string } }) {
   const [description, setDescription] = useState(initial.description);

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { replyToInboxEmail } from "@/app/admin/inbox/actions";
+import { replyToInboxEmail } from "@/server/actions/admin/inbox";
 import { db } from "@/db";
 import { inboxReply, user } from "@/db/schema";
 import { type InboxEmail, inboxClient } from "@/lib/inbox";

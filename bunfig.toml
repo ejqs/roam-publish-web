@@ -1,2 +1,4 @@
+preload = ["./scripts/server-only.ts"]
+
 [test]
-preload = ["./tests/helpers/preload.ts"]
+preload = ["./scripts/server-only.ts", "./tests/helpers/preload.ts"]

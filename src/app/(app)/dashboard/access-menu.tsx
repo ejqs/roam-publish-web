@@ -17,7 +17,7 @@ import {
   READ_LABELS,
   reachLabel,
   usePlaceSettings,
-} from "./place-settings";
+} from "@/components/manage/place-settings";
 
 export { ICONS, LABELS, type MenuTarget };
 

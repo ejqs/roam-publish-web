@@ -1,3 +1,4 @@
+import "server-only";
 import { and, ilike, or, type SQL, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { publication } from "@/db/schema";

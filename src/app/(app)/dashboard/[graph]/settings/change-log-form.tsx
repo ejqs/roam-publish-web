@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { OPTIONAL_CATEGORIES } from "@/lib/changelog-categories";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
-import { removeAppendToken, setAppendToken, setChangeLogOn, setChangeLogOptions } from "./change-log-actions";
+import { removeAppendToken, setAppendToken, setChangeLogOn, setChangeLogOptions } from "@/server/actions/change-log";
 
 type Options = { off: string[]; merge: boolean; byDay: boolean };
 

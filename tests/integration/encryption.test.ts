@@ -1,19 +1,19 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
-import { setEncryption } from "@/app/(app)/dashboard/encryption-actions";
-import { updateGraphAccess } from "@/app/(app)/dashboard/actions";
-import { updateCollection } from "@/app/(app)/dashboard/collections/actions";
+import { setEncryption } from "@/server/actions/encryption";
+import { updateGraphAccess } from "@/server/actions/dashboard";
+import { updateCollection } from "@/server/actions/collections";
 import {
   addToCollection,
   bulkUpdatePublications,
   removeEntry,
   updateGraphPlace,
-} from "@/app/(app)/dashboard/place-actions";
-import { setPageTags } from "@/app/(app)/dashboard/tag-actions";
+} from "@/server/actions/places";
+import { setPageTags } from "@/server/actions/tags";
 import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
 import CPage from "@/app/c/[id]/[[...slug]]/page";
 import { GET, POST } from "@/app/api/ext/publications/route";
-import { unlock } from "@/app/unlock/actions";
+import { unlock } from "@/server/actions/unlock";
 import { GateNotice } from "@/components/gate-notice";
 import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";

@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { ActionState } from "../actions";
+import type { ActionState } from "@/server/actions/admin/moderation";
 
 export function LiftButton({
   label,

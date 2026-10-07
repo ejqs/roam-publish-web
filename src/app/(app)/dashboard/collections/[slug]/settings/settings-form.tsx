@@ -16,7 +16,7 @@ import { saveCollectionBlocked } from "@/lib/control-rules";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { changed, useUnsavedChanges } from "@/lib/unsaved-changes";
-import { deleteCollection, updateCollection } from "../../actions";
+import { deleteCollection, updateCollection } from "@/server/actions/collections";
 
 type Initial = {
   name: string;

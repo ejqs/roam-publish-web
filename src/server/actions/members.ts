@@ -1,5 +1,6 @@
 "use server";
 
+import "server-only";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";

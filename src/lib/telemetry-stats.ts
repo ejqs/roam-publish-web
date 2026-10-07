@@ -1,3 +1,4 @@
+import "server-only";
 import { and, gte, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { endpointMetric } from "@/db/schema";

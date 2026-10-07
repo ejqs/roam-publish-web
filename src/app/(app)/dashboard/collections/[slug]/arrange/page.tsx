@@ -8,8 +8,8 @@ import { loadFolders } from "@/lib/front-page";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
 import { ArrangeForm } from "../../../arrange-form";
-import { arrangeKey } from "../../../arrange-key";
-import { collectionPagesPath } from "../../../filters";
+import { arrangeKey } from "@/lib/arrange-key";
+import { collectionPagesPath } from "@/lib/dashboard-filters";
 import { ResourceHeader, resourceTabs } from "../../../section-tabs";
 
 export const metadata: Metadata = { title: "Arrange collection · Roam Publish" };

@@ -18,7 +18,7 @@ import {
   PAGE_SIZE,
   parseListState,
   sortHref,
-} from "../../filters";
+} from "@/lib/dashboard-filters";
 import { ListEmpty, ListPagination, ListToolbar } from "../../list-toolbar";
 import { ResourceHeader, resourceTabs } from "../../section-tabs";
 import { EntryList } from "./entry-list";

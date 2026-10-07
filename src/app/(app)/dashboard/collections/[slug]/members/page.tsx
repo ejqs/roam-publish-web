@@ -7,7 +7,7 @@ import { user } from "@/db/schema";
 import { collectionRole, loadCollection } from "@/lib/collections";
 import { memberLabel, membersOf, pendingInvitesOn } from "@/lib/invites";
 import { requireSession } from "@/lib/session";
-import { collectionPagesPath } from "../../../filters";
+import { collectionPagesPath } from "@/lib/dashboard-filters";
 import { ResourceHeader, resourceTabs } from "../../../section-tabs";
 
 export const metadata: Metadata = { title: "Collection members · Roam Publish" };

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldError } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
-import { type ActionState, replyToInboxEmail } from "../actions";
+import { type ActionState, replyToInboxEmail } from "@/server/actions/admin/inbox";
 
 export function ReplyForm({ emailId }: { emailId: string }) {
   const [body, setBody] = useState("");

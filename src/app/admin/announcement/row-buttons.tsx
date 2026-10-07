@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { endAnnouncementAction, muteAnnouncementAction } from "./actions";
+import { endAnnouncementAction, muteAnnouncementAction } from "@/server/actions/admin/announcements";
 
 export function RowButtons({ id, muted, auto }: { id: string; muted: boolean; auto: boolean }) {
   const [pending, start] = useTransition();

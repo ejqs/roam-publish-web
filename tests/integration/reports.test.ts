@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { submitReport } from "@/app/report/actions";
+import { submitReport } from "@/server/actions/report";
 import { db } from "@/db";
 import { report } from "@/db/schema";
 import { deleteAccountData, reporterEmailHash } from "@/lib/deletion";

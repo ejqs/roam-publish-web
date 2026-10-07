@@ -1,3 +1,4 @@
+import "server-only";
 import { and, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
 import { announcement, backgroundJob, type JobResult, user } from "@/db/schema";

@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { adminClearBio, adminClearGraphDescription, adminClearUsername } from "./actions";
+import { adminClearBio, adminClearGraphDescription, adminClearUsername } from "@/server/actions/admin/moderation";
 
 function useConfirmRun() {
   const [pending, start] = useTransition();

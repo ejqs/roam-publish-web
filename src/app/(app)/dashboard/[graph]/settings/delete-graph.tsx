@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { DeleteDialog } from "@/components/manage/delete-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { deleteGraph } from "../../actions";
+import { deleteGraph } from "@/server/actions/dashboard";
 
 export function DeleteGraphCard({
   graphId,

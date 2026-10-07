@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { answerInvite } from "../member-actions";
+import { answerInvite } from "@/server/actions/members";
 
 export function InviteActions({ inviteId, disabled }: { inviteId: string; disabled?: boolean }) {
   const router = useRouter();

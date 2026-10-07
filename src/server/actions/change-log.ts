@@ -1,5 +1,6 @@
 "use server";
 
+import "server-only";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -12,7 +13,7 @@ import { setChangeLogPaused, validTimeZone } from "@/lib/changelog";
 import { OPTIONAL_CATEGORIES, type OptionalCategory } from "@/lib/changelog-categories";
 import { rateLimit } from "@/lib/rate-limit";
 import { appendToDailyNote } from "@/lib/roam-append";
-import type { FormState } from "../../actions";
+import type { FormState } from "@/server/actions/dashboard";
 import { withAction } from "@/lib/telemetry";
 
 const Input = z.object({

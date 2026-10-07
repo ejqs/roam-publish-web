@@ -5,6 +5,15 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.11.0 (2026-10-07)
+
+### Discover
+- New: **Collections have their own tab on Discover** (roam.pub/discover/collections), ranked like pages: Recent
+  puts the collections with the newest pages first, Trending adds up their pages' views this week, and Top adds up
+  their pages' upvotes. Each tile shows a collection's newest pages.
+- Improved: **Discover has a cleaner layout that matches front pages**, with a search box and popular tags at the
+  top, and the pages in one card with the sort and RSS feed right above them.
+
 ## 0.10.0 (2026-10-07)
 
 ### Published pages

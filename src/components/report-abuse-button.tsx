@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { type ReportState, submitReport } from "@/app/report/actions";
+import { type ReportState, submitReport } from "@/server/actions/report";
 import { REPORT_REASONS } from "@/lib/report-reasons";
 
 export type ReportTarget =

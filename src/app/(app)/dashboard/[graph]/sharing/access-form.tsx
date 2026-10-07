@@ -14,7 +14,7 @@ import type { Access, ViewsMode } from "@/db/schema";
 import { saveContainerAccessBlocked } from "@/lib/control-rules";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { changed, useUnsavedChanges } from "@/lib/unsaved-changes";
-import { updateGraphAccess } from "../../actions";
+import { updateGraphAccess } from "@/server/actions/dashboard";
 
 /** Defaults for every page in the graph: access, bylines, view counts, and where new pages go. */
 export function GraphAccessForm({

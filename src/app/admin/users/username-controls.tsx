@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { type ActionState, adminClearUsername, adminReleaseAlias, adminRenameUsername } from "../actions";
+import { type ActionState, adminClearUsername, adminReleaseAlias, adminRenameUsername } from "@/server/actions/admin/moderation";
 
 /** Inline rename (old name becomes a redirect) and clear (for abusive names). */
 export function UsernameControls({ userId, username }: { userId: string; username: string }) {

@@ -1,3 +1,4 @@
+import "server-only";
 import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, collectionEntry, graph, publication, user } from "@/db/schema";

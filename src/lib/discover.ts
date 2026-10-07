@@ -1,12 +1,13 @@
+import "server-only";
 import { and, count, desc, eq, or, type SQL, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import { db } from "@/db";
-import { collection, graph, publication, publicationView, publicationVote, user } from "@/db/schema";
+import { graph, publication, publicationView, publicationVote, user } from "@/db/schema";
 import { liveGraph, livePublication } from "@/lib/moderation";
 import { graphPlaceOpen } from "@/lib/places";
 import { collectionPath, entryPath, graphPath, publicationPath } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
-import type { DiscoverSort } from "@/app/discover/sort";
+import type { DiscoverSort } from "@/lib/discover-sort";
 
 /** Cache tag for everything on /discover and the home page's trending list. */
 export const DISCOVER_TAG = "discover";
@@ -172,35 +173,90 @@ export const discoverPublications = unstable_cache(query, ["discover-publication
   tags: [DISCOVER_TAG],
 });
 
-export type DiscoverCollection = { slug: string; name: string; description: string; pages: number };
+export type DiscoverCollection = {
+  slug: string;
+  name: string;
+  description: string;
+  pages: number;
+  /** Views of its pages in the last 7 days. */
+  views: number;
+  /** All-time upvotes of its pages. */
+  votes: number;
+  /** When a page was last added to it, or when it was made. */
+  updatedAt: string;
+  /** Its newest open pages' titles, for the tile. */
+  titles: string[];
+};
 
-/** Collections whose owners listed them on Discover: open, indexable and live. */
-async function collectionsQuery(): Promise<DiscoverCollection[]> {
-  const rows = await db
-    .select({
-      slug: collection.slug,
-      name: collection.name,
-      description: collection.description,
-      pages: sql<number>`(select count(*) from collection_entry e join publication p on p.id = e.publication_id
-        where e.collection_id = ${collection.id} and e.listing <> 'unlisted' and p.removed_at is null)`.mapWith(Number),
-    })
-    .from(collection)
-    .innerJoin(user, eq(user.id, collection.ownerId))
-    .where(
-      and(
-        eq(collection.discoverable, true),
-        eq(collection.indexAccess, "open"),
-        eq(collection.indexable, true),
-        sql`${collection.suspendedAt} is null`,
-        sql`coalesce(${user.banned}, false) = false`,
-      ),
-    )
-    .orderBy(desc(collection.createdAt))
-    .limit(24);
-  return rows;
+/** Collections whose owners listed them on Discover: open, indexable and live. Needs `c` and `o`. */
+const collectionOnDiscover = sql`c.discoverable and c.index_access = 'open' and c.indexable
+  and c.suspended_at is null and coalesce(o.banned, false) = false`;
+
+/**
+ * Collections on Discover, ranked by their pages: Recent by the page added last, Trending by their
+ * pages' views this week, Top by their pages' upvotes. Pages count when they're listed on the
+ * collection's front page; only open ones lend their titles.
+ */
+async function collectionsQuery(sort: DiscoverSort, limit: number, offset: number) {
+  const order = {
+    recent: sql`updated_at desc`,
+    trending: sql`views desc, updated_at desc`,
+    top: sql`votes desc, updated_at desc`,
+  }[sort];
+  const [{ rows: [{ total }] }, { rows }] = await Promise.all([
+    db.execute<{ total: number }>(sql`
+      select count(*)::int as total from collection c join "user" o on o.id = c.owner_id where ${collectionOnDiscover}`),
+    db.execute<{
+      slug: string;
+      name: string;
+      description: string;
+      pages: number;
+      views: number;
+      votes: number;
+      updated_at: Date | string;
+      titles: string[] | null;
+    }>(sql`
+      with listed as (
+        select e.collection_id, e.publication_id, e.added_at, p.title,
+          (e.access = 'open' or (e.access = 'inherit' and c.default_access = 'open')) and p.cipher is null as open
+        from collection_entry e
+        join collection c on c.id = e.collection_id
+        join "user" o on o.id = c.owner_id
+        join publication p on p.id = e.publication_id
+        where ${collectionOnDiscover} and e.listing <> 'unlisted' and p.removed_at is null
+      )
+      select c.slug, c.name, c.description,
+        (select count(*)::int from listed l where l.collection_id = c.id) as pages,
+        (select count(*)::int from publication_view v join listed l on l.publication_id = v.publication_id
+          where l.collection_id = c.id and v.created_at > now() - interval '7 days') as views,
+        (select count(*)::int from publication_vote v join listed l on l.publication_id = v.publication_id
+          where l.collection_id = c.id) as votes,
+        greatest(c.created_at, (select max(l.added_at) from listed l where l.collection_id = c.id)) as updated_at,
+        array(select l.title from listed l where l.collection_id = c.id and l.open order by l.added_at desc limit 3) as titles
+      from collection c
+      join "user" o on o.id = c.owner_id
+      where ${collectionOnDiscover}
+      order by ${order}, c.created_at desc
+      limit ${limit} offset ${offset}`),
+  ]);
+  return {
+    total,
+    rows: rows.map(
+      (r): DiscoverCollection => ({
+        slug: r.slug,
+        name: r.name,
+        description: r.description,
+        pages: r.pages,
+        views: r.views,
+        votes: r.votes,
+        updatedAt: new Date(r.updated_at).toISOString(),
+        titles: r.titles ?? [],
+      }),
+    ),
+  };
 }
 
-export const discoverCollections = unstable_cache(collectionsQuery, ["discover-collections"], {
+export const discoverCollections = unstable_cache(collectionsQuery, ["discover-collections-v2"], {
   revalidate: 300,
   tags: [DISCOVER_TAG],
 });

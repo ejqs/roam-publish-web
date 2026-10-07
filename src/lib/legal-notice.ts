@@ -1,3 +1,4 @@
+import "server-only";
 import { and, gt, like } from "drizzle-orm";
 import { db } from "@/db";
 import { announcement } from "@/db/schema";

@@ -1,5 +1,6 @@
 "use server";
 
+import "server-only";
 import { and, eq, inArray, isNull, notExists, or } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";

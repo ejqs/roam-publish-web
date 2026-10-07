@@ -4,8 +4,8 @@ import { RefreshCwIcon, SearchIcon, ShieldCheckIcon, TriangleAlertIcon, TypeIcon
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { setEncryption } from "@/app/(app)/dashboard/encryption-actions";
-import { updateEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
+import { setEncryption } from "@/server/actions/encryption";
+import { updateEntry, updateGraphPlace } from "@/server/actions/places";
 import { EncryptedIcon } from "@/components/encrypted-icon";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";

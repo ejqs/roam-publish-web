@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { updateEntry } from "@/app/(app)/dashboard/place-actions";
+import { updateEntry } from "@/server/actions/places";
 import { db } from "@/db";
 import { changelogEntry, collection, graph, shortlink } from "@/db/schema";
 import { encryptToken } from "@/lib/append-token";
-import { setChangeLogOptions } from "@/app/(app)/dashboard/[graph]/settings/change-log-actions";
+import { setChangeLogOptions } from "@/server/actions/change-log";
 import { type Change, flushChangeLog, logChanges, mergeLines, queueChanges, recordAnchorCheck, roamInert } from "@/lib/changelog";
 import { addEntry } from "@/lib/collections";
 import { ensureShortlink, setAnchor } from "@/lib/shortlinks";

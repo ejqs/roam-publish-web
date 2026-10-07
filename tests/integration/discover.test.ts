@@ -1,9 +1,9 @@
 import { beforeEach, expect, test } from "bun:test";
 import { db } from "@/db";
-import { publicationView, publicationVote } from "@/db/schema";
+import { collectionEntry, publicationView, publicationVote } from "@/db/schema";
 import { discoverCollections, discoverPublications, discoverTags, excerpt, ownListedCount } from "@/lib/discover";
 import { resetDb } from "../helpers/db";
-import { makeGraph, makePublication, makeUser } from "../helpers/factories";
+import { makeCollection, makeGraph, makePublication, makeUser } from "../helpers/factories";
 
 beforeEach(resetDb);
 
@@ -21,8 +21,36 @@ for (const sort of ["recent", "trending", "top"] as const)
     expect(out.rows).toEqual([expect.objectContaining({ rootUid: p.rootUid, views: 1, votes: 1 })]);
   });
 
-test("the collections list runs", async () => {
-  expect(await discoverCollections()).toEqual(expect.any(Array));
+test.each(["recent", "trending", "top"] as const)("the collections list runs sorted by %s", async (sort) => {
+  expect(await discoverCollections(sort, 24, 0)).toEqual({ total: 0, rows: [] });
+});
+
+test("collections rank by their pages and only show open pages' titles", async () => {
+  const owner = await makeUser();
+  const reader = await makeUser();
+  const g = await makeGraph(owner.id);
+  const quiet = await makeCollection(owner.id, { discoverable: true, name: "Quiet" });
+  const liked = await makeCollection(owner.id, { discoverable: true, name: "Liked" });
+  await makeCollection(owner.id, { name: "Not listed" });
+  const open = await makePublication(g.id, owner.id, { title: "Open page" });
+  const locked = await makePublication(g.id, owner.id, { title: "Locked page" });
+  const other = await makePublication(g.id, owner.id, { title: "Quiet page" });
+  const entry = (collectionId: string, p: { id: string; rootUid: string }, uid: string, access: "inherit" | "password" = "inherit") =>
+    db.insert(collectionEntry).values({ collectionId, publicationId: p.id, entryUid: uid, access, originGraphName: g.name, originRootUid: p.rootUid });
+  await entry(liked.id, open, "likedopen01");
+  await entry(liked.id, locked, "likedlock01", "password");
+  await entry(quiet.id, other, "quietpage01");
+  await db.insert(publicationVote).values({ publicationId: open.id, userId: reader.id });
+
+  const top = await discoverCollections("top", 24, 0);
+  expect(top.total).toBe(2);
+  expect(top.rows.map((c) => [c.name, c.pages, c.votes])).toEqual([
+    ["Liked", 2, 1],
+    ["Quiet", 1, 0],
+  ]);
+  expect(top.rows[0].titles).toEqual(["Open page"]);
+  const recent = await discoverCollections("recent", 24, 0);
+  expect(recent.rows.map((c) => c.name)).toEqual(["Quiet", "Liked"]);
 });
 
 test("rows carry the start of the page's text, without a repeated title", async () => {

@@ -3,7 +3,7 @@
 import { CheckIcon, CopyIcon, KeyRoundIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { generateKey } from "@/app/(app)/dashboard/keys/actions";
+import { generateKey } from "@/server/actions/keys";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

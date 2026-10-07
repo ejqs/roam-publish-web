@@ -11,8 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { AnnouncementAudience, AnnouncementTone } from "@/db/app-schema";
 import { MESSAGE_MAX } from "@/lib/announcement-shared";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
-import type { ActionState } from "../actions";
-import { type Duration, postAnnouncementAction } from "./actions";
+import type { ActionState } from "@/server/actions/admin/moderation";
+import { type Duration, postAnnouncementAction } from "@/server/actions/admin/announcements";
 
 const PREVIEW_START = new Date(0);
 

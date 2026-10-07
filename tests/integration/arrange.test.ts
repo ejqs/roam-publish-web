@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { asc, eq } from "drizzle-orm";
 import GraphFrontPage from "@/app/[graph]/page";
 import CPage from "@/app/c/[id]/[[...slug]]/page";
-import { saveArrangement } from "@/app/(app)/dashboard/arrange-actions";
+import { saveArrangement } from "@/server/actions/arrange";
 import { FrontPage, type FrontCard, type FrontFolder } from "@/components/front-page";
 import { PageList } from "@/components/page-list";
 import { db } from "@/db";

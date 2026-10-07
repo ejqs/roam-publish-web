@@ -2,8 +2,8 @@ import { TriangleAlertIcon } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { dismissChangeLogIssue } from "./change-log-issue-actions";
-import { GRAPH_LIST, graphPagesPath, listHref, parseListState } from "./filters";
+import { dismissChangeLogIssue } from "@/server/actions/change-log-issues";
+import { GRAPH_LIST, graphPagesPath, listHref, parseListState } from "@/lib/dashboard-filters";
 
 type Issue = { shortlinkId: string; title: string; rootUid: string; graphName: string };
 

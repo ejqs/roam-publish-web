@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { KINDS, type KindFilter, type ListConfig, listHref, type ListState, PAGE_SIZE, sortHref } from "./filters";
+import { KINDS, type KindFilter, type ListConfig, listHref, type ListState, PAGE_SIZE, sortHref } from "@/lib/dashboard-filters";
 import { LinkMenu } from "./link-menu";
 
 const KIND_LABELS: Record<KindFilter, string> = { page: "Pages", block: "Blocks" };

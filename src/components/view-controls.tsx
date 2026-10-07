@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useOptimistic, useTransition } from "react";
 import { toast } from "sonner";
-import { updateEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
+import { updateEntry, updateGraphPlace } from "@/server/actions/places";
 import { placeViewsOptions } from "@/components/manage/views-fields";
 import { Switch } from "@/components/ui/switch";
 import type { PlaceViews, ShowAuthor } from "@/db/schema";

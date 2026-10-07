@@ -9,7 +9,7 @@ import {
   offerTransfer,
   removeMemberAction,
   withdrawInvite,
-} from "@/app/(app)/dashboard/member-actions";
+} from "@/server/actions/members";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
