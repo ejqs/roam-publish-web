@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
+import { accessToSave, ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
 import { ContainerViewsFields } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { Access, ViewsMode } from "@/db/schema";
+import { saveCollectionBlocked } from "@/lib/control-rules";
+import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { deleteCollection, updateCollection } from "../../actions";
 
@@ -36,6 +38,7 @@ export function CollectionSettingsForm({
   slug,
   initial,
   hasPassword: initialHasPassword,
+  canEncrypt: initialCanEncrypt,
   pageCount,
   encryptedPages,
 }: {
@@ -43,6 +46,8 @@ export function CollectionSettingsForm({
   slug: string;
   initial: Initial;
   hasPassword: boolean;
+  /** The saved password can encrypt new pages without being typed again. */
+  canEncrypt: boolean;
   pageCount: number;
   /** Titles of encrypted pages that open with the collection password. */
   encryptedPages: string[];
@@ -57,17 +62,26 @@ export function CollectionSettingsForm({
     clearPassword: false,
   });
   const [hasPassword, setHasPassword] = useState(initialHasPassword);
+  const [canEncrypt, setCanEncrypt] = useState(initialCanEncrypt);
   const [pending, start] = useTransition();
   const locked = access.indexAccess !== "open";
   const discoverOk = access.indexAccess === "open" && s.indexable;
+  const blocked = saveCollectionBlocked(s.name, access, hasPassword, encryptedPages.length);
   const set = <K extends keyof Initial>(k: K) => (v: Initial[K]) => setS((p) => ({ ...p, [k]: v }));
 
   function save() {
     start(async () => {
-      const res = await updateCollection(collectionId, { ...s, ...access });
+      const res = await updateCollection(collectionId, { ...s, ...accessToSave(access, canEncrypt) });
       if (!res.ok) return void toast.error(res.message);
-      if (access.password) setHasPassword(true);
-      if (access.clearPassword) setHasPassword(false);
+      // A new password long enough to encrypt with gets a key pair when it's saved.
+      if (access.password) {
+        setHasPassword(true);
+        setCanEncrypt(access.password.length >= ENCRYPT_PASSWORD_MIN);
+      }
+      if (access.clearPassword) {
+        setHasPassword(false);
+        setCanEncrypt(false);
+      }
       setAccess((a) => ({ ...a, password: "", clearPassword: false, currentPassword: "", resetEncrypted: false }));
       toast.success(res.message);
       router.refresh();
@@ -103,6 +117,7 @@ export function CollectionSettingsForm({
             pageCount={pageCount}
             value={access}
             hasPassword={hasPassword}
+            canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
             onChange={setAccess}
           />
@@ -194,9 +209,12 @@ export function CollectionSettingsForm({
         >
           Delete collection
         </Button>
-        <Button onClick={save} disabled={pending}>
-          {pending ? "Saving…" : "Save"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {blocked && <p className="text-xs text-destructive">{blocked}</p>}
+          <Button onClick={save} disabled={pending || !!blocked}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

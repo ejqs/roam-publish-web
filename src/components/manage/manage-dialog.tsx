@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import type { ContainerDefaults, ManageData } from "@/lib/manage-data";
+import { hideFromGraphBlocked } from "@/lib/control-rules";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
 import { AccessIcon } from "@/components/privacy-icon";
@@ -71,6 +72,8 @@ export function ManageDialog({
   const onDiscover =
     (g.inGraph && gListing === "discover") ||
     data.entries.some((e) => e.state.listing === "discover" && effective(e.state, e.container.defaultAccess) === "open");
+  // Hiding it from the graph would leave it shown nowhere.
+  const hideBlocked = g.inGraph ? hideFromGraphBlocked(data.entries.length) : undefined;
   const encryptionPanel = data.canManagePage ? <EncryptionSection data={data} onChanged={refresh} compact /> : null;
   // Page-wide, so every place shows the same switch under its Visibility control, saying whether
   // search reaches the page through that place.
@@ -154,14 +157,25 @@ export function ManageDialog({
                 data.canManagePage && (
                   <Switch
                     aria-label="Show in graph"
-                    title={g.inGraph ? `Shown in ${data.origin.graphName}` : `Not shown in ${data.origin.graphName}`}
+                    title={
+                      hideBlocked
+                        ? `It's only shown in ${data.origin.graphName}. ${hideBlocked}`
+                        : g.inGraph
+                          ? `Shown in ${data.origin.graphName}`
+                          : `Not shown in ${data.origin.graphName}`
+                    }
                     checked={g.inGraph}
-                    disabled={pending}
+                    disabled={pending || !!hideBlocked}
                     onCheckedChange={(inGraph) => run((currentPassword) => updateGraphPlace(data.publicationId, { inGraph, currentPassword }))}
                   />
                 )
               }
             >
+              {data.canManagePage && hideBlocked && (
+                <p className="text-xs text-muted-foreground">
+                  It&apos;s only shown here, so it can&apos;t be hidden from {data.origin.graphName}. {hideBlocked}
+                </p>
+              )}
               {data.canManagePage && g.inGraph ? (
                 <PlaceSettingsFields
                   target={{ kind: "graph", publicationId: data.publicationId, frontPage: g.frontPage, indexable: g.indexable }}
@@ -212,7 +226,13 @@ export function ManageDialog({
                         title={`Remove from ${e.collectionName}`}
                         className="text-muted-foreground"
                         disabled={pending}
-                        onClick={() => run((currentPassword) => removeEntry(e.entryId, currentPassword))}
+                        onClick={() => {
+                          const last = !g.inGraph && data.entries.length === 1;
+                          const question = `Remove it from ${e.collectionName}? Its link there stops working, and its settings there are lost.${
+                            last ? ` It's the last place it's shown, so it goes back to ${data.origin.graphName} as Unlisted.` : ""
+                          }`;
+                          if (confirm(question)) run((currentPassword) => removeEntry(e.entryId, currentPassword));
+                        }}
                       >
                         <XIcon />
                       </Button>

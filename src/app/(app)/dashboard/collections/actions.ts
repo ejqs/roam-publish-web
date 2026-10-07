@@ -15,7 +15,7 @@ import { purgeCollection } from "@/lib/deletion";
 import { clearGatedCollectionDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { canEncryptWith, dropLock, KeysError, setLockPassword } from "@/lib/encryption";
-import { encryptNewPagesBlocked } from "@/lib/encryption-rules";
+import { encryptNewPagesBlocked, saveContainerAccessBlocked } from "@/lib/control-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { canReceiveInvite } from "@/lib/graph-access";
 import { rateLimit } from "@/lib/rate-limit";
@@ -99,8 +99,8 @@ export async function updateCollection(collectionId: string, input: CollectionSe
     });
     if (!c) return { ok: false, message: "Collection not found." };
     const hasPassword = s.password ? true : s.clearPassword ? false : !!c.passwordHash;
-    if ((s.indexAccess === "password" || s.defaultAccess === "password") && !hasPassword)
-      return { ok: false, message: "Set a collection password to use password access." };
+    const blocked = saveContainerAccessBlocked("collection", s, !!c.passwordHash, 0);
+    if (blocked) return { ok: false, message: blocked };
     // Only kept while new pages start as Password: it does nothing otherwise.
     const encryptNewPages = s.encryptNewPages && s.defaultAccess === "password";
     if (encryptNewPages && !(await canEncryptWith({ scope: "collection", id: c.id }, s.password)))

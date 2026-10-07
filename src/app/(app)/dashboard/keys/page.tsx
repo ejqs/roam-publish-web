@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { KeyReveal } from "@/components/key-reveal";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { graphsOf } from "@/lib/graph-access";
 import { keysOf } from "@/lib/keys";
 import { requireSession } from "@/lib/session";
 import { DashboardShell } from "../dashboard-shell";
-import { revokeKey } from "./actions";
+import { RevokeKeyButton } from "./revoke-button";
 
 export const metadata: Metadata = { title: "API keys · Roam Publish" };
 
@@ -65,13 +65,7 @@ export default async function KeysPage() {
               ) : (
                 <KeyReveal graphId={g.id} hasKey={!!key} />
               )}
-              {key && (
-                <form action={revokeKey.bind(null, g.id)}>
-                  <Button type="submit" variant="ghost" size="sm" className="text-muted-foreground">
-                    Revoke
-                  </Button>
-                </form>
-              )}
+              {key && <RevokeKeyButton graphId={g.id} graphName={g.name} />}
             </CardContent>
           </Card>
         );
