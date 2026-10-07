@@ -30,32 +30,53 @@ function ago(iso: string, now: number) {
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
-const SORT_CAPTIONS: Record<DiscoverSort, string> = {
-  recent: "Newest first",
-  trending: "Most read in the last 7 days",
-  top: "Most upvoted of all time",
-};
+const CAPTIONS = {
+  pages: { recent: "Newest first", trending: "Most read in the last 7 days", top: "Most upvoted of all time" },
+  collections: {
+    recent: "Newest pages first",
+    trending: "Pages most read in the last 7 days",
+    top: "Pages most upvoted of all time",
+  },
+} satisfies Record<string, Record<DiscoverSort, string>>;
 
-const RANKING_NOTES: Record<DiscoverSort, string | null> = {
-  recent: null,
-  trending: "Ranks views from the last 7 days.",
-  top: "Ranks all-time upvotes.",
-};
+const RANKING_NOTES = {
+  pages: { recent: null, trending: "Ranks views from the last 7 days.", top: "Ranks all-time upvotes." },
+  collections: {
+    recent: "Ranks by the page added last.",
+    trending: "Adds up the views of each collection's pages from the last 7 days.",
+    top: "Adds up the all-time upvotes of each collection's pages.",
+  },
+} satisfies Record<string, Record<DiscoverSort, string | null>>;
 
-/** The page count, sort, what the sort ranks by, and the feed, above the list. */
-export function DiscoverToolbar({ sort, total, feedHref }: { sort: DiscoverSort; total: number; feedHref: string }) {
+const COUNTED = " Only signed-in readers with a verified graph count, once per page, and never on their own pages.";
+
+export type DiscoverTab = "pages" | "collections";
+const TAB_PATHS = { pages: "/discover", collections: "/discover/collections" } as const;
+
+/** The count, sort, what the sort ranks by, and the feed, above the pages or collections. */
+export function DiscoverToolbar({
+  tab,
+  sort,
+  total,
+  feedHref,
+}: {
+  tab: DiscoverTab;
+  sort: DiscoverSort;
+  total: number;
+  feedHref?: string;
+}) {
   const segment = (on: boolean) =>
     cn(
       buttonVariants({ variant: "ghost", size: "sm" }),
       "rounded-none first:rounded-l-sm last:rounded-r-sm max-sm:h-10 max-sm:flex-1",
       on && "bg-muted font-medium",
     );
-  const note = RANKING_NOTES[sort];
+  const note = RANKING_NOTES[tab][sort];
   return (
-    <div className="flex flex-col gap-1 border-t pt-2">
+    <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
         <span className="text-muted-foreground">
-          {plural(total, "page", "pages")} · {SORT_CAPTIONS[sort]}
+          {tab === "pages" ? plural(total, "page", "pages") : plural(total, "collection", "collections")} · {CAPTIONS[tab][sort]}
         </span>
         <div className="flex items-center gap-2 max-sm:w-full">
           <nav
@@ -63,11 +84,12 @@ export function DiscoverToolbar({ sort, total, feedHref }: { sort: DiscoverSort;
             className="inline-flex rounded-sm shadow-[inset_0_0_0_1px_rgba(17,20,24,0.2),0_1px_2px_rgba(17,20,24,0.1)] max-sm:flex-1"
           >
             {SORT_LABELS.map(([value, label]) => (
-              <Link key={value} href={listHref(value, 1)} aria-current={value === sort ? "true" : undefined} className={segment(value === sort)}>
+              <Link key={value} href={listHref(value, 1, TAB_PATHS[tab])} aria-current={value === sort ? "true" : undefined} className={segment(value === sort)}>
                 {label}
               </Link>
             ))}
           </nav>
+          {feedHref && (
           <a
             href={feedHref}
             title="RSS feed"
@@ -76,11 +98,13 @@ export function DiscoverToolbar({ sort, total, feedHref }: { sort: DiscoverSort;
             <RssIcon className="size-3.5" />
             <span className="max-sm:sr-only">RSS</span>
           </a>
+          )}
         </div>
       </div>
       {note && (
         <p className="text-xs text-muted-foreground">
-          {note} Only signed-in readers with a verified graph count, once per page, and never on their own pages.
+          {note}
+          {sort !== "recent" && COUNTED}
         </p>
       )}
     </div>
@@ -171,21 +195,36 @@ export function DiscoverList({
           ))}
         </ol>
 
-        {pageCount > 1 && (
-          <nav className="flex items-center justify-between text-sm" aria-label="Pagination">
-            <PageLink href={listHref(sort, page - 1)} disabled={page <= 1} rel="prev">
-              ← Previous
-            </PageLink>
-            <span className="text-muted-foreground">
-              Page {page} of {pageCount}
-            </span>
-            <PageLink href={listHref(sort, page + 1)} disabled={page >= pageCount} rel="next">
-              More →
-            </PageLink>
-          </nav>
-        )}
+        <DiscoverPagination tab="pages" sort={sort} page={page} pageCount={pageCount} />
       </div>
     </ListVotesProvider>
+  );
+}
+
+export function DiscoverPagination({
+  tab,
+  sort,
+  page,
+  pageCount,
+}: {
+  tab: DiscoverTab;
+  sort: DiscoverSort;
+  page: number;
+  pageCount: number;
+}) {
+  if (pageCount <= 1) return null;
+  return (
+    <nav className="flex items-center justify-between text-sm" aria-label="Pagination">
+      <PageLink href={listHref(sort, page - 1, TAB_PATHS[tab])} disabled={page <= 1} rel="prev">
+        ← Previous
+      </PageLink>
+      <span className="text-muted-foreground">
+        Page {page} of {pageCount}
+      </span>
+      <PageLink href={listHref(sort, page + 1, TAB_PATHS[tab])} disabled={page >= pageCount} rel="next">
+        More →
+      </PageLink>
+    </nav>
   );
 }
 

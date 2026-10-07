@@ -13,10 +13,10 @@ export function parsePage(v: unknown) {
 }
 
 /** Default params are left out so the canonical URL stays bare. */
-export function listHref(sort: DiscoverSort, page: number) {
+export function listHref(sort: DiscoverSort, page: number, path: "/discover" | "/discover/collections" = "/discover") {
   const q = new URLSearchParams();
   if (sort !== "recent") q.set("sort", sort);
   if (page > 1) q.set("page", String(page));
   const s = q.toString();
-  return s ? `/discover?${s}` : "/discover";
+  return s ? `${path}?${s}` : path;
 }
