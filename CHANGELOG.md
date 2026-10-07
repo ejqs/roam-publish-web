@@ -5,6 +5,15 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.8.2 (2026-10-07)
+
+### Publishing
+- Fixed: **Adding a page to a collection from the extension** no longer takes it out of your graph or encrypts
+  it. It works as it does on the website: the page keeps its graph link, access and content, and only joins the
+  collection.
+- Fixed: **The graph name check** in the extension ignores capitals, so a graph set up as `MyGraph` keeps
+  working in a Roam graph named `mygraph`.
+
 ## 0.8.1 (2026-10-06)
 
 ### Publishing
