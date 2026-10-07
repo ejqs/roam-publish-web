@@ -5,6 +5,13 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.10.1 (2026-10-07)
+
+### Discover
+- Improved: **Discover has a cleaner layout that matches front pages.** A search box and popular tags sit at the
+  top, collections show as tiles above the pages, and the pages sit in one card with the sort and RSS feed right
+  above them.
+
 ## 0.10.0 (2026-10-07)
 
 ### Published pages

@@ -36,49 +36,53 @@ const SORT_CAPTIONS: Record<DiscoverSort, string> = {
   top: "Most upvoted of all time",
 };
 
-/** Sort tabs for Discover, what the current one ranks by, and the feed. */
-export function DiscoverSortTabs({ sort, feedHref }: { sort: DiscoverSort; feedHref: string }) {
+const RANKING_NOTES: Record<DiscoverSort, string | null> = {
+  recent: null,
+  trending: "Ranks views from the last 7 days.",
+  top: "Ranks all-time upvotes.",
+};
+
+/** The page count, sort, what the sort ranks by, and the feed, above the list. */
+export function DiscoverToolbar({ sort, total, feedHref }: { sort: DiscoverSort; total: number; feedHref: string }) {
   const segment = (on: boolean) =>
     cn(
       buttonVariants({ variant: "ghost", size: "sm" }),
-      "rounded-none first:rounded-l-sm last:rounded-r-sm max-sm:h-11 max-sm:flex-1",
+      "rounded-none first:rounded-l-sm last:rounded-r-sm max-sm:h-10 max-sm:flex-1",
       on && "bg-muted font-medium",
     );
+  const note = RANKING_NOTES[sort];
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <nav
-        aria-label="Sort"
-        className="flex rounded-sm shadow-[inset_0_0_0_1px_rgba(17,20,24,0.2),0_1px_2px_rgba(17,20,24,0.1)] max-sm:flex-1"
-      >
-        {SORT_LABELS.map(([value, label]) => (
-          <Link key={value} href={listHref(value, 1)} aria-current={value === sort ? "true" : undefined} className={segment(value === sort)}>
-            {label}
-          </Link>
-        ))}
-      </nav>
-      <span className="text-xs text-muted-foreground max-sm:order-last max-sm:w-full">{SORT_CAPTIONS[sort]}</span>
-      <a
-        href={feedHref}
-        title="RSS feed"
-        className={buttonVariants({ variant: "ghost", size: "sm", className: "ml-auto text-xs text-muted-foreground max-sm:size-11" })}
-      >
-        <RssIcon className="size-3.5" />
-        <span className="max-sm:sr-only">RSS</span>
-      </a>
-    </div>
-  );
-}
-
-/** How Trending and Top rank, for the sidebar. */
-export function RankingNote({ sort }: { sort: DiscoverSort }) {
-  if (sort === "recent") return null;
-  return (
-    <div className="flex flex-col gap-2 rounded-sm bg-card p-4 shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)]">
-      <h2 className="text-sm font-semibold">How {sort === "trending" ? "Trending" : "Top"} works</h2>
-      <p className="text-sm text-muted-foreground">
-        {sort === "trending" ? "Ranks views from the last 7 days." : "Ranks all-time upvotes."} Only signed-in readers with
-        a verified graph count, once per page, and never on their own pages.
-      </p>
+    <div className="flex flex-col gap-1 border-t pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+        <span className="text-muted-foreground">
+          {plural(total, "page", "pages")} · {SORT_CAPTIONS[sort]}
+        </span>
+        <div className="flex items-center gap-2 max-sm:w-full">
+          <nav
+            aria-label="Sort"
+            className="inline-flex rounded-sm shadow-[inset_0_0_0_1px_rgba(17,20,24,0.2),0_1px_2px_rgba(17,20,24,0.1)] max-sm:flex-1"
+          >
+            {SORT_LABELS.map(([value, label]) => (
+              <Link key={value} href={listHref(value, 1)} aria-current={value === sort ? "true" : undefined} className={segment(value === sort)}>
+                {label}
+              </Link>
+            ))}
+          </nav>
+          <a
+            href={feedHref}
+            title="RSS feed"
+            className={buttonVariants({ variant: "ghost", size: "sm", className: "text-xs text-muted-foreground max-sm:size-10" })}
+          >
+            <RssIcon className="size-3.5" />
+            <span className="max-sm:sr-only">RSS</span>
+          </a>
+        </div>
+      </div>
+      {note && (
+        <p className="text-xs text-muted-foreground">
+          {note} Only signed-in readers with a verified graph count, once per page, and never on their own pages.
+        </p>
+      )}
     </div>
   );
 }
@@ -104,11 +108,11 @@ export function DiscoverList({
   const ranked = sort !== "recent";
   return (
     <ListVotesProvider ids={rows.map((r) => r.id)}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <ListVotesHint />
-        <ol className="flex flex-col divide-y border-y">
+        <ol className="flex flex-col divide-y rounded-sm bg-card shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_0_0_rgba(17,20,24,0),0_1px_1px_rgba(17,20,24,0.2)]">
           {rows.map((r, i) => (
-            <li key={r.href} className="flex items-start gap-3 py-4 sm:gap-4">
+            <li key={r.href} className="flex items-start gap-3 p-4 sm:gap-4">
               {ranked && (
                 <span className="w-5 shrink-0 pt-px text-right text-base font-semibold text-muted-foreground tabular-nums sm:w-6">
                   {offset + i + 1}
