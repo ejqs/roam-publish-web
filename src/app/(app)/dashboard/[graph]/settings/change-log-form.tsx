@@ -11,6 +11,7 @@ import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLeg
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { OPTIONAL_CATEGORIES } from "@/lib/changelog-categories";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { removeAppendToken, setAppendToken, setChangeLogOn, setChangeLogOptions } from "./change-log-actions";
 
 type Options = { off: string[]; merge: boolean; byDay: boolean };
@@ -40,6 +41,8 @@ export function ChangeLogForm({
   const [token, setToken] = useState("");
   const [options, setOptions] = useState(initialOptions);
   const [pending, startTransition] = useTransition();
+  // The token field is the only part that waits for Save; the switches save when changed.
+  useUnsavedChanges(status !== "ok" && !!token.trim());
 
   function save() {
     startTransition(async () => {

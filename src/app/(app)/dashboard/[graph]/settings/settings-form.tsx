@@ -8,6 +8,7 @@ import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldSep
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { type GraphSettings, updateGraphSettings } from "../../actions";
 
 export function GraphSettingsForm({ graphId, initial }: { graphId: string; initial: { description: string } }) {
@@ -15,6 +16,8 @@ export function GraphSettingsForm({ graphId, initial }: { graphId: string; initi
   const [saved, setSaved] = useState(initial.description);
   const [pending, startTransition] = useTransition();
   const current = description.replace(/\s+/g, " ").trim();
+  const dirty = current !== saved;
+  useUnsavedChanges(dirty);
 
   function save() {
     startTransition(async () => {
@@ -47,8 +50,9 @@ export function GraphSettingsForm({ graphId, initial }: { graphId: string; initi
           </div>
         </Field>
       </CardContent>
-      <CardFooter className="justify-end">
-        <Button onClick={save} disabled={current === saved || pending}>
+      <CardFooter className="justify-end gap-3">
+        {dirty && !pending && <p className="text-xs text-muted-foreground">Unsaved changes</p>}
+        <Button onClick={save} disabled={!dirty || pending}>
           {pending ? "Saving…" : "Save"}
         </Button>
       </CardFooter>
@@ -78,6 +82,7 @@ export function GraphListingForm({
   const normalize = (s: Listing): Listing => ({ ...s, rss: s.rss && s.frontPage });
   const current = normalize(settings);
   const dirty = (Object.keys(current) as (keyof Listing)[]).some((k) => current[k] !== saved[k]);
+  useUnsavedChanges(dirty);
 
   function save() {
     startTransition(async () => {
@@ -163,7 +168,8 @@ export function GraphListingForm({
           />
         </FieldGroup>
       </CardContent>
-      <CardFooter className="justify-end">
+      <CardFooter className="justify-end gap-3">
+        {dirty && !pending && <p className="text-xs text-muted-foreground">Unsaved changes</p>}
         <Button onClick={save} disabled={!dirty || pending}>
           {pending ? "Saving…" : "Save"}
         </Button>

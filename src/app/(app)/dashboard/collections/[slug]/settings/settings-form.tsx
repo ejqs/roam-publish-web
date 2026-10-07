@@ -15,6 +15,7 @@ import type { Access, ViewsMode } from "@/db/schema";
 import { saveCollectionBlocked } from "@/lib/control-rules";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
+import { changed, useUnsavedChanges } from "@/lib/unsaved-changes";
 import { deleteCollection, updateCollection } from "../../actions";
 
 type Initial = {
@@ -67,6 +68,15 @@ export function CollectionSettingsForm({
   const locked = access.indexAccess !== "open";
   const discoverOk = access.indexAccess === "open" && s.indexable;
   const blocked = saveCollectionBlocked(s.name, access, hasPassword, encryptedPages.length);
+  const form = (settings: Initial, a: ContainerAccess, encrypt: boolean) => ({
+    ...settings,
+    ...accessToSave(a, encrypt),
+    currentPassword: undefined,
+    resetEncrypted: undefined,
+  });
+  const [saved, setSaved] = useState(() => form(s, access, canEncrypt));
+  const dirty = changed(form(s, access, canEncrypt), saved);
+  useUnsavedChanges(dirty);
   const set = <K extends keyof Initial>(k: K) => (v: Initial[K]) => setS((p) => ({ ...p, [k]: v }));
 
   function save() {
@@ -74,15 +84,13 @@ export function CollectionSettingsForm({
       const res = await updateCollection(collectionId, { ...s, ...accessToSave(access, canEncrypt) });
       if (!res.ok) return void toast.error(res.message);
       // A new password long enough to encrypt with gets a key pair when it's saved.
-      if (access.password) {
-        setHasPassword(true);
-        setCanEncrypt(access.password.length >= ENCRYPT_PASSWORD_MIN);
-      }
-      if (access.clearPassword) {
-        setHasPassword(false);
-        setCanEncrypt(false);
-      }
-      setAccess((a) => ({ ...a, password: "", clearPassword: false, currentPassword: "", resetEncrypted: false }));
+      const encrypt = access.password ? access.password.length >= ENCRYPT_PASSWORD_MIN : !access.clearPassword && canEncrypt;
+      if (access.password) setHasPassword(true);
+      if (access.clearPassword) setHasPassword(false);
+      setCanEncrypt(encrypt);
+      const next = { ...access, password: "", clearPassword: false, currentPassword: "", resetEncrypted: false };
+      setAccess(next);
+      setSaved(form(s, next, encrypt));
       toast.success(res.message);
       router.refresh();
     });
@@ -211,7 +219,8 @@ export function CollectionSettingsForm({
         </Button>
         <div className="flex items-center gap-3">
           {blocked && <p className="text-xs text-destructive">{blocked}</p>}
-          <Button onClick={save} disabled={pending || !!blocked}>
+          {!blocked && dirty && !pending && <p className="text-xs text-muted-foreground">Unsaved changes</p>}
+          <Button onClick={save} disabled={pending || !dirty || !!blocked}>
             {pending ? "Saving…" : "Save"}
           </Button>
         </div>

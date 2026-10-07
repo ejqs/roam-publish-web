@@ -5,6 +5,21 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.9.0 (2026-10-07)
+
+### Security
+- New: **Encrypt existing pages** in a graph's or collection's settings encrypts the pages already there, not just
+  new ones. It first shows how many it will encrypt and which pages stay readable and why, such as being open in
+  another place, and asks you to confirm.
+
+### Dashboard
+- New: **Settings warn before you lose unsaved changes.** A graph's Settings and Sharing, a collection's settings,
+  your profile description and the change log token ask before you follow a link, go Back, reload or close the
+  tab with edits you haven't saved. "Unsaved changes" shows next to Save until you do, and Save on a graph's or
+  collection's access settings waits until something has changed.
+- Improved: **Change who can read existing pages** is the new name for the link that sets access on every page, so
+  it's no longer mistaken for encrypting them.
+
 ## 0.8.2 (2026-10-07)
 
 ### Dashboard

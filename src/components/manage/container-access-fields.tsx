@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { encryptExistingPages, type EncryptExistingResult } from "@/app/(app)/dashboard/encryption-actions";
 import { applyAccessToAllPages } from "@/app/(app)/dashboard/place-actions";
 import { EncryptedIcon } from "@/components/encrypted-icon";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FieldDescription, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
+import { ENCRYPT_PASSWORD_MIN, encryptExistingPagesBlocked } from "@/lib/encryption-rules";
 import type { Access } from "@/db/schema";
 import { Choice, readOptions } from "./choice";
 
@@ -103,12 +104,22 @@ export function ContainerAccessFields({
           here, and each page can be changed on its own. Protected pages are never listed on Discover.
         </FieldDescription>
         <Choice id={`${kind}-default`} value={value.defaultAccess} options={readOptions(label)} onChange={(defaultAccess) => set({ defaultAccess })} />
+        {pageCount > 0 && (
+          <ApplyToPagesDialog
+            kind={kind}
+            label={label}
+            containerId={containerId}
+            pageCount={pageCount}
+            initial={value.defaultAccess}
+            hasPassword={hasPassword}
+          />
+        )}
         <div className="flex items-start justify-between gap-4 pt-2">
           <div className="flex flex-col gap-1">
             <FieldLabel htmlFor={`${kind}-encrypt-new`}>Encrypt new password pages</FieldLabel>
             <FieldDescription>
               {passwordDefault
-                ? `Pages ${pagesVerb} from now on are stored encrypted with the ${kind} password, so not even roam.pub can read them. Needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Pages already here aren't changed.`
+                ? `Pages ${pagesVerb} from now on are stored encrypted with the ${kind} password, so not even roam.pub can read them. Needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Pages already here aren't changed: encrypt them below.`
                 : `Only applies while new pages start as Password.`}
             </FieldDescription>
             {passwordDefault && !canTurnOnEncrypt && (
@@ -152,31 +163,7 @@ export function ContainerAccessFields({
                   Readers still open them with it. What changes for those pages:
                 </DialogDescription>
               </DialogHeader>
-              <ul className="flex flex-col gap-2.5 text-sm">
-                <li className="flex gap-2.5">
-                  <UsersIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  Everyone needs the password, including members and you.
-                </li>
-                <li className="flex gap-2.5">
-                  <SearchIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  Search, tags, related pages and excerpts are off for them.
-                </li>
-                <li className="flex gap-2.5">
-                  <TypeIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  Titles aren&apos;t encrypted. They&apos;re in the link and on listings.
-                </li>
-                <li className="flex gap-2.5">
-                  <RefreshCwIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  If the password is forgotten, we can&apos;t recover them. Republish them from Roam to bring them back.
-                </li>
-              </ul>
-              <p className="rounded-sm bg-muted px-3 py-2.5 text-xs text-muted-foreground">
-                This isn&apos;t end-to-end encryption: roam.pub decrypts pages to show them to readers, so they&apos;re only as
-                safe as you trust roam.pub and its host.{" "}
-                <Link href="/privacy/encryption" target="_blank" className="text-link hover:underline">
-                  How encrypted pages work
-                </Link>
-              </p>
+              <EncryptConsequences />
               {!canTurnOnEncrypt && (
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor={`${kind}-encrypt-password`} className="text-sm font-medium">
@@ -211,13 +198,11 @@ export function ContainerAccessFields({
           </DialogContent>
         </Dialog>
         {pageCount > 0 && (
-          <ApplyToPagesDialog
+          <EncryptExistingDialog
             kind={kind}
             label={label}
             containerId={containerId}
-            pageCount={pageCount}
-            initial={value.defaultAccess}
-            hasPassword={hasPassword}
+            blocked={encryptExistingPagesBlocked(kind, { canEncrypt: hasPassword && canEncrypt, unsavedPassword: !!value.password || value.clearPassword })}
           />
         )}
       </FieldSet>
@@ -349,7 +334,7 @@ function ApplyToPagesDialog({
       <DialogTrigger
         render={
           <Button type="button" variant="link" size="sm" className="self-start px-0">
-            Apply to existing pages…
+            Change who can read existing pages…
           </Button>
         }
       />
@@ -381,5 +366,145 @@ function ApplyToPagesDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** What encrypting changes for a page, for the dialogs that do it. */
+function EncryptConsequences() {
+  return (
+    <>
+      <ul className="flex flex-col gap-2.5 text-sm">
+        <li className="flex gap-2.5">
+          <UsersIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          Everyone needs the password, including members and you.
+        </li>
+        <li className="flex gap-2.5">
+          <SearchIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          Search, tags, related pages and excerpts are off for them.
+        </li>
+        <li className="flex gap-2.5">
+          <TypeIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          Titles aren&apos;t encrypted. They&apos;re in the link and on listings.
+        </li>
+        <li className="flex gap-2.5">
+          <RefreshCwIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          If the password is forgotten, we can&apos;t recover them. Republish them from Roam to bring them back.
+        </li>
+      </ul>
+      <p className="rounded-sm bg-muted px-3 py-2.5 text-xs text-muted-foreground">
+        This isn&apos;t end-to-end encryption: roam.pub decrypts pages to show them to readers, so they&apos;re only as safe
+        as you trust roam.pub and its host.{" "}
+        <Link href="/privacy/encryption" target="_blank" className="text-link hover:underline">
+          How encrypted pages work
+        </Link>
+      </p>
+    </>
+  );
+}
+
+/**
+ * Encrypts the pages already in the graph or collection, after showing which ones it would encrypt
+ * and which it leaves, and why. `blocked`: why it can't be used yet (lib/encryption-rules.ts).
+ */
+function EncryptExistingDialog({
+  kind,
+  label,
+  containerId,
+  blocked,
+}: {
+  kind: "graph" | "collection";
+  label: string;
+  containerId: string;
+  blocked?: string;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [plan, setPlan] = useState<EncryptExistingResult | null>(null);
+  const [pending, start] = useTransition();
+  const n = plan?.encrypt?.length ?? 0;
+  const pages = `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
+  const skipped = plan?.skipped ?? [];
+
+  function preview() {
+    setPlan(null);
+    start(async () => {
+      const res = await encryptExistingPages(kind, containerId, { preview: true });
+      if (!res.ok) {
+        toast.error(res.message);
+        return setOpen(false);
+      }
+      setPlan(res);
+    });
+  }
+
+  function encrypt() {
+    start(async () => {
+      const res = await encryptExistingPages(kind, containerId);
+      if (!res.ok) return void toast.error(res.message);
+      toast.success(res.message);
+      setOpen(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o);
+          if (o) preview();
+        }}
+      >
+        <DialogTrigger
+          render={
+            <Button type="button" variant="link" size="sm" className="self-start px-0" disabled={!!blocked}>
+              <EncryptedIcon /> Encrypt existing pages…
+            </Button>
+          }
+        />
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="break-words">Encrypt existing pages in {label}?</DialogTitle>
+            <DialogDescription>
+              {!plan
+                ? "Checking which pages can be encrypted…"
+                : n
+                  ? `${pages} already here will be stored encrypted with the password of every place ${n === 1 ? "it's" : "they're"} shown. Readers open ${n === 1 ? "it" : "them"} with the same password. What changes:`
+                  : `None of the pages here can be encrypted right now.`}
+            </DialogDescription>
+          </DialogHeader>
+          {plan && n > 0 && <EncryptConsequences />}
+          {plan && skipped.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-medium">
+                {skipped.length.toLocaleString("en-US")} {skipped.length === 1 ? "page stays" : "pages stay"} readable
+              </p>
+              <ul className="max-h-40 divide-y overflow-y-auto rounded-sm border text-sm">
+                {skipped.map((p, i) => (
+                  <li key={i} className="flex flex-col px-3 py-2">
+                    <span className="break-words">{p.title}</span>
+                    <span className="text-xs text-muted-foreground">{p.reason}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-muted-foreground">
+                Pages are only encrypted where every place shows them with a password. Set them to Password first, or
+                turn on encryption page by page in Manage.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending && !!plan}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={encrypt} disabled={pending || !n}>
+              <EncryptedIcon /> {pending && plan ? "Encrypting…" : n ? `Encrypt ${pages}` : "Encrypt"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {blocked && <FieldDescription>{blocked}</FieldDescription>}
+    </div>
   );
 }

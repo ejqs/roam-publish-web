@@ -590,6 +590,42 @@ export async function canEncryptWith(l: LockRef, newPassword: string) {
  * shown place is password-protected with a key pair to seal to. Otherwise leaves it readable:
  * encrypting is never a reason to refuse a publish. True when it encrypted the page.
  */
+/**
+ * Why a page can't be encrypted as it's shown now, without typing a password: a shown place that
+ * isn't password-protected, or a password with no key pair to seal to (set before encryption
+ * existed, or too short). Undefined when it can be.
+ */
+export async function encryptBlocker(tx: Db, spots: Spot[]): Promise<string | undefined> {
+  const open = unprotectedSpots(spots)[0];
+  if (open)
+    return open.access === "password"
+      ? `Password with no password to use in ${open.label}`
+      : `${open.access === "members" ? "Members only" : "Open"} in ${open.label}`;
+  for (const l of locksOf(spots))
+    if (!(await lockKeyOf(tx, l))) {
+      const spot = spots.find((s) => s.lock && lockId(s.lock) === lockId(l))!;
+      const own = l.scope === "publication" || l.scope === "entry";
+      return `${own ? "Its own password" : "The password"} in ${spot.label} was set before encryption existed or is too short`;
+    }
+}
+
+/** Stores a readable page encrypted with every password that opens it. Check `encryptBlocker` first. */
+export async function encryptPage(tx: Tx, pub: typeof publication.$inferSelect) {
+  const { cipher, needsRepublish } = await sealNewContent(tx, pub.id, pub.tree);
+  await tx
+    .update(publication)
+    .set({
+      encrypted: true,
+      cipher,
+      needsRepublish,
+      tree: emptyTree(pub.rootUid),
+      searchText: "",
+      tags: [],
+      contentHash: sealHash(pub.id, plainHash(pub)),
+    })
+    .where(eq(publication.id, pub.id));
+}
+
 export async function encryptNewPageIfWanted(publicationId: string): Promise<boolean> {
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -606,22 +642,8 @@ export async function encryptNewPageIfWanted(publicationId: string): Promise<boo
       .where(eq(collectionEntry.publicationId, publicationId));
     const wanted = (row.pub.inGraph && row.g.encryptNewPages) || entries.some(({ c }) => c.encryptNewPages);
     if (!wanted) return false;
-    const spots = await spotsOf(tx, publicationId);
-    if (unprotectedSpots(spots).length) return false;
-    for (const l of locksOf(spots)) if (!(await lockKeyOf(tx, l))) return false;
-    const { cipher, needsRepublish } = await sealNewContent(tx, publicationId, row.pub.tree);
-    await tx
-      .update(publication)
-      .set({
-        encrypted: true,
-        cipher,
-        needsRepublish,
-        tree: emptyTree(row.pub.rootUid),
-        searchText: "",
-        tags: [],
-        contentHash: sealHash(publicationId, plainHash(row.pub)),
-      })
-      .where(eq(publication.id, publicationId));
+    if (await encryptBlocker(tx, await spotsOf(tx, publicationId))) return false;
+    await encryptPage(tx, row.pub);
     return true;
   });
 }
