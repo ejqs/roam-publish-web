@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { GET, POST } from "@/app/api/ext/publications/[rootUid]/collections/route";
 import { GET as LIST, POST as PUBLISH } from "@/app/api/ext/publications/route";
 import { db } from "@/db";
-import { collectionEntry, graph, publication } from "@/db/schema";
+import { collectionEntry, publication } from "@/db/schema";
 import { resetDb } from "../helpers/db";
 import { addCollectionMember, addGraphMember, extRequest, keyFor, makeCollection, makeGraph, makeUser, payload } from "../helpers/factories";
 import { resetRequest } from "../helpers/request";
@@ -44,8 +44,8 @@ describe("listing collections for a page", () => {
     const byName = Object.fromEntries(collections.map((c: { name: string }) => [c.name, c]));
     expect(Object.keys(byName).sort()).toEqual(["Best of", "Private", "Writing"]);
     expect(byName.Writing.entryUrl).toContain("/c/");
-    expect(byName["Best of"]).toMatchObject({ listing: "discover", access: "open", entryUrl: null, movesOutOfGraph: false });
-    expect(byName.Private).toMatchObject({ listing: "listed", access: "password", movesOutOfGraph: true });
+    expect(byName["Best of"]).toMatchObject({ listing: "discover", access: "open", entryUrl: null });
+    expect(byName.Private).toMatchObject({ listing: "listed", access: "password" });
     expect(someoneElse.id).toBeTruthy();
   });
 
@@ -73,28 +73,21 @@ describe("adding a page to a collection", () => {
     const res = await add(ownerKey, p.rootUid, c.id);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toMatchObject({ listing: "discover", access: "open", movedOutOfGraph: false });
+    expect(body).toMatchObject({ listing: "discover", access: "open" });
     expect(body.url).toContain(`/${g.name}/`);
     expect((await pubOf(p.rootUid))!.inGraph).toBe(true);
   });
 
-  test("moves the page out of its open graph when the collection is password-protected", async () => {
-    const c = await makeCollection(owner.id, { defaultAccess: "password", passwordHash: "x" });
+  test("leaves the page in its graph, unencrypted, when the collection is password-protected", async () => {
+    const c = await makeCollection(owner.id, { defaultAccess: "password", passwordHash: "x", encryptNewPages: true });
     const p = payload();
     await publish(ownerKey, p);
     const body = await (await add(ownerKey, p.rootUid, c.id)).json();
-    expect(body).toMatchObject({ access: "password", movedOutOfGraph: true });
-    expect(body.url).toBe(body.entryUrl);
-    expect((await pubOf(p.rootUid))!.inGraph).toBe(false);
-  });
-
-  test("keeps the graph place when the graph is already as strict", async () => {
-    await db.update(graph).set({ defaultAccess: "password", passwordHash: "x" }).where(eq(graph.id, g.id));
-    const c = await makeCollection(owner.id, { defaultAccess: "password", passwordHash: "y" });
-    const p = payload();
-    await publish(ownerKey, p);
-    expect((await (await add(ownerKey, p.rootUid, c.id)).json()).movedOutOfGraph).toBe(false);
-    expect((await pubOf(p.rootUid))!.inGraph).toBe(true);
+    expect(body).toMatchObject({ access: "password" });
+    expect(body.url).toContain(`/${g.name}/`);
+    const after = (await pubOf(p.rootUid))!;
+    expect(after.inGraph).toBe(true);
+    expect(after.encrypted).toBe(false);
   });
 
   test("refuses a collection the holder isn't in, a second add, and encrypted pages", async () => {

@@ -291,6 +291,10 @@ describe("the graph the extension is in", () => {
     expect((await publish(ownerKey, payload())).status).toBe(200);
   });
 
+  test("the graph's name in other capitals still counts as the key's own graph", async () => {
+    expect((await POST(inGraph(extRequest("/api/ext/publications", ownerKey, { body: payload() }), g.name.toUpperCase()))).status).toBe(200);
+  });
+
   test("the header is allowed by CORS", async () => {
     const res = await OPTIONS(extRequest("/api/ext/publications", null, { method: "OPTIONS" }));
     expect(res.headers.get("access-control-allow-headers")).toContain("x-roam-graph");

@@ -63,9 +63,10 @@ export async function requireExtKey(req: Request): Promise<ExtContext | Response
   if (row.g.suspendedAt)
     return json(req, { error: "This graph was suspended by a moderator", reason: row.g.suspendedReason }, 403);
   // The extension says which Roam graph it's in; a key pasted into another graph would otherwise
-  // publish that graph's pages under this one's name. Older extensions don't send it.
+  // publish that graph's pages under this one's name. Older extensions don't send it. Names are
+  // typed in by hand at setup, so capitals alone don't count as a different graph.
   const inGraph = req.headers.get("x-roam-graph");
-  if (inGraph !== null && inGraph !== row.g.name) return wrongGraphResponse(req, row.g.name, inGraph);
+  if (inGraph !== null && inGraph.toLowerCase() !== row.g.name.toLowerCase()) return wrongGraphResponse(req, row.g.name, inGraph);
   return { userId: holderId, ownerId: row.g.userId, role, graphId: row.g.id, graphName: row.g.name };
 }
 
