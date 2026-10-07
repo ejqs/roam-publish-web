@@ -161,13 +161,23 @@ export async function setEncryption(publicationId: string, raw: z.input<typeof I
   });
 }
 
+export type SkippedPage = { title: string; reason: string; manageHref?: string };
+
+/** Opens the page where it can't be encrypted, with its Manage dialog open (`?manage`). */
+const skippedAt = (title: string, b: { reason: string; spot: { path: string; shown: boolean } }): SkippedPage => ({
+  title,
+  reason: b.reason,
+  // A graph place switched off has no page to open.
+  manageHref: b.spot.shown ? `${b.spot.path}?manage` : undefined,
+});
+
 export type EncryptExistingResult = {
   ok: boolean;
   message: string;
   /** Pages that would be encrypted, or were. */
   encrypt?: string[];
-  /** Readable pages left as they are, and why. */
-  skipped?: { title: string; reason: string }[];
+  /** Readable pages left as they are, and why, with where to open Manage on the page to fix it. */
+  skipped?: SkippedPage[];
 };
 
 /**
@@ -210,10 +220,14 @@ export async function encryptExistingPages(
       .orderBy(publication.title);
 
     const encrypt: (typeof publication.$inferSelect)[] = [];
-    const skipped: { title: string; reason: string }[] = [];
+    const skipped: SkippedPage[] = [];
     for (const { pub, mine } of pages) {
-      const reason = mine ? await encryptBlocker(db, await spotsOf(db, pub.id)) : "Published by another member";
-      if (reason) skipped.push({ title: pub.title, reason });
+      if (!mine) {
+        skipped.push({ title: pub.title, reason: "Published by another member" });
+        continue;
+      }
+      const blocker = await encryptBlocker(db, await spotsOf(db, pub.id));
+      if (blocker) skipped.push(skippedAt(pub.title, blocker));
       else encrypt.push(pub);
     }
     const titles = encrypt.map((p) => p.title);
@@ -225,14 +239,14 @@ export async function encryptExistingPages(
     for (const pub of encrypt) {
       // One page at a time, checked again inside its transaction, so a page changed since the
       // preview is skipped rather than encrypted where it shouldn't be.
-      const reason = await db.transaction(async (tx) => {
+      const skip = await db.transaction(async (tx): Promise<SkippedPage | undefined> => {
         const [now] = await tx.select().from(publication).where(and(eq(publication.id, pub.id), readable)).for("update");
-        if (!now) return "Changed since";
-        const why = await encryptBlocker(tx, await spotsOf(tx, pub.id));
-        if (!why) await encryptPage(tx, now);
-        return why;
+        if (!now) return { title: pub.title, reason: "Changed since" };
+        const blocker = await encryptBlocker(tx, await spotsOf(tx, pub.id));
+        if (blocker) return skippedAt(pub.title, blocker);
+        await encryptPage(tx, now);
       });
-      if (reason) skipped.push({ title: pub.title, reason });
+      if (skip) skipped.push(skip);
       else {
         done.push({ graphId: pub.graphId, rootUid: pub.rootUid, category: "access", text: "Encrypted with password" });
         doneTitles.push(pub.title);

@@ -15,6 +15,7 @@ import { cookies } from "next/headers";
 import { db } from "@/db";
 import { type Blocker, isUnlocked } from "@/lib/gates";
 import { ENCRYPT_PASSWORD_MIN } from "./encryption-rules";
+import { entryPath, publicationPath } from "./publications";
 import {
   collection,
   collectionEntry,
@@ -204,6 +205,8 @@ export type Spot = {
   lock: VersionedLock | null;
   /** False for a graph place switched off ("Show in graph"): it doesn't count until it's back. */
   shown: boolean;
+  /** The page's address here. */
+  path: string;
 };
 
 /** Every place a page can be read, with the password each one uses. */
@@ -234,6 +237,7 @@ export async function spotsOf(tx: Db, publicationId: string): Promise<Spot[]> {
           ? { scope: "graph", id: g.id, version: g.passwordVersion }
           : null,
       shown: pub.inGraph,
+      path: publicationPath(g.name, pub.rootUid, pub.title),
     },
     ...entries.map(({ entry, c }): Spot => ({
       kind: "entry",
@@ -245,6 +249,7 @@ export async function spotsOf(tx: Db, publicationId: string): Promise<Spot[]> {
           ? { scope: "collection", id: c.id, version: c.passwordVersion }
           : null,
       shown: true,
+      path: entryPath(c.slug, entry.entryUid, pub.title),
     })),
   ];
 }
@@ -593,19 +598,23 @@ export async function canEncryptWith(l: LockRef, newPassword: string) {
 /**
  * Why a page can't be encrypted as it's shown now, without typing a password: a shown place that
  * isn't password-protected, or a password with no key pair to seal to (set before encryption
- * existed, or too short). Undefined when it can be.
+ * existed, or too short), with the place to fix it. Undefined when it can be.
  */
-export async function encryptBlocker(tx: Db, spots: Spot[]): Promise<string | undefined> {
+export async function encryptBlocker(tx: Db, spots: Spot[]): Promise<{ reason: string; spot: Spot } | undefined> {
   const open = unprotectedSpots(spots)[0];
   if (open)
-    return open.access === "password"
-      ? `Password with no password to use in ${open.label}`
-      : `${open.access === "members" ? "Members only" : "Open"} in ${open.label}`;
+    return {
+      spot: open,
+      reason:
+        open.access === "password"
+          ? `Password with no password to use in ${open.label}`
+          : `${open.access === "members" ? "Members only" : "Open"} in ${open.label}`,
+    };
   for (const l of locksOf(spots))
     if (!(await lockKeyOf(tx, l))) {
       const spot = spots.find((s) => s.lock && lockId(s.lock) === lockId(l))!;
       const own = l.scope === "publication" || l.scope === "entry";
-      return `${own ? "Its own password" : "The password"} in ${spot.label} was set before encryption existed or is too short`;
+      return { spot, reason: `${own ? "Its own password" : "The password"} in ${spot.label} was set before encryption existed or is too short` };
     }
 }
 

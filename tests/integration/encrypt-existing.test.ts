@@ -60,7 +60,7 @@ describe("encryptExistingPages", () => {
     const preview = await encryptExistingPages("collection", c.id, { preview: true });
     expect(preview.encrypt).toEqual(["Ready"]);
     expect(preview.skipped).toEqual([
-      { title: "Open in graph", reason: `Open in ${g.name}` },
+      { title: "Open in graph", reason: `Open in ${g.name}`, manageHref: `/${g.name}/${openInGraph.rootUid}/open-in-graph?manage` },
       { title: "Theirs", reason: "Published by another member" },
     ]);
     expect((await row(ready.id))!.encrypted).toBe(false);
@@ -88,7 +88,11 @@ describe("encryptExistingPages", () => {
     const res = await encryptExistingPages("graph", g.id);
     expect(res.encrypt).toEqual(["Ready"]);
     expect(res.skipped).toEqual([
-      { title: "In old collection", reason: `The password in ${old.name} was set before encryption existed or is too short` },
+      {
+        title: "In old collection",
+        reason: `The password in ${old.name} was set before encryption existed or is too short`,
+        manageHref: expect.stringMatching(new RegExp(`^/c/${old.slug}/[^/]+/in-old-collection\\?manage$`)),
+      },
     ]);
     expect((await row(ready.id))!.encrypted).toBe(true);
   });

@@ -3,7 +3,7 @@
 import { BookIcon, ChevronDownIcon, ChevronRightIcon, FolderIcon, PlusIcon, RefreshCwIcon, SearchIcon, Settings2Icon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useId, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
 import { setPageSearchable, unpublish } from "@/app/(app)/dashboard/actions";
 import { addToCollection, removeEntry, updateGraphPlace } from "@/app/(app)/dashboard/place-actions";
@@ -27,6 +27,8 @@ import { PlacePasswordForm, type PlaceState } from "./place-access-form";
 import { usePasswordPrompt } from "./password-prompt";
 import { TagsEditor } from "./tags-editor";
 
+const noop = () => () => {};
+
 const effective = (s: PlaceState, def: ReadAccess) => (s.access === "inherit" ? def : s.access);
 
 /** A listing as the Visibility control names it. */
@@ -46,7 +48,22 @@ export function ManageDialog({
   afterUnpublish?: string;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  // On the published page, `?manage` (from links elsewhere in the dashboard) opens it straight away.
+  const asked = useSyncExternalStore(
+    noop,
+    () => trigger === "floating" && new URLSearchParams(window.location.search).has("manage"),
+    () => false,
+  );
+  const [chosen, setChosen] = useState<boolean | null>(null);
+  const open = chosen ?? asked;
+  function setOpen(o: boolean) {
+    setChosen(o);
+    if (!o && asked) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("manage");
+      window.history.replaceState(window.history.state, "", url);
+    }
+  }
   const [pending, start] = useTransition();
   const refresh = () => router.refresh();
   const passwordPrompt = usePasswordPrompt();

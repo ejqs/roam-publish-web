@@ -1,9 +1,9 @@
 "use client";
 
-import { RefreshCwIcon, SearchIcon, TypeIcon, UsersIcon } from "lucide-react";
+import { ExternalLinkIcon, RefreshCwIcon, SearchIcon, TypeIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { encryptExistingPages, type EncryptExistingResult } from "@/app/(app)/dashboard/encryption-actions";
 import { applyAccessToAllPages } from "@/app/(app)/dashboard/place-actions";
@@ -425,8 +425,16 @@ function EncryptExistingDialog({
   const pages = `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
   const skipped = plan?.skipped ?? [];
 
-  function preview() {
-    setPlan(null);
+  // Back from fixing a page in another tab: check again.
+  useEffect(() => {
+    if (!open) return;
+    const again = () => preview(true);
+    window.addEventListener("focus", again);
+    return () => window.removeEventListener("focus", again);
+  });
+
+  function preview(keep = false) {
+    if (!keep) setPlan(null);
     start(async () => {
       const res = await encryptExistingPages(kind, containerId, { preview: true });
       if (!res.ok) {
@@ -482,15 +490,35 @@ function EncryptExistingDialog({
               </p>
               <ul className="max-h-40 divide-y overflow-y-auto rounded-sm border text-sm">
                 {skipped.map((p, i) => (
-                  <li key={i} className="flex flex-col px-3 py-2">
-                    <span className="break-words">{p.title}</span>
-                    <span className="text-xs text-muted-foreground">{p.reason}</span>
+                  <li key={i}>
+                    {p.manageHref ? (
+                      <a
+                        href={p.manageHref}
+                        target="_blank"
+                        rel="noopener"
+                        className="group flex items-center gap-2 px-3 py-2 hover:bg-muted"
+                        title="Open the page with Manage, in a new tab"
+                      >
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="break-words text-link group-hover:underline">{p.title}</span>
+                          <span className="text-xs text-muted-foreground">{p.reason}</span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                          Manage <ExternalLinkIcon className="size-3" />
+                        </span>
+                      </a>
+                    ) : (
+                      <div className="flex flex-col px-3 py-2">
+                        <span className="break-words">{p.title}</span>
+                        <span className="text-xs text-muted-foreground">{p.reason}</span>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
               <p className="text-xs text-muted-foreground">
-                Pages are only encrypted where every place shows them with a password. Set them to Password first, or
-                turn on encryption page by page in Manage.
+                Pages are only encrypted where every place shows them with a password. Open one to set it to Password in
+                Manage, then come back and encrypt.
               </p>
             </div>
           )}
