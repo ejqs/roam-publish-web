@@ -21,12 +21,15 @@ export function GraphAccessForm({
   initial,
   collections,
   encryptedPages,
+  canEncrypt,
 }: {
   graphId: string;
   graphName: string;
   pageCount: number;
   /** Titles of encrypted pages that open with the graph password. */
   encryptedPages: string[];
+  /** The saved graph password can encrypt pages. */
+  canEncrypt: boolean;
   initial: {
     indexAccess: Access;
     defaultAccess: Access;
@@ -87,6 +90,7 @@ export function GraphAccessForm({
             pageCount={pageCount}
             value={access}
             hasPassword={hasPassword}
+            canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
             onChange={setAccess}
           />

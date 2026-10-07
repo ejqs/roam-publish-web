@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { graph, graphDefaultCollection, publication } from "@/db/schema";
 import { collectionsOf } from "@/lib/collections";
 import { requireSession } from "@/lib/session";
-import { sealedPageTitles } from "@/lib/encryption";
+import { lockKeyOf, sealedPageTitles } from "@/lib/encryption";
 import { GraphAccessForm } from "./access-form";
 import { GraphListingForm } from "../settings/settings-form";
 import { graphPagesPath } from "../../filters";
@@ -53,6 +53,7 @@ export default async function GraphSharingPage(props: PageProps<"/dashboard/[gra
           }}
           collections={collections.filter((c) => !c.suspendedAt).map((c) => ({ id: c.id, name: c.name }))}
           encryptedPages={await sealedPageTitles({ scope: "graph", id: g.id })}
+          canEncrypt={!!(await lockKeyOf(db, { scope: "graph", id: g.id }))}
         />
         <GraphListingForm
           graphId={g.id}

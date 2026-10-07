@@ -40,6 +40,7 @@ export function ContainerAccessFields({
   pageCount,
   value,
   hasPassword,
+  canEncrypt = false,
   encryptedPages = [],
   onChange,
 }: {
@@ -51,11 +52,14 @@ export function ContainerAccessFields({
   value: ContainerAccess;
   /** Saved password, not the one being typed. */
   hasPassword: boolean;
+  /** The saved password can encrypt pages: it has a key pair (set long enough, after encryption existed). */
+  canEncrypt?: boolean;
   /** Titles of encrypted pages that open with this password. */
   encryptedPages?: string[];
   onChange: (v: ContainerAccess) => void;
 }) {
   const [resetOpen, setResetOpen] = useState(false);
+  const [encryptOpen, setEncryptOpen] = useState(false);
   const encrypted = encryptedPages.length;
   const pagesWord = `${encrypted.toLocaleString("en-US")} encrypted ${encrypted === 1 ? "page" : "pages"}`;
   const set = (patch: Partial<ContainerAccess>) => onChange({ ...value, ...patch });
@@ -94,9 +98,21 @@ export function ContainerAccessFields({
             id={`${kind}-encrypt-new`}
             checked={value.encryptNewPages && value.defaultAccess === "password"}
             disabled={value.defaultAccess !== "password"}
-            onCheckedChange={(encryptNewPages) => set({ encryptNewPages })}
+            onCheckedChange={(on) => (on ? setEncryptOpen(true) : set({ encryptNewPages: false }))}
           />
         </div>
+        {encryptOpen && (
+          <EncryptNewPagesDialog
+            kind={kind}
+            onClose={() => setEncryptOpen(false)}
+            typed={value.password}
+            savedCanEncrypt={canEncrypt && !value.clearPassword}
+            onConfirm={(password) => {
+              set(password === value.password ? { encryptNewPages: true } : { encryptNewPages: true, password, clearPassword: false });
+              setEncryptOpen(false);
+            }}
+          />
+        )}
         {pageCount > 0 && (
           <ApplyToPagesDialog
             kind={kind}
@@ -190,6 +206,84 @@ export function ContainerAccessFields({
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * Asked before "Encrypt new password pages" turns on: pages are sealed with the password, so it
+ * must be one that can encrypt. Confirms the saved one when it already can, otherwise takes a new
+ * password of at least ENCRYPT_PASSWORD_MIN characters that becomes the graph's or collection's.
+ */
+function EncryptNewPagesDialog({
+  kind,
+  onClose,
+  typed,
+  savedCanEncrypt,
+  onConfirm,
+}: {
+  kind: "graph" | "collection";
+  onClose: () => void;
+  /** The new password typed in the form so far, or "". */
+  typed: string;
+  savedCanEncrypt: boolean;
+  /** With the password to encrypt with: the typed one, a new one, or "" to keep the saved one. */
+  onConfirm: (password: string) => void;
+}) {
+  const [password, setPassword] = useState(typed);
+  // Nothing new typed and the saved password can encrypt: only a confirmation is needed.
+  const useSaved = !typed && savedCanEncrypt;
+  const short = password.length < ENCRYPT_PASSWORD_MIN;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (useSaved) onConfirm("");
+            else if (!short) onConfirm(password);
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Encrypt new password pages?</DialogTitle>
+            <DialogDescription>
+              Pages {kind === "graph" ? "published" : "added"} from now on are stored encrypted with the {kind} password.
+              If it&apos;s forgotten, we can&apos;t recover them: republish them from Roam to bring them back.
+            </DialogDescription>
+          </DialogHeader>
+          {useSaved ? (
+            <p className="text-sm">They&apos;re encrypted with the current {kind} password.</p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={`${kind}-encrypt-password`} className="text-sm font-medium">
+                Encryption password
+              </label>
+              <Input
+                id={`${kind}-encrypt-password`}
+                type="password"
+                autoComplete="new-password"
+                autoFocus
+                value={password}
+                aria-invalid={!!password && short}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <p className={`text-xs ${password && short ? "text-destructive" : "text-muted-foreground"}`}>
+                At least {ENCRYPT_PASSWORD_MIN} characters. It becomes the {kind} password when you save, so readers use it too.
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!useSaved && short}>
+              Turn on
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

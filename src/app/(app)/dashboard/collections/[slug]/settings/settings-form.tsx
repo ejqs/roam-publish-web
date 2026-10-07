@@ -38,6 +38,7 @@ export function CollectionSettingsForm({
   hasPassword: initialHasPassword,
   pageCount,
   encryptedPages,
+  canEncrypt,
 }: {
   collectionId: string;
   slug: string;
@@ -46,6 +47,8 @@ export function CollectionSettingsForm({
   pageCount: number;
   /** Titles of encrypted pages that open with the collection password. */
   encryptedPages: string[];
+  /** The saved collection password can encrypt pages. */
+  canEncrypt: boolean;
 }) {
   const router = useRouter();
   const [s, setS] = useState(initial);
@@ -103,6 +106,7 @@ export function CollectionSettingsForm({
             pageCount={pageCount}
             value={access}
             hasPassword={hasPassword}
+            canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
             onChange={setAccess}
           />
