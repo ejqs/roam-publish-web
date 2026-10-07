@@ -8,9 +8,9 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 ## 0.8.2 (2026-10-07)
 
 ### Security
-- Fixed: **Encrypt new password pages** in a graph's or collection's settings can only be switched on once there's
-  a password it can encrypt with, at least 10 characters, and it asks you to confirm what encrypting changes first.
-  Before, it could be switched on without either.
+- Fixed: **Encrypt new password pages** in a graph's or collection's settings only turns on with a password it can
+  encrypt with. Turning it on asks you to confirm what encrypting changes, and asks for a password of at least 10
+  characters when there isn't one yet. Before, it could be switched on without either.
 
 ## 0.8.1 (2026-10-06)
 

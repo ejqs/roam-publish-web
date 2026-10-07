@@ -77,6 +77,8 @@ export function ContainerAccessFields({
 }) {
   const [resetOpen, setResetOpen] = useState(false);
   const [confirmEncrypt, setConfirmEncrypt] = useState(false);
+  /** The password typed in the confirmation, when there isn't one to encrypt with yet. */
+  const [encryptPassword, setEncryptPassword] = useState("");
   const encrypted = encryptedPages.length;
   const pagesWord = `${encrypted.toLocaleString("en-US")} encrypted ${encrypted === 1 ? "page" : "pages"}`;
   const set = (patch: Partial<ContainerAccess>) => onChange({ ...value, ...patch });
@@ -114,66 +116,98 @@ export function ContainerAccessFields({
                 {value.password
                   ? `The new password is too short to encrypt with.`
                   : hasPassword && !value.clearPassword
-                    ? `To turn it on, enter the ${kind} password again below, or set one of at least ${ENCRYPT_PASSWORD_MIN} characters.`
-                    : `To turn it on, set a ${kind} password of at least ${ENCRYPT_PASSWORD_MIN} characters below.`}
+                    ? `The ${kind} password was set before encryption existed or is too short. Turning this on asks for one of at least ${ENCRYPT_PASSWORD_MIN} characters.`
+                    : `Turning it on asks for a ${kind} password of at least ${ENCRYPT_PASSWORD_MIN} characters.`}
               </FieldDescription>
             )}
           </div>
           <Switch
             id={`${kind}-encrypt-new`}
             checked={encryptOn}
-            disabled={!encryptOn && !canTurnOnEncrypt}
-            onCheckedChange={(on) => (on ? setConfirmEncrypt(true) : set({ encryptNewPages: false }))}
+            disabled={!encryptOn && !passwordDefault}
+            onCheckedChange={(on) => {
+              if (!on) return set({ encryptNewPages: false });
+              setEncryptPassword(value.password);
+              setConfirmEncrypt(true);
+            }}
           />
         </div>
         <Dialog open={confirmEncrypt} onOpenChange={setConfirmEncrypt}>
           <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="break-words">Encrypt new password pages in {label}?</DialogTitle>
-              <DialogDescription>
-                Pages {pagesVerb} from now on that start as Password are stored encrypted with the {kind} password.
-                Readers still open them with it. What changes for those pages:
-              </DialogDescription>
-            </DialogHeader>
-            <ul className="flex flex-col gap-2.5 text-sm">
-              <li className="flex gap-2.5">
-                <UsersIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                Everyone needs the password, including members and you.
-              </li>
-              <li className="flex gap-2.5">
-                <SearchIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                Search, tags, related pages and excerpts are off for them.
-              </li>
-              <li className="flex gap-2.5">
-                <TypeIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                Titles aren&apos;t encrypted. They&apos;re in the link and on listings.
-              </li>
-              <li className="flex gap-2.5">
-                <RefreshCwIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                If the password is forgotten, we can&apos;t recover them. Republish them from Roam to bring them back.
-              </li>
-            </ul>
-            <p className="rounded-sm bg-muted px-3 py-2.5 text-xs text-muted-foreground">
-              This isn&apos;t end-to-end encryption: roam.pub decrypts pages to show them to readers, so they&apos;re only as
-              safe as you trust roam.pub and its host.{" "}
-              <Link href="/privacy/encryption" target="_blank" className="text-link hover:underline">
-                How encrypted pages work
-              </Link>
-            </p>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setConfirmEncrypt(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  set({ encryptNewPages: true });
-                  setConfirmEncrypt(false);
-                }}
-              >
-                <EncryptedIcon /> Encrypt new pages
-              </Button>
-            </DialogFooter>
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (canTurnOnEncrypt) set({ encryptNewPages: true });
+                else if (encryptPassword.length >= ENCRYPT_PASSWORD_MIN)
+                  set({ encryptNewPages: true, password: encryptPassword, clearPassword: false });
+                else return;
+                setConfirmEncrypt(false);
+              }}
+            >
+              <DialogHeader>
+                <DialogTitle className="break-words">Encrypt new password pages in {label}?</DialogTitle>
+                <DialogDescription>
+                  Pages {pagesVerb} from now on that start as Password are stored encrypted with the {kind} password.
+                  Readers still open them with it. What changes for those pages:
+                </DialogDescription>
+              </DialogHeader>
+              <ul className="flex flex-col gap-2.5 text-sm">
+                <li className="flex gap-2.5">
+                  <UsersIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  Everyone needs the password, including members and you.
+                </li>
+                <li className="flex gap-2.5">
+                  <SearchIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  Search, tags, related pages and excerpts are off for them.
+                </li>
+                <li className="flex gap-2.5">
+                  <TypeIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  Titles aren&apos;t encrypted. They&apos;re in the link and on listings.
+                </li>
+                <li className="flex gap-2.5">
+                  <RefreshCwIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  If the password is forgotten, we can&apos;t recover them. Republish them from Roam to bring them back.
+                </li>
+              </ul>
+              <p className="rounded-sm bg-muted px-3 py-2.5 text-xs text-muted-foreground">
+                This isn&apos;t end-to-end encryption: roam.pub decrypts pages to show them to readers, so they&apos;re only as
+                safe as you trust roam.pub and its host.{" "}
+                <Link href="/privacy/encryption" target="_blank" className="text-link hover:underline">
+                  How encrypted pages work
+                </Link>
+              </p>
+              {!canTurnOnEncrypt && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={`${kind}-encrypt-password`} className="text-sm font-medium">
+                    Encryption password
+                  </label>
+                  <Input
+                    id={`${kind}-encrypt-password`}
+                    type="password"
+                    autoComplete="new-password"
+                    autoFocus
+                    value={encryptPassword}
+                    aria-invalid={!!encryptPassword && encryptPassword.length < ENCRYPT_PASSWORD_MIN}
+                    onChange={(e) => setEncryptPassword(e.target.value)}
+                  />
+                  <p
+                    className={`text-xs ${encryptPassword && encryptPassword.length < ENCRYPT_PASSWORD_MIN ? "text-destructive" : "text-muted-foreground"}`}
+                  >
+                    At least {ENCRYPT_PASSWORD_MIN} characters. It becomes the {kind} password when you save, so readers use it
+                    too.
+                  </p>
+                </div>
+              )}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setConfirmEncrypt(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={!canTurnOnEncrypt && encryptPassword.length < ENCRYPT_PASSWORD_MIN}>
+                  <EncryptedIcon /> Encrypt new pages
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
         {pageCount > 0 && (
