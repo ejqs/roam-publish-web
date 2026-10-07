@@ -24,6 +24,7 @@ type Initial = {
   indexAccess: Access;
   defaultAccess: Access;
   encryptNewPages: boolean;
+  pagesLeaveGraph: boolean;
   showAuthors: boolean;
   views: ViewsMode;
   showViewCountries: boolean;
@@ -128,6 +129,14 @@ export function CollectionSettingsForm({
             canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
             onChange={setAccess}
+          />
+          <FieldSeparator />
+          <Toggle
+            id="c-leave-graph"
+            label="Take added pages out of their graph"
+            description="Pages added from now on stop being shown in the graph they were published from, so this collection is where they're read, and they can be encrypted with its password. Pages already here aren't changed. Each page can be shown in its graph again from Manage."
+            checked={s.pagesLeaveGraph}
+            onChange={set("pagesLeaveGraph")}
           />
           <FieldSeparator />
           <Toggle id="c-authors" label="Show authors" description="Bylines on pages in this collection. Pages can override it." checked={s.showAuthors} onChange={set("showAuthors")} />

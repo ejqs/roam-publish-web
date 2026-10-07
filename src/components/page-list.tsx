@@ -67,6 +67,7 @@ export function ListToolbar<S extends string>({
             <input key={t} type="hidden" name="tag" value={t} />
           ))}
           {state.kind && <input type="hidden" name="kind" value={state.kind} />}
+          {state.folder && <input type="hidden" name="folder" value={state.folder} />}
           <SearchIcon className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
           <Input type="search" name="q" defaultValue={state.q} placeholder={placeholder} aria-label={placeholder} className="pl-8" />
         </form>
@@ -142,7 +143,7 @@ export function ListStatus<S extends string>({
         {state.tags.map((t) => remove(`#${t}`, `Remove tag ${t}`, href({ tags: toggleTag(state.tags, t) })))}
         {state.kind && remove(state.kind === "page" ? "Pages only" : "Blocks only", "Remove type filter", href({ kind: null }))}
         {filtered && (
-          <Link href={path} className="px-1 text-xs text-link hover:underline">
+          <Link href={href({ q: "", tags: [], kind: null })} className="px-1 text-xs text-link hover:underline">
             Clear all
           </Link>
         )}
@@ -183,6 +184,23 @@ export type ListRow = {
 const dateFmt = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
 export const formatDate = (d: Date) => dateFmt.format(d);
 
+/** "Clear filters" for an empty result, keeping the folder. */
+export function NoMatches<S extends string>({ cfg, path, state }: { cfg: ListConfig<S>; path: string; state: ListState<S> }) {
+  return (
+    <Empty className="border">
+      <EmptyHeader>
+        <EmptyTitle>No pages match</EmptyTitle>
+        <EmptyDescription>Try fewer tags or a shorter search.</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Link href={listHref(cfg, path, state, { q: "", tags: [], kind: null })} className={buttonVariants({ variant: "outline", size: "sm" })}>
+          Clear filters
+        </Link>
+      </EmptyContent>
+    </Empty>
+  );
+}
+
 export function PageList<S extends string>({
   cfg,
   path,
@@ -198,22 +216,7 @@ export function PageList<S extends string>({
   matching: number;
   dateLabels: string[];
 }) {
-  if (!rows.length)
-    return (
-      <Empty className="border">
-        <EmptyHeader>
-          <EmptyTitle>No pages match</EmptyTitle>
-          <EmptyDescription>Try fewer tags or a shorter search.</EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Link href={path} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Clear filters
-          </Link>
-        </EmptyContent>
-      </Empty>
-    );
-  const pageCount = Math.max(1, Math.ceil(matching / LIST_PAGE_SIZE));
-  const page = Math.min(state.page, pageCount);
+  if (!rows.length) return <NoMatches cfg={cfg} path={path} state={state} />;
   // Phones keep the first date only.
   const cols = "grid grid-cols-[minmax(0,1fr)_6.5rem] items-center gap-x-4 px-2 sm:grid-cols-[minmax(0,1fr)_repeat(2,7rem)]";
   return (
@@ -277,20 +280,38 @@ export function PageList<S extends string>({
           </div>
         ))}
       </div>
-      {pageCount > 1 && (
-        <nav className="flex items-center justify-between text-sm" aria-label="Pagination">
-          <PageLink href={listHref(cfg, path, state, { page: page - 1 })} disabled={page <= 1} rel="prev">
-            ← Previous
-          </PageLink>
-          <span className="text-muted-foreground">
-            Page {page} of {pageCount}
-          </span>
-          <PageLink href={listHref(cfg, path, state, { page: page + 1 })} disabled={page >= pageCount} rel="next">
-            Next →
-          </PageLink>
-        </nav>
-      )}
+      <Pagination cfg={cfg} path={path} state={state} matching={matching} />
     </div>
+  );
+}
+
+/** Previous and Next under a list, when it runs past one page. */
+export function Pagination<S extends string>({
+  cfg,
+  path,
+  state,
+  matching,
+}: {
+  cfg: ListConfig<S>;
+  path: string;
+  state: ListState<S>;
+  matching: number;
+}) {
+  const pageCount = Math.max(1, Math.ceil(matching / LIST_PAGE_SIZE));
+  const page = Math.min(state.page, pageCount);
+  if (pageCount < 2) return null;
+  return (
+    <nav className="flex items-center justify-between text-sm" aria-label="Pagination">
+      <PageLink href={listHref(cfg, path, state, { page: page - 1 })} disabled={page <= 1} rel="prev">
+        ← Previous
+      </PageLink>
+      <span className="text-muted-foreground">
+        Page {page} of {pageCount}
+      </span>
+      <PageLink href={listHref(cfg, path, state, { page: page + 1 })} disabled={page >= pageCount} rel="next">
+        Next →
+      </PageLink>
+    </nav>
   );
 }
 

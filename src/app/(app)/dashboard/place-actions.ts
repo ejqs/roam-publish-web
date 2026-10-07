@@ -342,9 +342,18 @@ export async function addToCollection(
         return sealed;
       }
     }
+    // "Take added pages out of their graph": the collection is where it's read from now on.
+    const [left] = c.pagesLeaveGraph
+      ? await db
+          .update(publication)
+          .set({ inGraph: false })
+          .where(and(eq(publication.id, publicationId), eq(publication.inGraph, true)))
+          .returning({ graphId: publication.graphId, rootUid: publication.rootUid })
+      : [];
     await logForPublications([publicationId], "collections", (p) => `Added to collection ${collectionLink(c)}: ${entryUrl(c.slug, entry.entryUid, p.title)}`);
+    if (left) logChange(left, "listing", "Hidden from the graph (collections only)");
     revalidateAll();
-    return { ok: true, message: `Added to ${c.name}.` };
+    return { ok: true, message: left ? `Added to ${c.name}, and taken out of the graph.` : `Added to ${c.name}.` };
   });
 }
 

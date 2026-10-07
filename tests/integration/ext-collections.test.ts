@@ -3,9 +3,10 @@ import { eq } from "drizzle-orm";
 import { GET, POST } from "@/app/api/ext/publications/[rootUid]/collections/route";
 import { GET as LIST, POST as PUBLISH } from "@/app/api/ext/publications/route";
 import { db } from "@/db";
-import { collectionEntry, graph, publication } from "@/db/schema";
+import { collectionEntry, graph, graphDefaultCollection, publication } from "@/db/schema";
+import { addToCollection } from "@/app/(app)/dashboard/place-actions";
 import { resetDb } from "../helpers/db";
-import { addCollectionMember, addGraphMember, extRequest, keyFor, makeCollection, makeGraph, makeUser, payload } from "../helpers/factories";
+import { actAs, addCollectionMember, addGraphMember, extRequest, keyFor, makeCollection, makeGraph, makeUser, payload } from "../helpers/factories";
 import { resetRequest } from "../helpers/request";
 
 const publish = (key: string, body: unknown) => PUBLISH(extRequest("/api/ext/publications", key, { body }));
@@ -128,5 +129,32 @@ describe("adding a page to a collection", () => {
     expect((await add(memberKey, ownersPage.rootUid, c.id)).status).toBe(403);
     const [entry] = await db.select().from(collectionEntry).where(eq(collectionEntry.collectionId, c.id));
     expect(entry.addedBy).toBe(m.id);
+  });
+});
+
+describe("Take added pages out of their graph", () => {
+  test("an open collection with it on takes the page out of its graph, from the extension and the website", async () => {
+    const c = await makeCollection(owner.id, { name: "Only here", pagesLeaveGraph: true });
+    const p = payload();
+    await publish(ownerKey, p);
+    const { collections } = await (await list(ownerKey, p.rootUid)).json();
+    expect(collections[0]).toMatchObject({ access: "open", movesOutOfGraph: true });
+    expect(await (await add(ownerKey, p.rootUid, c.id)).json()).toMatchObject({ movedOutOfGraph: true });
+    expect((await pubOf(p.rootUid))!.inGraph).toBe(false);
+
+    const q = payload();
+    await publish(ownerKey, q);
+    actAs(owner);
+    const res = await addToCollection((await pubOf(q.rootUid))!.id, c.id);
+    expect(res).toMatchObject({ ok: true, message: "Added to Only here, and taken out of the graph." });
+    expect((await pubOf(q.rootUid))!.inGraph).toBe(false);
+  });
+
+  test("new pages joining it as a default collection start outside the graph", async () => {
+    const c = await makeCollection(owner.id, { pagesLeaveGraph: true });
+    await db.insert(graphDefaultCollection).values({ graphId: g.id, collectionId: c.id });
+    const p = payload();
+    await publish(ownerKey, p);
+    expect((await pubOf(p.rootUid))!.inGraph).toBe(false);
   });
 });

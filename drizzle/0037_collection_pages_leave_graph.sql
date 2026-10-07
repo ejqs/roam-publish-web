@@ -1,0 +1,1 @@
+ALTER TABLE "collection" ADD COLUMN "pages_leave_graph" boolean DEFAULT false NOT NULL;

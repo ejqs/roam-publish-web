@@ -43,7 +43,10 @@ import { bylineFor, viewerId } from "@/lib/viewer";
 import { loadViewFooter } from "@/lib/views-data";
 import { formatDate, ListStatus, ListToolbar, PageList } from "@/components/page-list";
 import { COLLECTION_LIST, LIST_PAGE_SIZE, parseListState } from "@/lib/list-params";
-import { listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
+import { excerpt, folderStats, listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
+import { browse, cardPlace, chainOf, loadFolders, withStats } from "@/lib/front-page";
+import { FrontPage } from "@/components/front-page";
+import { cn } from "cn";
 import { openInContainer } from "@/lib/places";
 
 type Resolved = NonNullable<Awaited<ReturnType<typeof resolveC>>>;
@@ -128,6 +131,7 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
 
   const state = parseListState(COLLECTION_LIST, search);
   const path = collectionPath(c.slug);
+  const layout = c.frontLayout;
   const from = sql`from ${collectionEntry}
     join ${publication} on ${publication.id} = ${collectionEntry.publicationId}
     join ${graph} on ${graph.id} = ${publication.graphId}
@@ -138,9 +142,12 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
     isNull(publication.removedAt),
     liveGraph,
   );
+  // The table shows every page at once; the other layouts browse folders.
+  const folders = layout === "list" ? [] : await loadFolders({ collectionId: c.id });
+  const here = browse(folders, state, collectionEntry.folderId);
   // Members read every page; everyone else only searches the text of pages open to them.
   const bodyVisible = role ? undefined : openInContainer(collectionEntry.access, c.defaultAccess);
-  const matchingWhere = listWhere(state, bodyVisible, listed);
+  const matchingWhere = listWhere(state, bodyVisible, listed, here.where);
   const counted = (where: SQL | undefined) =>
     db
       .select({ n: count() })
@@ -157,11 +164,16 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
     title: [asc(sql`lower(${publication.title})`), asc(publication.title)],
     relevance: [desc(relevance(state.q, bodyVisible)), asc(collectionEntry.position)],
   };
-  const [total, matching, rows, tags] = await Promise.all([
+  const [total, matching, rows, tags, stats] = await Promise.all([
     counted(listed),
     counted(matchingWhere),
     db
-      .select({ entry: collectionEntry, pub: publication, snippet: state.q ? snippet(state.q, bodyVisible) : sql<string | null>`null` })
+      .select({
+        entry: collectionEntry,
+        pub: publication,
+        snippet: state.q ? snippet(state.q, bodyVisible) : sql<string | null>`null`,
+        excerpt: layout === "list" ? sql<string | null>`null` : excerpt(bodyVisible),
+      })
       .from(collectionEntry)
       .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
       .innerJoin(graph, eq(graph.id, publication.graphId))
@@ -170,25 +182,50 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
       .orderBy(...order[state.sort], asc(collectionEntry.id))
       .limit(LIST_PAGE_SIZE)
       .offset((state.page - 1) * LIST_PAGE_SIZE),
-    tagCounts(from, and(matchingWhere, bodyVisible)),
+    // Tags across the folder being browsed, so they lead somewhere from here.
+    tagCounts(from, and(listWhere(state, bodyVisible, listed, here.subtree), bodyVisible)),
+    folders.length
+      ? folderStats(from, sql`${collectionEntry.folderId}`, listed, sql`${collectionEntry.position}, ${collectionEntry.addedAt}`)
+      : [],
   ]);
   const items = await Promise.all(
-    rows.map(async ({ entry, pub, snippet: hit }) => ({
-      href: entryPath(c.slug, entry.entryUid, pub.title),
-      lock: lockInfo(effectiveAccess(container, entry), "collection", c.name, pub.encrypted),
-      author: (await bylineFor(pub, showsAuthor(container, entry)))?.label,
-      kind: pub.kind,
-      title: pub.title,
-      // A protected page's tags come from its text, so only readers who can open it see them.
-      tags: role || effectiveAccess(container, entry) === "open" ? pub.tags : [],
-      snippet: snippetParts(hit),
-      dates: [formatDate(entry.addedAt), formatDate(pub.updatedAt)],
-    })),
+    rows.map(async ({ entry, pub, snippet: hit, excerpt: start }) => {
+      const open = role || effectiveAccess(container, entry) === "open";
+      return {
+        href: entryPath(c.slug, entry.entryUid, pub.title),
+        lock: lockInfo(effectiveAccess(container, entry), "collection", c.name, pub.encrypted),
+        author: (await bylineFor(pub, showsAuthor(container, entry)))?.label,
+        kind: pub.kind,
+        // A protected page's tags come from its text, so only readers who can open it see them.
+        tags: open ? pub.tags : [],
+        snippet: snippetParts(hit),
+        dates: [formatDate(entry.addedAt), formatDate(pub.updatedAt)],
+        ...cardPlace(folders, entry.folderId, here.current?.id, pub.title),
+        excerpt: start ?? undefined,
+        date: formatDate(pub.updatedAt),
+      };
+    }),
+  );
+
+  const shown = withStats(folders, stats);
+  const topFolders = folders.filter((f) => !f.parentId).length;
+  const header = (
+    <>
+      <p className="mb-1 text-sm text-muted-foreground">Collection</p>
+      <h1 className="text-[32px] leading-tight font-semibold break-words sm:text-[42px]">
+        {c.name} <AccessLock access={c.indexAccess} what="collection" name={c.name} />
+      </h1>
+      {c.description && <p className="mt-2 max-w-2xl text-[17px] leading-relaxed break-words text-foreground/80">{c.description}</p>}
+      <p className="mt-2 text-sm text-muted-foreground">
+        {total} {total === 1 ? "page" : "pages"}
+        {topFolders > 0 && ` · ${topFolders} ${topFolders === 1 ? "folder" : "folders"}`}
+      </p>
+    </>
   );
 
   return (
     <>
-      <main className="relative flex-1 bg-card">
+      <main className={cn("relative flex-1", layout === "list" ? "bg-card" : "bg-background")}>
         <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
           <QuickSearch scope={{ path: collectionPath(c.slug), name: c.name }} siteSearch={await canSearchSite(me)} />
           <DashboardLink href={role ? `/dashboard/collections/${encodeURIComponent(c.slug)}` : undefined} />
@@ -197,6 +234,23 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
           <ReportAbuseButton target={{ collectionSlug: c.slug }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
+        {layout !== "list" ? (
+          <FrontPage
+            layout={layout}
+            cfg={COLLECTION_LIST}
+            path={path}
+            state={state}
+            name={c.name}
+            header={header}
+            folders={shown}
+            chain={chainOf(shown, here.chain)}
+            cards={items}
+            matching={matching}
+            total={total}
+            tags={tags}
+            placeholder="Search this collection"
+          />
+        ) : (
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           <p className="mb-2 text-sm text-muted-foreground">Collection</p>
           <h1 className="mb-1 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
@@ -228,8 +282,9 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
             </>
           )}
         </div>
+        )}
       </main>
-      <SiteFooter className="bg-card" />
+      <SiteFooter className={layout === "list" ? "bg-card" : "bg-background"} />
     </>
   );
 }
