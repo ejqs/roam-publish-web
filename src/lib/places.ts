@@ -41,16 +41,16 @@ export async function primaryUrls(graphName: string, pubs: { id: string; rootUid
   );
 }
 
-/** Collections a graph's new pages join, limited to the ones the publisher belongs to. */
+/** Collections a graph's new pages join, limited to the ones the publisher belongs to, and whether each takes its pages out of the graph. */
 export async function defaultCollectionsFor(graphId: string, publisherId: string) {
-  const rows = await db.execute<{ id: string }>(sql`
-    select c.id from graph_default_collection d
+  const rows = await db.execute<{ id: string; leaves_graph: boolean }>(sql`
+    select c.id, c.pages_leave_graph as leaves_graph from graph_default_collection d
     join collection c on c.id = d.collection_id
     where d.graph_id = ${graphId}
       and c.suspended_at is null
       and (c.owner_id = ${publisherId}
         or exists (select 1 from collection_member m where m.collection_id = c.id and m.user_id = ${publisherId}))
   `);
-  return rows.rows.map((r) => r.id);
+  return rows.rows.map((r) => ({ id: r.id, leavesGraph: r.leaves_graph }));
 }
 

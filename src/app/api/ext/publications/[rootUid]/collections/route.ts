@@ -29,12 +29,12 @@ function startsAs(c: Coll) {
 }
 
 /**
- * Whether adding the page here takes it out of its graph: when the collection keeps readers out
- * (password or members only) and the graph place would let them read it anyway, the graph link
- * would get around the collection's lock.
+ * Whether adding the page here takes it out of its graph: when the collection asks for that
+ * ("Take added pages out of their graph"), or keeps readers out (password or members only) while
+ * the graph place would let them read it anyway, so the graph link would get around its lock.
  */
 const movesOutOfGraph = (pub: Pub, g: { defaultAccess: Access }, c: Coll) =>
-  pub.inGraph && c.defaultAccess !== "open" && c.defaultAccess !== graphAccess(pub, g);
+  pub.inGraph && (c.pagesLeaveGraph || (c.defaultAccess !== "open" && c.defaultAccess !== graphAccess(pub, g)));
 
 const collectionLink = (c: { name: string; slug: string }) => `[${roamInert(c.name) || c.slug}](${collectionUrl(c.slug)})`;
 

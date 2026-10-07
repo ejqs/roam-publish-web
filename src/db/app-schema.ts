@@ -416,6 +416,8 @@ export const collection = pgTable("collection", {
   discoverable: boolean("discoverable").notNull().default(false),
   /** Pages added that end up password-protected here are encrypted when added. */
   encryptNewPages: boolean("encrypt_new_pages").notNull().default(false),
+  /** Pages added here stop being shown in their graph ("Show in graph" off), so this is where they're read. */
+  pagesLeaveGraph: boolean("pages_leave_graph").notNull().default(false),
   /** RSS feed of the collection's open, listed pages at /c/{slug}/feed.xml. Needs an open collection page. */
   rss: boolean("rss").notNull().default(false),
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),

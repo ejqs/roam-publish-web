@@ -260,6 +260,13 @@
       "when": 1791259030268,
       "tag": "0036_inbox_reply",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791341463605,
+      "tag": "0037_collection_pages_leave_graph",
+      "breakpoints": true
     }
   ]
 }

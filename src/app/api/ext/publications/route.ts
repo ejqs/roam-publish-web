@@ -212,10 +212,12 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, ...listing, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
   }
 
-  // New pages go where the graph's "New pages go to" setting says. If that leaves them nowhere
-  // (no graph place and no collection the publisher belongs to), they stay in the graph.
-  const collections = await defaultCollectionsFor(ctx.graphId, ctx.userId);
-  const inGraph = g.newPagesInGraph || collections.length === 0;
+  // New pages go where the graph's "New pages go to" setting says, leaving the graph when a
+  // collection they join takes its pages out of it. If that leaves them nowhere (no graph place and
+  // no collection the publisher belongs to), they stay in the graph.
+  const joining = await defaultCollectionsFor(ctx.graphId, ctx.userId);
+  const collections = joining.map((c) => c.id);
+  const inGraph = (g.newPagesInGraph && !joining.some((c) => c.leavesGraph)) || collections.length === 0;
 
   const [created] = await db
     .insert(publication)
