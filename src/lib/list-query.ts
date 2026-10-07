@@ -98,3 +98,25 @@ export async function tagCounts(from: SQL, where: SQL | undefined, limit = 12): 
     group by t order by n desc, t limit ${limit}`);
   return r.rows;
 }
+
+/** The start of a page's text for its card, only where the reader may read it. */
+export function excerpt(bodyVisible?: BodyVisible) {
+  const text = sql`nullif(left(${publication.searchText}, 280), '')`;
+  return bodyVisible ? sql<string | null>`case when ${bodyVisible} then ${text} end` : sql<string | null>`${text}`;
+}
+
+export type FolderStat = { folderId: string; n: number; titles: string[] };
+
+/**
+ * How many of the rows `from … where …` selects sit directly in each folder, and the first few
+ * titles in `order`. `folderId` is the rows' folder column; `from` brings in `publication`.
+ */
+export async function folderStats(from: SQL, folderId: SQL, where: SQL | undefined, order: SQL, titles = 3): Promise<FolderStat[]> {
+  const r = await db.execute<FolderStat>(sql`
+    select ${folderId} as "folderId", count(*)::int as n,
+      (array_agg(${publication.title} order by ${order}))[1:${titles}] as titles
+    ${from}
+    where ${folderId} is not null ${where ? sql`and ${where}` : sql``}
+    group by ${folderId}`);
+  return r.rows;
+}

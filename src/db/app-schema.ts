@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   customType,
@@ -33,6 +34,12 @@ export type ViewsMode = (typeof VIEWS_MODE)[number];
 /** A page's own view count setting; "inherit" uses its graph's or collection's. */
 export const PLACE_VIEWS = ["inherit", ...VIEWS_MODE] as const;
 export type PlaceViews = (typeof PLACE_VIEWS)[number];
+/**
+ * How a graph's or collection's front page lays out its pages: folder tiles above page cards
+ * ("shelves"), a folder tree beside them ("explorer"), or the plain table ("list").
+ */
+export const FRONT_LAYOUTS = ["shelves", "explorer", "list"] as const;
+export type FrontLayout = (typeof FRONT_LAYOUTS)[number];
 
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
@@ -77,6 +84,7 @@ export const graph = pgTable("graph", {
   encryptNewPages: boolean("encrypt_new_pages").notNull().default(false),
   /** RSS feed of the front page's open pages at /{graph}/feed.xml. Needs an open front page. */
   rss: boolean("rss").notNull().default(false),
+  frontLayout: text("front_layout", { enum: FRONT_LAYOUTS }).notNull().default("shelves"),
   /**
    * The owner's Roam append-only token, AES-256-GCM encrypted (lib/append-token.ts). Used only to
    * append the roam.pub change log under each page's shortlink block. Null when none is stored.
@@ -201,6 +209,8 @@ export const publication = pgTable(
     tagsAdded: text("tags_added").array().notNull().default(sql`'{}'::text[]`),
     /** Tags from the Roam text removed on the website. Kept across republishes. */
     tagsHidden: text("tags_hidden").array().notNull().default(sql`'{}'::text[]`),
+    /** Its folder on the graph's front page, arranged on the website only; null shows it loose. */
+    folderId: text("folder_id").references((): AnyPgColumn => folder.id, { onDelete: "set null" }),
     /**
      * Encrypted with the passwords of every place it's shown (lib/encryption.ts). While set, `tree`
      * is an empty root, `searchText` and `tags` are empty, `cipher` holds the content and
@@ -420,10 +430,34 @@ export const collection = pgTable("collection", {
   pagesLeaveGraph: boolean("pages_leave_graph").notNull().default(false),
   /** RSS feed of the collection's open, listed pages at /c/{slug}/feed.xml. Needs an open collection page. */
   rss: boolean("rss").notNull().default(false),
+  frontLayout: text("front_layout", { enum: FRONT_LAYOUTS }).notNull().default("shelves"),
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   suspendedReason: text("suspended_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * A folder on a graph's or collection's front page (exactly one of the two). Arranged on the website
+ * only, so the extension never sees them. Opens at ?folder={slug}, unique within its place.
+ */
+export const folder = pgTable(
+  "folder",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    graphId: text("graph_id").references(() => graph.id, { onDelete: "cascade" }),
+    collectionId: text("collection_id").references(() => collection.id, { onDelete: "cascade" }),
+    parentId: text("parent_id").references((): AnyPgColumn => folder.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("folder_one_place", sql`(${t.graphId} is null) <> (${t.collectionId} is null)`),
+    uniqueIndex("folder_graph_slug_idx").on(t.graphId, t.slug).where(sql`${t.graphId} is not null`),
+    uniqueIndex("folder_collection_slug_idx").on(t.collectionId, t.slug).where(sql`${t.collectionId} is not null`),
+  ],
+);
 
 export const collectionMember = pgTable(
   "collection_member",
@@ -468,6 +502,8 @@ export const collectionEntry = pgTable(
     showViewCountries: text("show_view_countries", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
     addedBy: text("added_by").references(() => user.id, { onDelete: "set null" }),
     position: integer("position").notNull().default(0),
+    /** Its folder on the collection's front page; null shows it loose. */
+    folderId: text("folder_id").references((): AnyPgColumn => folder.id, { onDelete: "set null" }),
     /** Where the page came from when it was added. Shown on the dashboard only, never publicly. */
     originGraphName: text("origin_graph_name").notNull(),
     originRootUid: text("origin_root_uid").notNull(),

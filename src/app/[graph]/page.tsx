@@ -22,7 +22,10 @@ import { containerLock, gate, showsAuthor } from "@/lib/gates";
 import { canSearchSite, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { GRAPH_LIST, type GraphSort, LIST_PAGE_SIZE, parseListState } from "@/lib/list-params";
-import { type BodyVisible, listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
+import { type BodyVisible, excerpt, folderStats, listWhere, relevance, snippet, snippetParts, tagCounts } from "@/lib/list-query";
+import { browse, cardPlace, chainOf, loadFolders, withStats } from "@/lib/front-page";
+import { FrontPage } from "@/components/front-page";
+import { cn } from "cn";
 import { livePublication } from "@/lib/moderation";
 import { openInContainer } from "@/lib/places";
 import { publicationPath } from "@/lib/publications";
@@ -80,10 +83,14 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
     eq(publication.visibility, "public"),
     livePublication,
   );
+  const layout = g.frontLayout;
+  // The table shows every page at once; the other layouts browse folders.
+  const folders = layout === "list" ? [] : await loadFolders({ graphId: g.id });
+  const here = browse(folders, state, publication.folderId);
   // Members read every page; everyone else only searches the text of pages open to them.
   const bodyVisible = role ? undefined : openInContainer(publication.access, g.defaultAccess);
-  const matchingWhere = listWhere(state, bodyVisible, visible);
-  const [[{ total }], [{ matching }], rows, tags, owner] = await Promise.all([
+  const matchingWhere = listWhere(state, bodyVisible, visible, here.where);
+  const [[{ total }], [{ matching }], rows, tags, owner, stats] = await Promise.all([
     db.select({ total: count() }).from(publication).where(visible),
     db.select({ matching: count() }).from(publication).where(matchingWhere),
     db
@@ -93,6 +100,8 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
         title: publication.title,
         tags: publication.tags,
         snippet: state.q ? snippet(state.q, bodyVisible) : sql<string | null>`null`,
+        excerpt: layout === "list" ? sql<string | null>`null` : excerpt(bodyVisible),
+        folderId: publication.folderId,
         createdAt: publication.createdAt,
         updatedAt: publication.updatedAt,
         access: publication.access,
@@ -106,13 +115,49 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
       .orderBy(...order(state.sort, state.q, bodyVisible), asc(publication.id))
       .limit(LIST_PAGE_SIZE)
       .offset((state.page - 1) * LIST_PAGE_SIZE),
-    tagCounts(sql`from ${publication}`, and(matchingWhere, bodyVisible)),
+    // Tags across the folder being browsed, so they lead somewhere from here.
+    tagCounts(sql`from ${publication}`, and(listWhere(state, bodyVisible, visible, here.subtree), bodyVisible)),
     g.showOwner ? publicProfile(g.userId) : null,
+    folders.length ? folderStats(sql`from ${publication}`, sql`${publication.folderId}`, visible, sql`${publication.updatedAt} desc`) : [],
   ]);
+  const cards = await Promise.all(
+    rows.map(async (r) => {
+      const access = r.access === "inherit" ? g.defaultAccess : r.access;
+      return {
+        href: publicationPath(g.name, r.rootUid, r.title),
+        kind: r.kind,
+        // A protected page's tags come from its text, so only readers who can open it see them.
+        tags: role || access === "open" ? r.tags : [],
+        snippet: snippetParts(r.snippet),
+        lock: lockInfo(access, "graph", g.name, r.encrypted),
+        author: (await bylineFor(r, showsAuthor({ ...g, kind: "graph" }, r)))?.label,
+        dates: [formatDate(r.updatedAt), formatDate(r.createdAt)],
+        ...cardPlace(folders, r.folderId, here.current?.id, r.title),
+        excerpt: r.excerpt ?? undefined,
+        date: formatDate(r.updatedAt),
+      };
+    }),
+  );
+  const shown = withStats(folders, stats);
+  const topFolders = folders.filter((f) => !f.parentId).length;
+  const meta = (
+    <>
+      {total} published {total === 1 ? "page" : "pages"}
+      {topFolders > 0 && ` · ${topFolders} ${topFolders === 1 ? "folder" : "folders"}`}
+      {total > 0 && (
+        <>
+          {" · "}
+          <Link href={`${path}/tags`} className="text-link hover:underline">
+            Browse tags
+          </Link>
+        </>
+      )}
+    </>
+  );
 
   return (
     <>
-      <main className="relative flex-1 bg-card">
+      <main className={cn("relative flex-1", layout === "list" ? "bg-card" : "bg-background")}>
         <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
           <QuickSearch scope={{ path: graphPath(g.name), name: g.name }} siteSearch={await canSearchSite(me)} />
           <DashboardLink href={role ? `/dashboard/${encodeURIComponent(g.name)}` : undefined} />
@@ -121,6 +166,33 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
           <ReportAbuseButton target={{ graphName: g.name }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
+        {layout !== "list" ? (
+          <FrontPage
+            layout={layout}
+            cfg={GRAPH_LIST}
+            path={path}
+            state={state}
+            name={g.name}
+            header={
+              <>
+                {owner && <Breadcrumbs items={[{ label: `@${owner.username}`, href: `/u/${owner.username}` }, { label: g.name }]} />}
+                <h1 className="text-[32px] leading-tight font-semibold break-words sm:text-[42px]">
+                  {g.name} <AccessLock access={g.indexAccess} what="graph" name={g.name} />
+                </h1>
+                {g.description && <p className="mt-2 max-w-2xl text-[17px] leading-relaxed break-words text-foreground/80">{g.description}</p>}
+                <p className="mt-2 text-sm text-muted-foreground">{meta}</p>
+              </>
+            }
+            folders={shown}
+            chain={chainOf(shown, here.chain)}
+            cards={cards}
+            matching={matching}
+            total={total}
+            tags={tags}
+            placeholder="Search this graph"
+            tagIndex={`${path}/tags`}
+          />
+        ) : (
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           {owner && (
             <Breadcrumbs items={[{ label: `@${owner.username}`, href: `/u/${owner.username}` }, { label: g.name }]} />
@@ -129,17 +201,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
             {g.name} <AccessLock access={g.indexAccess} what="graph" name={g.name} />
           </h1>
           {g.description && <p className="mt-1 mb-2 text-foreground/80 break-words">{g.description}</p>}
-          <p className="mb-6 text-sm text-muted-foreground">
-            {total} published {total === 1 ? "page" : "pages"}
-            {total > 0 && (
-              <>
-                {" · "}
-                <Link href={`${path}/tags`} className="text-link hover:underline">
-                  Browse tags
-                </Link>
-              </>
-            )}
-          </p>
+          <p className="mb-6 text-sm text-muted-foreground">{meta}</p>
           {total === 0 ? (
             <Empty className="border">
               <EmptyHeader>
@@ -157,25 +219,14 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
                 state={state}
                 matching={matching}
                 dateLabels={["Updated", "Created"]}
-                rows={await Promise.all(
-                  rows.map(async (r) => ({
-                    href: publicationPath(g.name, r.rootUid, r.title),
-                    kind: r.kind,
-                    title: r.title,
-                    // A protected page's tags come from its text, so only readers who can open it see them.
-                    tags: role || (r.access === "inherit" ? g.defaultAccess : r.access) === "open" ? r.tags : [],
-                    snippet: snippetParts(r.snippet),
-                    lock: lockInfo(r.access === "inherit" ? g.defaultAccess : r.access, "graph", g.name, r.encrypted),
-                    author: (await bylineFor(r, showsAuthor({ ...g, kind: "graph" }, r)))?.label,
-                    dates: [formatDate(r.updatedAt), formatDate(r.createdAt)],
-                  })),
-                )}
+                rows={cards}
               />
             </>
           )}
         </div>
+        )}
       </main>
-      <SiteFooter className="bg-card" />
+      <SiteFooter className={layout === "list" ? "bg-card" : "bg-background"} />
     </>
   );
 }

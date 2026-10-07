@@ -3,6 +3,7 @@ import GraphFrontPage from "@/app/[graph]/page";
 import GraphTags from "@/app/[graph]/tags/page";
 import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
 import CPage from "@/app/c/[id]/[[...slug]]/page";
+import { FrontPage } from "@/components/front-page";
 import { PageList } from "@/components/page-list";
 import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";
@@ -38,7 +39,11 @@ async function protectedPage(graphId: string, ownerId: string, access: "password
   });
 }
 
-const rowsOf = (out: unknown) => findElements(out as never, PageList).flatMap((e) => e.props.rows as unknown[]);
+// The table layout passes rows to PageList; the others pass cards to FrontPage.
+const rowsOf = (out: unknown) => [
+  ...findElements(out as never, PageList).flatMap((e) => e.props.rows as unknown[]),
+  ...findElements(out as never, FrontPage).flatMap((e) => e.props.cards as unknown[]),
+];
 
 beforeEach(async () => {
   await resetDb();
@@ -106,6 +111,22 @@ describe("graph front page search, what still works", () => {
     const tagsPage = await GraphTags({ params: Promise.resolve({ graph: g.name }), searchParams: Promise.resolve({}) } as never);
     expect(textOf(tagsPage)).toContain("visible-tag");
     expect(textOf(tagsPage)).not.toContain("hidden-tag");
+  });
+});
+
+describe("front page cards", () => {
+  test("show the start of open pages and never of protected ones", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    await protectedPage(g.id, owner.id, "password");
+    const tree = secretTree("openpage3");
+    await makePublication(g.id, owner.id, { rootUid: tree.uid, title: "Open", tree, ...indexFields(tree), visibility: "public" });
+    actAs(null);
+    const out = await GraphFrontPage({ params: Promise.resolve({ graph: g.name }), searchParams: Promise.resolve({}) } as never);
+    const cards = rowsOf(out) as { title: string; excerpt?: string }[];
+    expect(cards).toHaveLength(2);
+    expect(cards.find((c) => c.title === "Open")?.excerpt).toContain(SECRET);
+    expect(cards.find((c) => c.title === "Plans")?.excerpt).toBeUndefined();
   });
 });
 

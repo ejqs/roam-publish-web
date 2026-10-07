@@ -7,6 +7,17 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 
 ## 0.10.0 (2026-10-07)
 
+### Published pages
+- New: **Front pages are cards you can browse, not just a table.** A graph's or collection's front page now shows
+  its pages as cards with their first lines, tags and date, under a search box and tag chips. Protected
+  pages show their lock instead of any text.
+- New: **Folders on front pages.** Group the pages on a graph's or collection's front page into folders, up to
+  three deep, from the new **Arrange** tab in its dashboard: drag pages in or pick a folder next to each one. Pages
+  with Roam namespaces like `PyRevit/…` can be filed in one click, and read without the prefix inside their
+  folder. Folders live on the website only, so nothing changes in Roam or the extension.
+- New: **Pick each front page's layout** on Arrange: Shelves (folder tiles above the cards), Explorer (a folder
+  tree and tags beside them) or List (the table from before, without folders).
+
 ### Dashboard
 - New: **Take added pages out of their graph** in a collection's settings: pages added from then on, from the
   website or the extension, stop being shown in the graph they came from, so the collection is where they're read

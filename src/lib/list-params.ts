@@ -23,6 +23,8 @@ export type ListState<S extends string> = {
   kind: Kind | null;
   sort: S | "relevance";
   page: number;
+  /** The folder being browsed, by slug; null at the top. */
+  folder: string | null;
 };
 
 export const GRAPH_SORTS = ["updated", "created", "title"] as const;
@@ -55,7 +57,8 @@ export function parseListState<S extends string>(cfg: ListConfig<S>, search: Sea
   const sort =
     cfg.sorts.includes(rawSort as S) || (rawSort === "relevance" && q) ? (rawSort as S | "relevance") : defaultSortOf(cfg, q);
   const n = Number(one(search.page));
-  return { q, tags, kind, sort, page: Number.isInteger(n) && n > 0 ? n : 1 };
+  const folder = one(search.folder)?.toLowerCase() ?? "";
+  return { q, tags, kind, sort, page: Number.isInteger(n) && n > 0 ? n : 1, folder: /^[a-z0-9-]{1,80}$/.test(folder) ? folder : null };
 }
 
 /** Default params are left out so URLs stay short. Changing anything but the page goes back to page 1. */
@@ -69,6 +72,7 @@ export function listHref<S extends string>(
   // Clearing the search drops a relevance sort with it.
   if (!s.q && s.sort === "relevance") s.sort = cfg.defaultSort;
   const q = new URLSearchParams();
+  if (s.folder) q.set("folder", s.folder);
   if (s.q) q.set("q", s.q);
   for (const t of s.tags) q.append("tag", t);
   if (s.kind) q.set("kind", s.kind);
