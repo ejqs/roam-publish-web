@@ -83,6 +83,14 @@ export async function everyoneAtLeast(min: string, days = ACTIVE_DAYS, now = new
   return (await extVersionUse(days, now)).every((r) => extAtLeast(r.version, min));
 }
 
+/**
+ * The extensions in use (seen in the last `days`) older than `min`, which a release needing `min` would
+ * leave behind. Production deploys refuse such a release while there are any (scripts/ext-gate.ts).
+ */
+export async function leftBehind(min: string, days = ACTIVE_DAYS, now = new Date()) {
+  return (await extVersionUse(days, now)).filter((r) => !extAtLeast(r.version, min));
+}
+
 /** How many installs seen in the last `days` are `min` or newer, of how many (for /updates/upcoming). */
 export async function readyFor(min: string, days = ACTIVE_DAYS, now = new Date()) {
   const use = await extVersionUse(days, now);

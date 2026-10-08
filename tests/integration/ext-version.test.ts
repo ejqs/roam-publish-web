@@ -4,7 +4,7 @@ import { GET, OPTIONS } from "@/app/api/ext/publications/route";
 import { db } from "@/db";
 import { extClient, user } from "@/db/schema";
 import { EXT_MIN_VERSION, EXT_MIN_VERSION_HEADER, EXT_VERSION_HEADER } from "@/lib/ext-compat";
-import { everyoneAtLeast, extVersionUse, runExtVersionCheck } from "@/lib/ext-version";
+import { everyoneAtLeast, extVersionUse, leftBehind, readyFor, runExtVersionCheck } from "@/lib/ext-version";
 import { SITE_VERSION } from "@/lib/version";
 import { resetDb } from "../helpers/db";
 import { extRequest, keyFor, makeGraph, makeUser } from "../helpers/factories";
@@ -55,6 +55,9 @@ describe("which extension versions are in use", () => {
       [null, 1],
     ]);
     expect(await everyoneAtLeast("0.2.0")).toBe(false);
+    // What a release needing 0.2.0 would leave behind, which stops a production deploy (scripts/ext-gate.ts).
+    expect((await leftBehind("0.2.0")).map((r) => [r.version, r.people])).toEqual([[null, 1]]);
+    expect(await readyFor("0.2.0")).toEqual({ ready: 1, total: 2 });
     await call(await keyFor(other.id, g2), "0.10.0");
     await runAfter();
     expect((await extVersionUse()).map((r) => r.version)).toEqual(["0.10.0", "0.2.0"]);
@@ -62,6 +65,7 @@ describe("which extension versions are in use", () => {
     // Installs quiet for longer than the window don't hold anything back.
     await db.update(extClient).set({ lastSeenAt: new Date(Date.now() - 40 * 86_400_000) }).where(eq(extClient.version, "0.2.0"));
     expect(await everyoneAtLeast("0.10.0")).toBe(true);
+    expect(await leftBehind("0.10.0")).toEqual([]);
   });
 });
 
