@@ -3,7 +3,7 @@
 import { ChevronDownIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { createContext, use, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { readOptions } from "@/components/manage/labels";
+import { RUNG_LABELS, RUNGS, type Rung, rungDescription } from "@/components/manage/labels";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Access as ReadAccess } from "@/db/schema";
-import { ICONS, LABELS, type Option, Section } from "./access-menu";
+import { type Option, Section } from "./access-menu";
+import { RUNG_ICONS } from "@/components/manage/place-settings";
 import type { Access } from "@/server/actions/dashboard";
 import { bulkUnpublish, bulkUpdateEntries, bulkUpdatePublications } from "@/server/actions/places";
 import { bulkSetTags } from "@/server/actions/tags";
@@ -48,7 +49,7 @@ const BulkContext = createContext<Ctx | null>(null);
 
 /**
  * Selection for the dashboard's page list: a checkbox per page the viewer can manage, and a bar to
- * change where the checked pages are listed or who can read them.
+ * change who can see the checked pages.
  */
 export function BulkSelect({
   kind = "graph",
@@ -130,7 +131,7 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
   const ctx = use(BulkContext)!;
   const [pending, start] = useTransition();
   // A change chosen from a menu waits here until it's confirmed.
-  const [staged, setStaged] = useState<{ reach?: Access; read?: ReadAccess; tags?: TagChange; unpublish?: true } | null>(null);
+  const [staged, setStaged] = useState<{ rung?: Rung; tags?: TagChange; unpublish?: true } | null>(null);
   const n = ctx.selected.size;
   const pages = `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
 
@@ -144,8 +145,8 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
         : change.tags
           ? await bulkSetTags({ kind, ids, ...change.tags })
           : kind === "graph"
-            ? await bulkUpdatePublications({ ids, ...change })
-            : await bulkUpdateEntries({ ids, ...change });
+            ? await bulkUpdatePublications({ ids, ...rungChange(change.rung!) })
+            : await bulkUpdateEntries({ ids, ...rungChange(change.rung!) });
       setStaged(null);
       if (!res.ok) return void toast.error(res.message);
       toast.success(res.message);
@@ -153,45 +154,26 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
     });
   }
 
-  const reachOptions: Option<Access>[] = [
-    {
-      value: "unlisted",
-      label: LABELS.unlisted,
-      icon: ICONS.unlisted,
-      description: "Only people with the link can find them. [[Links]] to them show as plain text.",
-    },
-    {
-      value: "public",
-      label: LABELS.public,
-      icon: ICONS.public,
-      description: `${kind === "graph" ? "Listed on your front page." : `Listed on ${name}'s page.`} [[Links]] to them work.`,
-    },
-    {
-      value: "discover",
-      label: LABELS.discover,
-      icon: ICONS.discover,
-      description: "Also on roam.pub/discover. Protected pages are listed instead.",
-    },
-  ];
-  const readChoices: Option<ReadAccess>[] = readOptions(name).map((o) =>
-    o.value === "password" ? { ...o, description: `Uses each page's password, or the ${kind}'s.` } : o,
-  );
-
-  const stagedOption = staged?.reach
-    ? reachOptions.find((o) => o.value === staged.reach)
-    : staged?.read
-      ? readChoices.find((o) => o.value === staged.read)
-      : undefined;
+  const rungOptions: Option<Rung>[] = RUNGS.map((r) => ({
+    value: r,
+    label: RUNG_LABELS[r],
+    icon: RUNG_ICONS[r],
+    description:
+      r === "password"
+        ? `Readers enter each page's password, or the ${kind}'s. Titles stay where they're listed.`
+        : r === "members"
+          ? `${rungDescription(r, name, kind)} Titles stay where they're listed.`
+          : rungDescription(r, name, kind),
+  }));
+  const stagedOption = staged?.rung ? rungOptions.find((o) => o.value === staged.rung) : undefined;
 
   // The client doesn't know which selected pages are on Discover, so the warning for moving off it is generic.
   const discoverWarning =
-    staged?.reach === "discover"
+    staged?.rung === "discover"
       ? `They'll appear publicly on roam.pub/discover.`
-      : staged?.reach
+      : staged?.rung
         ? `Any of them on roam.pub/discover will be taken off it.`
-        : staged?.read && staged.read !== "open"
-          ? `Any of them on roam.pub/discover will be taken off it and listed instead, since Discover only shows pages anyone can read.`
-          : null;
+        : null;
 
   return (
     <div
@@ -200,28 +182,15 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
       className="sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-md border bg-card px-3 py-2 shadow-sm"
     >
       <span className="text-sm font-medium tabular-nums">{n.toLocaleString("en-US")} selected</span>
-      <BulkMenu label="Visibility control" disabled={pending}>
+      <BulkMenu label="Who can see them" disabled={pending}>
         {(close) => (
           <Section
-            label="Visibility control"
-            value={"" as Access}
-            options={reachOptions}
-            onChoose={(reach) => {
+            label="Who can see them"
+            value={"" as Rung}
+            options={rungOptions}
+            onChoose={(rung) => {
               close();
-              setStaged({ reach });
-            }}
-          />
-        )}
-      </BulkMenu>
-      <BulkMenu label="Access control" disabled={pending}>
-        {(close) => (
-          <Section
-            label="Access control"
-            value={"" as ReadAccess}
-            options={readChoices}
-            onChoose={(read) => {
-              close();
-              setStaged({ read });
+              setStaged({ rung });
             }}
           />
         )}
@@ -262,8 +231,7 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
               {staged?.tags && <TagChangeSummary change={staged.tags} n={n} />}
               {stagedOption && (
                 <>
-                  {staged?.reach ? `Sets where ${n === 1 ? "it's" : "they're"} listed` : `Sets who can read ${n === 1 ? "it" : "them"}`}{" "}
-                  to <span className="font-medium text-foreground">{stagedOption.label}</span>. {stagedOption.description}
+                  Sets who can see {n === 1 ? "it" : "them"} to <span className="font-medium text-foreground">{stagedOption.label}</span>. {stagedOption.description}
                 </>
               )}
               {discoverWarning && (
@@ -399,4 +367,10 @@ function TagChangeSummary({ change, n }: { change: TagChange; n: number }) {
       removed from the Roam text stay removed when republished.
     </>
   );
+}
+
+/** A rung as the bulk actions take it: the open rungs set both, Password and Members keep where pages are listed. */
+function rungChange(r: Rung): { read: ReadAccess; reach?: Access } {
+  if (r === "password" || r === "members") return { read: r };
+  return { read: "open", reach: r };
 }

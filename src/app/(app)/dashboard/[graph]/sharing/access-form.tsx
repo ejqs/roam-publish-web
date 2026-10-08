@@ -4,25 +4,21 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { accessToSave, ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
-import { ContainerViewsFields } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
-import { Switch } from "@/components/ui/switch";
-import type { Access, ViewsMode } from "@/db/schema";
+import { FieldGroup } from "@/components/ui/field";
+import type { Access } from "@/db/schema";
 import { saveContainerAccessBlocked } from "@/lib/control-rules";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { changed, useUnsavedChanges } from "@/lib/unsaved-changes";
 import { updateGraphAccess } from "@/server/actions/dashboard";
 
-/** Defaults for every page in the graph: access, bylines, view counts, and where new pages go. */
+/** Who can open the front page, what new pages start as, and the graph password. */
 export function GraphAccessForm({
   graphId,
   graphName,
   pageCount,
   initial,
-  collections,
   encryptedPages,
 }: {
   graphId: string;
@@ -36,15 +32,8 @@ export function GraphAccessForm({
     hasPassword: boolean;
     /** The saved password can encrypt new pages without being typed again. */
     canEncrypt: boolean;
-    showAuthors: boolean;
-    views: ViewsMode;
-    showViewCountries: boolean;
-    newPagesInGraph: boolean;
     encryptNewPages: boolean;
-    defaultCollections: string[];
   };
-  /** Collections the owner belongs to. */
-  collections: { id: string; name: string }[];
 }) {
   const [access, setAccess] = useState<ContainerAccess>({
     indexAccess: initial.indexAccess,
@@ -55,10 +44,6 @@ export function GraphAccessForm({
   });
   const [hasPassword, setHasPassword] = useState(initial.hasPassword);
   const [canEncrypt, setCanEncrypt] = useState(initial.canEncrypt);
-  const [showAuthors, setShowAuthors] = useState(initial.showAuthors);
-  const [views, setViews] = useState({ views: initial.views, countries: initial.showViewCountries });
-  const [newPagesInGraph, setNewPagesInGraph] = useState(initial.newPagesInGraph);
-  const [defaults, setDefaults] = useState(new Set(initial.defaultCollections));
   const router = useRouter();
   const [pending, start] = useTransition();
   const blocked = saveContainerAccessBlocked("graph", access, hasPassword, encryptedPages.length);
@@ -66,10 +51,6 @@ export function GraphAccessForm({
     ...accessToSave(a, encrypt),
     currentPassword: undefined,
     resetEncrypted: undefined,
-    showAuthors,
-    views,
-    newPagesInGraph,
-    defaultCollections: [...defaults].sort(),
   });
   const [saved, setSaved] = useState(() => form(access, canEncrypt));
   const dirty = changed(form(access, canEncrypt), saved);
@@ -77,14 +58,7 @@ export function GraphAccessForm({
 
   function save() {
     start(async () => {
-      const res = await updateGraphAccess(graphId, {
-        ...accessToSave(access, canEncrypt),
-        showAuthors,
-        views: views.views,
-        showViewCountries: views.countries,
-        newPagesInGraph,
-        defaultCollections: [...defaults],
-      });
+      const res = await updateGraphAccess(graphId, accessToSave(access, canEncrypt));
       if (!res?.ok) return void toast.error(res?.message ?? "Couldn't save.");
       // A new password long enough to encrypt with gets a key pair when it's saved.
       const encrypt = access.password ? access.password.length >= ENCRYPT_PASSWORD_MIN : !access.clearPassword && canEncrypt;
@@ -115,52 +89,6 @@ export function GraphAccessForm({
             encryptedPages={encryptedPages}
             onChange={setAccess}
           />
-          <FieldSeparator />
-          <Field orientation="horizontal">
-            <FieldContent>
-              <FieldLabel htmlFor="showAuthors">Show authors</FieldLabel>
-              <FieldDescription>
-                Show who wrote each page: the Author name set in the extension, or the publisher&apos;s @username.
-                Pages can override this.
-              </FieldDescription>
-            </FieldContent>
-            <Switch id="showAuthors" checked={showAuthors} onCheckedChange={setShowAuthors} />
-          </Field>
-          <FieldSeparator />
-          <ContainerViewsFields kind="graph" views={views.views} countries={views.countries} onChange={setViews} />
-          <FieldSeparator />
-          <FieldSet>
-            <FieldLegend variant="label">New pages go to</FieldLegend>
-            <FieldDescription>
-              Where a page lands when it&apos;s first published from Roam. Collections only apply when the publisher
-              belongs to them; a page that would land nowhere stays in the graph.
-            </FieldDescription>
-            <Field orientation="horizontal">
-              <Checkbox id="newPagesInGraph" checked={newPagesInGraph} onCheckedChange={(v) => setNewPagesInGraph(!!v)} />
-              <FieldLabel htmlFor="newPagesInGraph" className="font-normal">
-                This graph ({graphName})
-              </FieldLabel>
-            </Field>
-            {collections.map((c) => (
-              <Field key={c.id} orientation="horizontal">
-                <Checkbox
-                  id={`default-${c.id}`}
-                  checked={defaults.has(c.id)}
-                  onCheckedChange={(v) =>
-                    setDefaults((prev) => {
-                      const next = new Set(prev);
-                      if (v) next.add(c.id);
-                      else next.delete(c.id);
-                      return next;
-                    })
-                  }
-                />
-                <FieldLabel htmlFor={`default-${c.id}`} className="font-normal">
-                  Collection: {c.name}
-                </FieldLabel>
-              </Field>
-            ))}
-          </FieldSet>
         </FieldGroup>
       </CardContent>
       <CardFooter className="justify-end gap-3">

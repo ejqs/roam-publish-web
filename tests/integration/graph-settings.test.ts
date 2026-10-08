@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { updateGraphAccess, updateGraphSettings } from "@/server/actions/dashboard";
+import { updateGraphAccess, updateGraphDisplay, updateGraphSettings } from "@/server/actions/dashboard";
 import { updateCollection } from "@/server/actions/collections";
 import { db } from "@/db";
-import { collection, graph } from "@/db/schema";
+import { collection, graph, graphDefaultCollection } from "@/db/schema";
 import { addEntry } from "@/lib/collections";
 import { hashPassword } from "@/lib/gates";
 import { resetDb } from "../helpers/db";
@@ -53,17 +53,44 @@ test("locking a graph keeps its search settings for when it opens again", async 
   const res = await updateGraphAccess(g.id, {
     indexAccess: "password",
     defaultAccess: "password",
-    showAuthors: true,
-    views: "show",
-    showViewCountries: true,
-    newPagesInGraph: true,
     encryptNewPages: false,
-    defaultCollections: [],
     password: "",
     clearPassword: false,
   });
   expect(res?.ok).toBe(true);
   expect(await read(g.id)).toMatchObject({ indexAccess: "password", indexable: true, searchListed: true });
+});
+
+// The Settings tab's display section: how pages look never changes who can see them.
+test("display settings save without touching access", async () => {
+  const owner = await makeUser();
+  const g = await makeGraph(owner.id, { frontPage: false, indexAccess: "password", passwordHash: hashPassword("graph-password-1") });
+  const mine = await makeCollection(owner.id);
+  const theirs = await makeCollection((await makeUser()).id);
+  actAs(owner);
+  const res = await updateGraphDisplay(g.id, {
+    showAuthors: true,
+    views: "hide",
+    showViewCountries: false,
+    showOwner: false,
+    hideUnlistedBreadcrumbs: true,
+    rss: true,
+    newPagesInGraph: false,
+    defaultCollections: [mine.id, theirs.id],
+  });
+  expect(res?.ok).toBe(true);
+  // No front page, so no feed; access and the password stay as they were.
+  expect(await read(g.id)).toMatchObject({
+    showAuthors: true,
+    views: "hide",
+    hideUnlistedBreadcrumbs: true,
+    newPagesInGraph: false,
+    rss: false,
+    indexAccess: "password",
+    passwordHash: g.passwordHash,
+  });
+  const kept = await db.select().from(graphDefaultCollection).where(eq(graphDefaultCollection.graphId, g.id));
+  expect(kept.map((r) => r.collectionId)).toEqual([mine.id]);
 });
 
 describe("collection settings", () => {

@@ -45,11 +45,11 @@ export function discoverBlocked(g: {
   return g.suspendedAt
     ? "This graph is suspended."
     : g.indexAccess !== "open"
-      ? "This graph's front page is protected, so its pages can't be Discoverable."
+      ? "This graph's front page is protected, so its pages can't go on Discover."
       : !g.frontPage
-      ? "Turn on this graph's front page in Sharing to make pages Discoverable."
+      ? "Turn on this graph's front page in Sharing to put pages on Discover."
       : !g.indexable
-        ? "Turn on search engines in Sharing to make pages Discoverable."
+        ? "Turn on search engines in Sharing to put pages on Discover."
         : undefined;
 }
 
@@ -62,9 +62,9 @@ export function pageDiscoverBlocked(
   return (
     discoverBlocked(g) ??
     (effective !== "open"
-      ? "Password-protected and members-only pages can't be Discoverable."
+      ? "Discover is only for pages anyone can read."
       : !pub.inGraph
-        ? "This page is only in collections, so it can't be Discoverable from its graph."
+        ? "This page is only in collections, so it can't go on Discover from its graph."
         : undefined)
   );
 }

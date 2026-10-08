@@ -43,7 +43,7 @@ export function saveCollectionBlocked(name: string, value: ContainerAccessChange
   return saveContainerAccessBlocked("collection", value, hasPassword, encryptedPages);
 }
 
-/** The Show in graph switch, turning it off: a page has to be shown somewhere. */
+/** Removing a page from its graph: a page has to be published somewhere. */
 export function hideFromGraphBlocked(collections: number) {
   if (collections === 0) return "Add it to a collection first, or unpublish it instead.";
 }

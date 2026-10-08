@@ -2,8 +2,7 @@ import { and, count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { graph, graphDefaultCollection, publication } from "@/db/schema";
-import { collectionsOf } from "@/lib/collections";
+import { graph, publication } from "@/db/schema";
 import { requireSession } from "@/lib/session";
 import { lockKeyOf, sealedPageTitles } from "@/lib/encryption";
 import { GraphAccessForm } from "./access-form";
@@ -21,17 +20,13 @@ export default async function GraphSharingPage(props: PageProps<"/dashboard/[gra
     where: and(eq(graph.name, name), eq(graph.userId, session.user.id)),
   });
   if (!g) notFound();
-  const [collections, defaults, [pages]] = await Promise.all([
-    collectionsOf(session.user.id),
-    db.select().from(graphDefaultCollection).where(eq(graphDefaultCollection.graphId, g.id)),
-    db.select({ n: count() }).from(publication).where(eq(publication.graphId, g.id)),
-  ]);
+  const [pages] = await db.select({ n: count() }).from(publication).where(eq(publication.graphId, g.id));
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <ResourceHeader
         name={g.name}
-        caption="Who can open this graph and its pages, and where they're listed. Each page can choose its own."
+        caption="Who can see this graph's pages. Each page can choose its own, from Manage or the Pages tab."
         tabs={resourceTabs(graphPagesPath(g.name), true, true)}
         current={`${graphPagesPath(g.name)}/sharing`}
       />
@@ -45,28 +40,15 @@ export default async function GraphSharingPage(props: PageProps<"/dashboard/[gra
             defaultAccess: g.defaultAccess,
             hasPassword: !!g.passwordHash,
             canEncrypt: !!g.passwordHash && !!(await lockKeyOf(db, { scope: "graph", id: g.id })),
-            showAuthors: g.showAuthors,
-            views: g.views,
-            showViewCountries: g.showViewCountries,
-            newPagesInGraph: g.newPagesInGraph,
             encryptNewPages: g.encryptNewPages,
-            defaultCollections: defaults.map((d) => d.collectionId),
           }}
-          collections={collections.filter((c) => !c.suspendedAt).map((c) => ({ id: c.id, name: c.name }))}
           encryptedPages={await sealedPageTitles({ scope: "graph", id: g.id })}
         />
         <GraphListingForm
           graphId={g.id}
           graphName={g.name}
           indexOpen={g.indexAccess === "open"}
-          initial={{
-            frontPage: g.frontPage,
-            indexable: g.indexable,
-            searchListed: g.searchListed,
-            showOwner: g.showOwner,
-            hideUnlistedBreadcrumbs: g.hideUnlistedBreadcrumbs,
-            rss: g.rss,
-          }}
+          initial={{ frontPage: g.frontPage, indexable: g.indexable, searchListed: g.searchListed }}
         />
       </div>
     </div>

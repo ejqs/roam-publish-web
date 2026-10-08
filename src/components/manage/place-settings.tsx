@@ -1,19 +1,23 @@
 "use client";
 
-import {
-  ChevronRightIcon,
-  CircleHelpIcon,
-  CompassIcon,
-  FileTextIcon,
-  GlobeIcon,
-} from "lucide-react";
+import { ChevronRightIcon, CircleHelpIcon, CompassIcon, GlobeIcon } from "lucide-react";
 import { useId, useOptimistic, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ACCESS_DESCRIPTIONS, LISTING_LABELS, notSearchable } from "@/components/manage/labels";
+import {
+  LISTING_LABELS,
+  notSearchable,
+  RUNG_LABELS,
+  RUNGS,
+  type Rung,
+  rungDescription,
+  rungOf,
+  showTitleLabel,
+} from "@/components/manage/labels";
 import { usePasswordPrompt } from "@/components/manage/password-prompt";
 import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import { placeViewsOptions, VIEWS_HELP, VIEWS_LABELS } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { type Segment, SegmentedControl } from "@/components/ui/segmented-control";
@@ -24,11 +28,17 @@ import { cn } from "cn";
 import { type Access, setAccess } from "@/server/actions/dashboard";
 import { updateEntry, updateGraphPlace } from "@/server/actions/places";
 
-// Listed is a document, so the globe only ever means Anyone.
-export const ICONS = { unlisted: PRIVACY_ICONS.unlisted, public: FileTextIcon, discover: CompassIcon };
+export const ICONS = { unlisted: PRIVACY_ICONS.unlisted, public: GlobeIcon, discover: CompassIcon };
 export const LABELS = { unlisted: LISTING_LABELS.unlisted, public: LISTING_LABELS.listed, discover: LISTING_LABELS.discover };
 export const READ_ICONS = { open: GlobeIcon, password: PRIVACY_ICONS.password, members: PRIVACY_ICONS.members };
 export const READ_LABELS = { open: "Anyone", password: "Password", members: "Members" };
+export const RUNG_ICONS = {
+  discover: CompassIcon,
+  public: GlobeIcon,
+  unlisted: PRIVACY_ICONS.unlisted,
+  password: PRIVACY_ICONS.password,
+  members: PRIVACY_ICONS.members,
+};
 
 /** The place a setting changes: a page in its graph, or a page's entry in a collection. */
 export type MenuTarget =
@@ -48,9 +58,7 @@ export type PlaceSettingsProps = {
 
 type PlaceInput = { access?: ReadAccess; showAuthor?: ShowAuthor; views?: PlaceViews; showViewCountries?: ShowAuthor };
 
-const NOT_ON_DISCOVER = "Discoverable is only for pages anyone can read.";
-/** A stored listing as the Visibility control's value. */
-const REACH_OF = { unlisted: "unlisted", listed: "public", discover: "discover" } as const;
+const NOT_ON_DISCOVER = "Discover is only for pages anyone can read.";
 export const ENCRYPTED_ONLY_PASSWORD = "Encrypted pages can only use Password. Turn off encryption first.";
 
 /** What to warn about before a page goes onto or comes off Discover, or null when the change doesn't touch it. */
@@ -137,7 +145,7 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
 
   const movedOffDiscover = (next: ReadAccess) =>
     next !== "open" && reach === "discover"
-      ? setNote("Moved from Discover to Listed. Discover only shows pages anyone can read.")
+      ? setNote("Taken off Discover, with its title still shown where it's listed. Discover only shows pages anyone can read.")
       : setNote("");
 
   function chooseRead(next: ReadAccess) {
@@ -149,6 +157,39 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
     setAskPassword(false);
     movedOffDiscover(next);
     save({ access: next });
+  }
+
+  const kind = target.kind === "graph" ? ("graph" as const) : ("collection" as const);
+  const rung = rungOf(read, reach === "public" ? "listed" : reach);
+
+  /**
+   * One choice on the ladder. Password and Members keep where it's listed (Discover becomes listed);
+   * the open rungs make it readable by anyone and set where it's listed, in that order.
+   */
+  function chooseRung(next: Rung) {
+    if (next === rung) return setAskPassword(false);
+    if (next === "password" || next === "members") return chooseRead(next);
+    const nextReach: Access = next === "public" ? "public" : next;
+    if (read === "open") return chooseReach(nextReach);
+    const warning = discoverWarning(reach, nextReach);
+    if (warning && !confirm(warning)) return;
+    setAskPassword(false);
+    setNote("");
+    start(async () => {
+      setOptimistic((st) => ({ ...st, read: "open", access: nextReach }));
+      const res = await passwordPrompt.run((currentPassword) =>
+        target.kind === "graph"
+          ? updateGraphPlace(target.publicationId, { access: "open", currentPassword })
+          : updateEntry(target.entryId, { access: "open", currentPassword }),
+      );
+      if (!res) return;
+      if (!res.ok || nextReach === reach) return done(res);
+      done(
+        target.kind === "graph"
+          ? await setAccess(target.publicationId, nextReach)
+          : await updateEntry(target.entryId, { listing: nextReach === "public" ? "listed" : nextReach }),
+      );
+    });
   }
 
   async function savePassword(password: string) {
@@ -168,6 +209,9 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
 
   return {
     target,
+    kind,
+    rung,
+    chooseRung,
     container,
     searchable,
     pending,
@@ -178,6 +222,7 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
     blocked,
     paused,
     hasPassword,
+    discoverBlocked,
     listed,
     views,
     countries,
@@ -207,11 +252,17 @@ export function displaySummary(s: PlaceSettings) {
     .join(" · ");
 }
 
-/** "Listed", or "Listed (Not Searchable)" when the page is out of roam.pub search. */
-export const reachLabel = (s: Pick<PlaceSettings, "reach" | "searchable">) =>
-  LABELS[s.reach] + notSearchable(s.reach === "public", s.searchable);
+/** "Public", "Public (Not Searchable)" when the page is out of roam.pub search, or "Password · title shown". */
+export const rungLabel = (s: Pick<PlaceSettings, "rung" | "reach" | "searchable" | "encrypted">) =>
+  (s.rung === "password" && s.encrypted ? "Encrypted" : RUNG_LABELS[s.rung]) +
+  (s.rung === "public" ? notSearchable(true, s.searchable) : "") +
+  ((s.rung === "password" || s.rung === "members") && s.reach !== "unlisted" ? " · title shown" : "");
 
-/** Who can read it and where it's listed: two segmented controls, with what the choice means under each. */
+/**
+ * Who can see it, as one ladder from Discover to Members. The chosen rung opens up what goes with
+ * it: the page's password and encryption under Password, roam.pub search under Public, and whether
+ * a protected page's title shows where it's listed.
+ */
 export function AccessFields({
   s,
   compact,
@@ -220,96 +271,122 @@ export function AccessFields({
 }: {
   s: PlaceSettings;
   compact?: boolean;
-  /** Shown under Access control while this place uses Password: which password, and encryption. */
+  /** Shown under Password while this place uses it: which password, and encryption. */
   passwordPanel?: React.ReactNode;
-  /** Shown under Visibility control while this place is Listed or Discoverable: site search. */
+  /** Shown under Public while this place is Public: site search. */
   visibilityPanel?: React.ReactNode;
 }) {
   const id = useId();
-  const { container, target } = s;
+  const { container } = s;
+  const defaultRung = rungOf(container.defaultAccess, container.defaultListing);
+  const chosen: Rung = s.askPassword ? "password" : s.rung;
 
-  const readSegments: Segment<ReadAccess>[] = (["open", "password", "members"] as const).map((v) => ({
-    value: v,
-    label: v === "password" && s.encrypted ? "Encrypted" : READ_LABELS[v],
-    icon: v === "password" && s.encrypted ? PRIVACY_ICONS.encrypted : READ_ICONS[v],
-    disabled: s.encrypted && v !== "password" ? ENCRYPTED_ONLY_PASSWORD : undefined,
-  }));
-  const readDescription = {
-    open:
-      container.defaultAccess !== "open"
-        ? "Anyone with the link can read, even though the rest is protected."
-        : "Anyone with the link. No sign-in or password needed.",
-    password: s.encrypted
-      ? "Readers enter the password. Encrypted pages can only use a password: turn off encryption to change this."
-      : ACCESS_DESCRIPTIONS.password,
-    members: `Only people invited to publish to ${container.label}, once signed in.`,
-  }[s.read];
-
-  const reachSegments: Segment<Access>[] = (["unlisted", "public", "discover"] as const).map((v) => ({
-    value: v,
-    label: LABELS[v],
-    icon: ICONS[v],
-    disabled: v === "discover" && s.reach !== "discover" ? s.blocked : undefined,
-  }));
-  const reachDescription = {
-    unlisted: "Only people with the link can find it. Never indexed, and [[links]] to it from other pages show as plain text.",
-    public:
-      target.kind === "entry"
-        ? `Listed on ${container.label}'s page, and [[links]] on its other pages lead here.`
-        : [
-            target.frontPage ? "On your front page." : "Your front page is off, so it isn't listed anywhere.",
-            target.indexable ? "Search engines can index it." : "Hidden from search engines.",
-            "[[Links]] on your other pages lead here.",
-          ].join(" "),
-    discover: s.paused ? `Not shown on Discover right now: ${s.blocked}` : "Listed, and also on roam.pub/discover.",
-  }[s.reach];
+  const disabledReason = (r: Rung) => {
+    if (r === chosen) return undefined;
+    if (s.encrypted && r !== "password" && r !== "members") return ENCRYPTED_ONLY_PASSWORD;
+    if (s.encrypted && r === "members") return ENCRYPTED_ONLY_PASSWORD;
+    if (r === "discover") return s.read === "open" ? s.blocked : s.discoverBlocked;
+  };
 
   const caption = "text-xs text-muted-foreground";
   return (
-    <div className={cn("flex flex-col", compact ? "gap-3" : "gap-4")}>
-      <div className="flex flex-col gap-1.5">
-        <span id={`${id}-read`} className={cn("font-medium", compact && "text-xs text-muted-foreground")}>
-          Access control
-        </span>
-        <SegmentedControl
-          aria-labelledby={`${id}-read`}
-          value={s.askPassword ? "password" : s.read}
-          options={readSegments}
-          defaultValue={container.defaultAccess}
-          onChange={s.chooseRead}
-          disabled={s.pending}
-        />
-        <p className={caption}>{s.askPassword ? "Readers enter a password. Set one to switch." : readDescription}</p>
-        {s.askPassword && <SetPasswordForm onSave={s.savePassword} onCancel={() => s.setAskPassword(false)} />}
-        {s.read === "password" && !s.askPassword && passwordPanel}
-        {s.passwordPrompt}
+    <div className="flex flex-col gap-1.5">
+      <span id={`${id}-who`} className={cn("font-medium", compact && "text-xs text-muted-foreground")}>
+        Who can see it
+      </span>
+      <div role="radiogroup" aria-labelledby={`${id}-who`} className="flex flex-col divide-y overflow-hidden rounded-sm border">
+        {RUNGS.map((r) => {
+          const Icon = r === "password" && s.encrypted ? PRIVACY_ICONS.encrypted : RUNG_ICONS[r];
+          const selected = r === chosen;
+          const disabled = disabledReason(r);
+          const description =
+            r === "password" && s.encrypted
+              ? "Encrypted. Readers enter the password."
+              : r === "discover" && selected && s.paused
+                ? `Not shown on Discover right now: ${s.blocked}`
+                : rungDescription(r, container.label, s.kind);
+          return (
+            <div key={r} className={cn("flex flex-col", selected && "bg-primary/8")}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={s.pending || !!disabled}
+                title={disabled}
+                onClick={() => s.chooseRung(r)}
+                className="flex items-start gap-2.5 px-3 py-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset enabled:hover:bg-accent/60 disabled:cursor-not-allowed"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "mt-0.5 size-4 shrink-0 rounded-full border border-input",
+                    selected && "border-[5px] border-primary",
+                    disabled && "opacity-50",
+                  )}
+                />
+                <Icon aria-hidden className={cn("mt-0.5 size-4 shrink-0 text-muted-foreground", disabled && "opacity-50")} />
+                <span className={cn("flex min-w-0 flex-1 flex-col gap-0.5", disabled && "opacity-50")}>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    {r === "password" && s.encrypted ? "Encrypted" : RUNG_LABELS[r]}
+                    {r === defaultRung && (
+                      <span className="rounded-sm bg-muted px-1 text-[0.625rem] font-normal text-muted-foreground">default</span>
+                    )}
+                  </span>
+                  {(!compact || selected) && <span className={caption}>{disabled ?? description}</span>}
+                </span>
+              </button>
+              {selected && <RungDetails s={s} rung={r} passwordPanel={passwordPanel} visibilityPanel={visibilityPanel} />}
+            </div>
+          );
+        })}
       </div>
-      <div className="flex flex-col gap-1.5">
-        <span id={`${id}-reach`} className={cn("font-medium", compact && "text-xs text-muted-foreground")}>
-          Visibility control
-        </span>
-        <SegmentedControl
-          aria-labelledby={`${id}-reach`}
-          value={s.reach}
-          options={reachSegments}
-          defaultValue={REACH_OF[container.defaultListing]}
-          onChange={s.chooseReach}
-          disabled={s.pending}
-        />
-        <p className={caption}>
-          {reachDescription}
-          {!s.note && s.reach !== "discover" && s.blocked && ` ${s.blocked}`}
-          {s.reach === "public" && !s.searchable && " Kept out of roam.pub search (in Manage)."}
+      {s.note && (
+        <p role="status" className="rounded-sm bg-muted px-2 py-1.5 text-xs">
+          {s.note}
         </p>
-        {s.note && (
-          <p role="status" className="rounded-sm bg-muted px-2 py-1.5 text-xs">
-            {s.note}
-          </p>
-        )}
-        {s.reach !== "unlisted" && visibilityPanel}
-      </div>
+      )}
+      {s.passwordPrompt}
     </div>
   );
+}
+
+/** What opens under the chosen rung. */
+function RungDetails({
+  s,
+  rung,
+  passwordPanel,
+  visibilityPanel,
+}: {
+  s: PlaceSettings;
+  rung: Rung;
+  passwordPanel?: React.ReactNode;
+  visibilityPanel?: React.ReactNode;
+}) {
+  const id = useId();
+  const protectedRung = rung === "password" || rung === "members";
+  const askPassword = rung === "password" && s.askPassword;
+  const body = askPassword ? (
+    <SetPasswordForm onSave={s.savePassword} onCancel={() => s.setAskPassword(false)} />
+  ) : (
+    <>
+      {protectedRung && (
+        <label htmlFor={id} className="flex items-center gap-2 text-xs">
+          <Checkbox
+            id={id}
+            checked={s.reach !== "unlisted"}
+            disabled={s.pending}
+            onCheckedChange={(on) => s.chooseReach(on ? "public" : "unlisted")}
+          />
+          {showTitleLabel(s.container.label, s.kind)}
+        </label>
+      )}
+      {rung === "password" && passwordPanel}
+      {rung === "public" && visibilityPanel}
+    </>
+  );
+  const empty = !askPassword && !protectedRung && !(rung === "public" && visibilityPanel);
+  if (empty) return null;
+  return <div className="flex flex-col gap-2 px-3 pb-3 pl-[3.25rem]">{body}</div>;
 }
 
 /** Asks for a page's own password before switching it to Password access. */

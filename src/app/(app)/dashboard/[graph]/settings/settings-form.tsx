@@ -60,9 +60,9 @@ export function GraphSettingsForm({ graphId, initial }: { graphId: string; initi
   );
 }
 
-type Listing = Omit<GraphSettings, "description">;
+type Listing = Pick<GraphSettings, "frontPage" | "indexable" | "searchListed">;
 
-/** On the Sharing tab: the front page, search engines, site search, RSS and breadcrumbs. */
+/** On the Sharing tab: where Public pages show up (the front page, search engines, site search). */
 export function GraphListingForm({
   graphId,
   graphName,
@@ -79,8 +79,7 @@ export function GraphListingForm({
   const [saved, setSaved] = useState(initial);
   const [pending, startTransition] = useTransition();
   const set = (key: keyof Listing) => (value: boolean) => setSettings((s) => ({ ...s, [key]: value }));
-  const normalize = (s: Listing): Listing => ({ ...s, rss: s.rss && s.frontPage });
-  const current = normalize(settings);
+  const current = settings;
   const dirty = (Object.keys(current) as (keyof Listing)[]).some((k) => current[k] !== saved[k]);
   useUnsavedChanges(dirty);
 
@@ -97,15 +96,15 @@ export function GraphListingForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Listing</CardTitle>
-        <CardDescription>Where this graph&apos;s listed pages show up.</CardDescription>
+        <CardTitle>Where Public pages show up</CardTitle>
+        <CardDescription>Unlisted, Password and Members pages are never indexed or in search.</CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
           <SettingSwitch
             id="frontPage"
             label="Front page"
-            description={`An index of your listed pages at roam.pub/${graphName}.`}
+            description={`An index of your Public and Discover pages at roam.pub/${graphName}.`}
             checked={settings.frontPage}
             onChange={set("frontPage")}
           />
@@ -116,7 +115,7 @@ export function GraphListingForm({
             description={
               !indexOpen
                 ? "Not available while the front page is locked."
-                : "Let search engines index your front page and listed pages. Unlisted pages are never indexed."
+                : "Let search engines index your front page and Public pages."
             }
             checked={settings.indexable && indexOpen}
             disabled={!indexOpen}
@@ -125,46 +124,15 @@ export function GraphListingForm({
           <FieldSeparator />
           <SettingSwitch
             id="searchListed"
-            label="Listed pages in site search"
+            label="Public pages in roam.pub search"
             description={
               !indexOpen
                 ? "Not available while the front page is locked."
-                : "Find your listed pages from roam.pub/search. Discoverable pages are always searchable."
+                : "Find your Public pages from roam.pub/search. Pages on Discover are always searchable."
             }
             checked={settings.searchListed && indexOpen}
             disabled={!indexOpen}
             onChange={set("searchListed")}
-          />
-          <FieldSeparator />
-          <SettingSwitch
-            id="rss"
-            label="RSS feed"
-            description={
-              !settings.frontPage
-                ? "Turn on the front page to offer an RSS feed."
-                : !indexOpen
-                  ? "Not available while the front page is locked."
-                  : `A feed at roam.pub/${graphName}/feed.xml with pages open to everyone.`
-            }
-            checked={settings.rss && settings.frontPage && indexOpen}
-            disabled={!settings.frontPage || !indexOpen}
-            onChange={set("rss")}
-          />
-          <FieldSeparator />
-          <SettingSwitch
-            id="showOwner"
-            label="Link to your profile"
-            description="Show your @username in breadcrumbs. Only while your profile is public."
-            checked={settings.showOwner}
-            onChange={set("showOwner")}
-          />
-          <FieldSeparator />
-          <SettingSwitch
-            id="hideUnlistedBreadcrumbs"
-            label="Hide breadcrumbs on unlisted pages"
-            description="Unlisted pages won't link back to this graph or your profile."
-            checked={settings.hideUnlistedBreadcrumbs}
-            onChange={set("hideUnlistedBreadcrumbs")}
           />
         </FieldGroup>
       </CardContent>
@@ -178,7 +146,7 @@ export function GraphListingForm({
   );
 }
 
-function SettingSwitch({
+export function SettingSwitch({
   id,
   label,
   description,

@@ -1,39 +1,37 @@
 import { and, asc, desc, eq, ilike, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
-import { collectionEntry, publication } from "@/db/schema";
+import { collection, collectionEntry, graph, publication } from "@/db/schema";
 
-/** The settings a page can be in, as the access menu names them, plus moderator removal. */
-export const ACCESS = ["unlisted", "public", "discover", "removed"] as const;
+/** Who can see a page, as the ladder names it, plus moderator removal. */
+export const ACCESS = ["discover", "public", "unlisted", "password", "members", "removed"] as const;
 export type AccessFilter = (typeof ACCESS)[number];
 export const ACCESS_LABELS: Record<AccessFilter, string> = {
+  discover: "Discover",
+  public: "Public",
   unlisted: "Unlisted",
-  public: "Listed",
-  discover: "Discoverable",
+  password: "Password",
+  members: "Members",
   removed: "Removed",
 };
 
+/** Who can read a page in its graph; "inherit" rows from before pages stored their own use the graph's default. */
+const graphReadAccess = sql`(case when ${publication.access} = 'inherit' then (select ${graph.defaultAccess} from ${graph} where ${graph.id} = ${publication.graphId}) else ${publication.access} end)`;
+const live = isNull(publication.removedAt);
+
 export const ACCESS_WHERE: Record<AccessFilter, SQL> = {
-  unlisted: and(isNull(publication.removedAt), eq(publication.visibility, "unlisted"))!,
-  public: and(
-    isNull(publication.removedAt),
-    eq(publication.visibility, "public"),
-    eq(publication.discoverable, false),
-  )!,
-  discover: and(
-    isNull(publication.removedAt),
-    eq(publication.visibility, "public"),
-    eq(publication.discoverable, true),
-  )!,
+  discover: and(live, sql`${graphReadAccess} = 'open'`, eq(publication.visibility, "public"), eq(publication.discoverable, true))!,
+  public: and(live, sql`${graphReadAccess} = 'open'`, eq(publication.visibility, "public"), eq(publication.discoverable, false))!,
+  unlisted: and(live, sql`${graphReadAccess} = 'open'`, eq(publication.visibility, "unlisted"))!,
+  password: and(live, sql`${graphReadAccess} = 'password'`)!,
+  members: and(live, sql`${graphReadAccess} = 'members'`)!,
   removed: isNotNull(publication.removedAt),
 };
 
 /** Per-setting counts, for a select grouped by graph. */
 const countWhere = (a: AccessFilter) => sql<number>`count(*) filter (where ${ACCESS_WHERE[a]})`.mapWith(Number);
-export const accessCounts = {
-  unlisted: countWhere("unlisted"),
-  public: countWhere("public"),
-  discover: countWhere("discover"),
-  removed: countWhere("removed"),
-};
+export const accessCounts = Object.fromEntries(ACCESS.map((a) => [a, countWhere(a)])) as Record<
+  AccessFilter,
+  ReturnType<typeof countWhere>
+>;
 export type AccessCounts = Record<AccessFilter, number>;
 
 export const KINDS = ["page", "block"] as const;
@@ -151,14 +149,15 @@ export { discoverBlocked } from "@/lib/listing";
 
 // --- Collection page lists ----------------------------------------------------------------------
 
-export const ENTRY_FILTERS = ["unlisted", "listed", "discover", "removed"] as const;
+/** The ladder for a collection's pages; "listed" is Public, the name its column has always had. */
+export const ENTRY_FILTERS = ["discover", "listed", "unlisted", "password", "members", "removed"] as const;
 export type EntryFilter = (typeof ENTRY_FILTERS)[number];
 export const ENTRY_SORTS = ["order", "added", "updated", "title"] as const;
 export type EntrySort = (typeof ENTRY_SORTS)[number];
 
 export const COLLECTION_LIST: ListConfig<EntryFilter, EntrySort> = {
   filters: ENTRY_FILTERS,
-  filterLabels: { unlisted: "Unlisted", listed: "Listed", discover: "Discoverable", removed: "Removed" },
+  filterLabels: { ...ACCESS_LABELS, listed: "Public" },
   sorts: ENTRY_SORTS,
   sortLabels: { order: "Order", added: "Added", updated: "Updated", title: "Title" },
   // The owner's order is what visitors see, so it's the default here.
@@ -167,21 +166,25 @@ export const COLLECTION_LIST: ListConfig<EntryFilter, EntrySort> = {
 };
 export type CollectionListState = ListState<EntryFilter, EntrySort>;
 
+/** Who can read a page in its collection, with "inherit" rows using the collection's default. */
+const entryReadAccess = sql`(case when ${collectionEntry.access} = 'inherit' then (select ${collection.defaultAccess} from ${collection} where ${collection.id} = ${collectionEntry.collectionId}) else ${collectionEntry.access} end)`;
+
 const ENTRY_WHERE: Record<EntryFilter, SQL> = {
-  unlisted: and(isNull(publication.removedAt), eq(collectionEntry.listing, "unlisted"))!,
-  listed: and(isNull(publication.removedAt), eq(collectionEntry.listing, "listed"))!,
-  discover: and(isNull(publication.removedAt), eq(collectionEntry.listing, "discover"))!,
+  discover: and(live, sql`${entryReadAccess} = 'open'`, eq(collectionEntry.listing, "discover"))!,
+  listed: and(live, sql`${entryReadAccess} = 'open'`, eq(collectionEntry.listing, "listed"))!,
+  unlisted: and(live, sql`${entryReadAccess} = 'open'`, eq(collectionEntry.listing, "unlisted"))!,
+  password: and(live, sql`${entryReadAccess} = 'password'`)!,
+  members: and(live, sql`${entryReadAccess} = 'members'`)!,
   removed: isNotNull(publication.removedAt),
 };
 
 const entryCountWhere = (f: EntryFilter) => sql<number>`count(*) filter (where ${ENTRY_WHERE[f]})`.mapWith(Number);
-/** Per-listing counts for a select over collection_entry joined to publication. */
-export const entryCounts = {
-  unlisted: entryCountWhere("unlisted"),
-  listed: entryCountWhere("listed"),
-  discover: entryCountWhere("discover"),
-  removed: entryCountWhere("removed"),
-};
+/** Per-rung counts for a select over collection_entry joined to publication. */
+export const entryCounts = Object.fromEntries(ENTRY_FILTERS.map((f) => [f, entryCountWhere(f)])) as Record<
+  EntryFilter,
+  ReturnType<typeof entryCountWhere>
+>;
+export type EntryCounts = Record<EntryFilter, number>;
 
 /** Needs publication joined. */
 export function entryListWhere(collectionId: string, s: CollectionListState) {

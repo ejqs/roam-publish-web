@@ -7,7 +7,7 @@ import { useId, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
 import { setPageSearchable, unpublish } from "@/server/actions/dashboard";
 import { addToCollection, removeEntry, updateGraphPlace } from "@/server/actions/places";
-import { ICONS, LABELS, PlaceSettingsFields, READ_ICONS, READ_LABELS } from "./place-settings";
+import { PlaceSettingsFields, RUNG_ICONS } from "./place-settings";
 import { setPageTags } from "@/server/actions/tags";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -18,10 +18,9 @@ import type { ContainerDefaults, ManageData } from "@/lib/manage-data";
 import { hideFromGraphBlocked } from "@/lib/control-rules";
 import { cn } from "cn";
 import { lockExplanation } from "@/components/access-lock";
-import { AccessIcon } from "@/components/privacy-icon";
 import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import type { Access as ReadAccess, EntryListing } from "@/db/schema";
-import { notSearchable } from "./labels";
+import { notSearchable, RUNG_LABELS, rungOf } from "./labels";
 import { EncryptionSection } from "./encryption-section";
 import { PlacePasswordForm, type PlaceState } from "./place-access-form";
 import { usePasswordPrompt } from "./password-prompt";
@@ -32,7 +31,7 @@ const noop = () => () => {};
 
 const effective = (s: PlaceState, def: ReadAccess) => (s.access === "inherit" ? def : s.access);
 
-/** A listing as the Visibility control names it. */
+/** A stored listing as the place settings name it. */
 const REACH_OF = { unlisted: "unlisted", listed: "public", discover: "discover" } as const;
 
 /**
@@ -86,14 +85,14 @@ export function ManageDialog({
   // One place open at a time, starting with the first.
   const [openPlace, setOpenPlace] = useState<string | null>(g.inGraph ? "graph" : (data.entries[0]?.entryId ?? null));
   const toggle = (id: string) => setOpenPlace((cur) => (cur === id ? null : id));
-  // Discoverable pages are always searchable, so the search switch is locked on.
+  // Pages on Discover are always searchable, so the search switch is locked on.
   const onDiscover =
     (g.inGraph && gListing === "discover") ||
     data.entries.some((e) => e.state.listing === "discover" && effective(e.state, e.container.defaultAccess) === "open");
   // Hiding it from the graph would leave it shown nowhere.
   const hideBlocked = g.inGraph ? hideFromGraphBlocked(data.entries.length) : undefined;
   const encryptionPanel = data.canManagePage ? <EncryptionSection data={data} onChanged={refresh} compact /> : null;
-  // Page-wide, so every place shows the same switch under its Visibility control, saying whether
+  // Page-wide, so every place shows the same switch under Public, saying whether
   // search reaches the page through that place.
   const searchPanel = (access: ReadAccess, listing: EntryListing, container: ContainerDefaults) =>
     data.canManagePage ? (
@@ -158,7 +157,7 @@ export function ManageDialog({
         )}
 
         <section className="flex flex-col gap-2">
-          <h3 className="font-medium">Sharing</h3>
+          <h3 className="font-medium">Where it&apos;s published</h3>
           <ul className="divide-y rounded-sm border">
             <PlaceRow
               kind="graph"
@@ -172,26 +171,37 @@ export function ManageDialog({
               open={openPlace === "graph"}
               onToggle={() => toggle("graph")}
               action={
-                data.canManagePage && (
-                  <Switch
-                    aria-label="Show in graph"
-                    title={
-                      hideBlocked
-                        ? `It's only shown in ${data.origin.graphName}. ${hideBlocked}`
-                        : g.inGraph
-                          ? `Shown in ${data.origin.graphName}`
-                          : `Not shown in ${data.origin.graphName}`
-                    }
-                    checked={g.inGraph}
+                data.canManagePage &&
+                (g.inGraph ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Remove from ${data.origin.graphName}`}
+                    title={hideBlocked ? `It's only shown in ${data.origin.graphName}. ${hideBlocked}` : `Remove from ${data.origin.graphName}`}
+                    className="text-muted-foreground"
                     disabled={pending || !!hideBlocked}
-                    onCheckedChange={(inGraph) => run((currentPassword) => updateGraphPlace(data.publicationId, { inGraph, currentPassword }))}
-                  />
-                )
+                    onClick={() => {
+                      if (!confirm(`Remove it from ${data.origin.graphName}? Its link there stops working until you add it back. It stays in its collections.`)) return;
+                      run((currentPassword) => updateGraphPlace(data.publicationId, { inGraph: false, currentPassword }));
+                    }}
+                  >
+                    <XIcon />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() => run((currentPassword) => updateGraphPlace(data.publicationId, { inGraph: true, currentPassword }))}
+                  >
+                    <PlusIcon /> Add back
+                  </Button>
+                ))
               }
             >
               {data.canManagePage && hideBlocked && (
                 <p className="text-xs text-muted-foreground">
-                  It&apos;s only shown here, so it can&apos;t be hidden from {data.origin.graphName}. {hideBlocked}
+                  It&apos;s only published here, so it can&apos;t be removed from {data.origin.graphName}. {hideBlocked}
                 </p>
               )}
               {data.canManagePage && g.inGraph ? (
@@ -392,7 +402,7 @@ function PlaceRow({
   );
 }
 
-/** "Password · Listed", each with its Access or Visibility control icon; "Listed (Not Searchable)" out of search. */
+/** "Public", "Unlisted", "Password · title shown", with its icon; "Public (Not Searchable)" out of search. */
 function AccessWords({
   access,
   listing,
@@ -404,26 +414,23 @@ function AccessWords({
   searchable: boolean;
   encrypted?: boolean;
 }) {
-  const reach = REACH_OF[listing];
-  const ReachIcon = ICONS[reach];
-  const OpenIcon = READ_ICONS.open;
+  const rung = rungOf(access, listing);
+  const Icon = rung === "password" && encrypted ? PRIVACY_ICONS.encrypted : RUNG_ICONS[rung];
   return (
     <>
-      {access === "open" ? (
-        <OpenIcon aria-hidden className="size-3 shrink-0" />
-      ) : (
-        <AccessIcon access={access} encrypted={encrypted} className="size-3 shrink-0" />
+      <Icon aria-hidden className="size-3 shrink-0" />
+      {rung === "password" && encrypted ? "Encrypted" : RUNG_LABELS[rung]}
+      {rung === "public" && notSearchable(true, searchable)}
+      {access !== "open" && listing !== "unlisted" && (
+        <>
+          <span aria-hidden>·</span> title shown
+        </>
       )}
-      {encrypted && access === "password" ? "Encrypted" : READ_LABELS[access]}
-      <span aria-hidden>·</span>
-      <ReachIcon aria-hidden className="size-3 shrink-0" />
-      {LABELS[reach]}
-      {notSearchable(listing === "listed", searchable)}
     </>
   );
 }
 
-/** Under Access control while a place uses Password: which password, then encryption. */
+/** Under Password while a place uses it: which password, then encryption. */
 function PasswordPanel({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-col gap-3 rounded-sm bg-muted/50 p-3 [&>*+*]:border-t [&>*+*]:pt-3">{children}</div>;
 }
@@ -434,11 +441,11 @@ function searchSkipped(access: ReadAccess, listing: EntryListing, container: Con
   if (access === "password") return "it's password protected here";
   if (access === "members") return "only members can read it here";
   if (container.searchBlocked) return container.searchBlocked;
-  if (listing === "listed" && !container.searchListed) return `${container.label} keeps its Listed pages out of search`;
+  if (listing === "listed" && !container.searchListed) return `${container.label} keeps its Public pages out of search`;
 }
 
 /**
- * "Show in roam.pub search", under Visibility control. Discoverable pages are always searchable, so
+ * "Show in roam.pub search", under Public. Pages on Discover are always searchable, so
  * it's locked on. The setting is page-wide, but where search can't reach the page (say, it's password
  * protected here) the switch shows off and disabled, and says why.
  */
@@ -475,9 +482,9 @@ function SearchToggle({
           {skipped
             ? `Not in roam.pub/search from ${place}: ${skipped}.`
             : !on
-              ? "Kept out of roam.pub/search. It's still Listed."
+              ? "Kept out of roam.pub/search. It's still listed."
               : locked
-                ? "Discoverable pages are always searchable."
+                ? "Pages on Discover are always searchable."
                 : `People can find this page from roam.pub/search, through ${place}.`}
         </span>
       </div>

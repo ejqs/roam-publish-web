@@ -9,21 +9,28 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "cn";
 
-/** Where pages are listed. Each level is a step darker in light mode and lighter in dark. */
-export type Level = "unlisted" | "listed" | "discover" | "removed";
+/** Who can see pages, as the ladder names it. The open rungs are blues, a step darker per rung. */
+export type Level = "discover" | "listed" | "unlisted" | "password" | "members" | "removed";
 
 const LEVEL_FILL: Record<Level, string> = {
-  unlisted: "bg-[#c5cbd3] dark:bg-[#5f6b7c]",
-  listed: "bg-[#8abbff] dark:bg-[#215db0]",
   discover: "bg-[#215db0] dark:bg-[#8abbff]",
+  listed: "bg-[#8abbff] dark:bg-[#215db0]",
+  unlisted: "bg-[#c5cbd3] dark:bg-[#5f6b7c]",
+  password: "bg-[#fbd065] dark:bg-[#c87619]",
+  members: "bg-[#d69fd6] dark:bg-[#9d3f9d]",
   removed: "bg-destructive",
 };
 const LEVEL_LABELS: Record<Level, string> = {
+  discover: "Discover",
+  listed: "Public",
   unlisted: "Unlisted",
-  listed: "Listed",
-  discover: "Discoverable",
+  password: "Password",
+  members: "Members",
   removed: "Removed",
 };
+
+/** The ladder's levels, for the legend. */
+export const RUNG_LEVELS: Level[] = ["discover", "listed", "unlisted", "password", "members"];
 
 export type Segment = { level: Level; n: number; href?: string; title?: string; suffix?: string };
 
@@ -50,7 +57,7 @@ const menuItem = "rounded-md px-2 py-1.5 text-sm hover:bg-muted";
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-/** A thin bar split by listing level, with the non-zero counts under it. */
+/** A thin bar split by who can see the pages, with the non-zero counts under it. */
 function VisibilityBar({ total, segments }: { total: number; segments: Segment[] }) {
   const shown = segments.filter((s) => s.n > 0);
   if (!total || !shown.length) return <span className="text-muted-foreground/50">–</span>;
@@ -86,7 +93,7 @@ function VisibilityBar({ total, segments }: { total: number; segments: Segment[]
 }
 
 /** The colour key for the bars, shown under a section title. */
-export function LevelLegend({ levels = ["unlisted", "listed", "discover"] }: { levels?: Level[] }) {
+export function LevelLegend({ levels = RUNG_LEVELS }: { levels?: Level[] }) {
   return (
     <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-muted-foreground">
       {levels.map((l) => (

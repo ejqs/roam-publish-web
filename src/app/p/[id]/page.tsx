@@ -94,7 +94,7 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
                 where: `Graph · ${g.name}`,
                 url: publicationUrl(g.name, pub.rootUid, pub.title),
                 listing:
-                  (pub.visibility === "unlisted" ? "Unlisted" : pub.discoverable ? "Discoverable" : "Listed") +
+                  (pub.visibility === "unlisted" ? LISTING_LABELS.unlisted : pub.discoverable ? LISTING_LABELS.discover : LISTING_LABELS.listed) +
                   notSearchable(pub.visibility === "public" && !pub.discoverable, pub.searchable),
                 access: ACCESS_LABELS[effectiveAccess({ ...g, kind: "graph" }, pub)],
                 manage: canManage(role, uid, pub) ? `${graphPagesPath(g.name)}#pub-${pub.id}` : null,

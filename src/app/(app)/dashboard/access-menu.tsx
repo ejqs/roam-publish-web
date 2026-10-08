@@ -13,9 +13,8 @@ import {
   LABELS,
   type MenuTarget,
   type PlaceSettingsProps,
-  READ_ICONS,
-  READ_LABELS,
-  reachLabel,
+  RUNG_ICONS,
+  rungLabel,
   usePlaceSettings,
 } from "@/components/manage/place-settings";
 
@@ -24,16 +23,14 @@ export { ICONS, LABELS, type MenuTarget };
 export type Option<T> = { value: T; label: string; description?: string; disabled?: string; icon?: ComponentType<LucideProps> };
 
 /**
- * One place's settings behind a button, for dashboard rows. The button says who can read it and
- * where it's listed ("Password · Listed"); the popover holds the same controls as the Manage dialog
- * and stays open while you change them.
+ * One place's settings behind a button, for dashboard rows. The button says who can see it
+ * ("Public", "Password · title shown"); the popover holds the same ladder as the Manage dialog and
+ * stays open while you change it.
  */
 export function AccessMenu(props: PlaceSettingsProps) {
   const s = usePlaceSettings(props);
   const [open, setOpen] = useState(false);
-  const ReadIcon = s.encrypted ? PRIVACY_ICONS.encrypted : READ_ICONS[s.read];
-  const ReachIcon = ICONS[s.reach];
-  const readLabel = s.encrypted ? "Encrypted" : READ_LABELS[s.read];
+  const RungIcon = s.rung === "password" && s.encrypted ? PRIVACY_ICONS.encrypted : RUNG_ICONS[s.rung];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -42,12 +39,12 @@ export function AccessMenu(props: PlaceSettingsProps) {
           <Button
             variant="outline"
             size="sm"
-            title={s.paused ? `Not shown on Discover: ${s.blocked}` : !s.searchable && s.reach === "public" ? "Not in roam.pub search" : undefined}
+            title={s.paused ? `Not shown on Discover: ${s.blocked}` : !s.searchable && s.rung === "public" ? "Not in roam.pub search" : undefined}
             className={cn("max-w-full gap-1.5", s.paused && "text-muted-foreground")}
           >
-            <ReadIcon />
+            <RungIcon />
             <span className="truncate">
-              {readLabel} · <ReachIcon className="inline align-[-2px]" /> {reachLabel(s)}
+              {rungLabel(s)}
               {s.paused && " (paused)"}
             </span>
             <ChevronDownIcon className="opacity-60" />
