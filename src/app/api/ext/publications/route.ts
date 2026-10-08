@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { collectionEntry, graph, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
+import { foldedUids } from "@/lib/folds";
 import { emptyTree, encryptNewPageIfWanted, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
 import { indexFields } from "@/lib/tags";
@@ -107,6 +108,8 @@ export const GET = withRoute("GET /api/ext/publications", async (req: Request) =
       anchorUid: links.get(p.rootUid)?.anchorUid ?? null,
       places: (p.inGraph ? 1 : 0) + (inCollections.get(p.id) ?? 0),
       contentHash: plainHash(p),
+      // Which blocks are collapsed on the website, for "Republish, keep open/collapsed".
+      folded: p.folded,
       visibility: p.visibility,
       ...extListing(g, p),
       encrypted: p.encrypted,
@@ -195,6 +198,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
                 title,
                 // Website tag edits survive republishing.
                 ...content,
+                folded: foldedUids(tree),
                 kind: p.kind,
                 updatedAt: new Date(),
                 ...(p.author !== undefined && { authorName }),
@@ -228,6 +232,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
       kind: p.kind,
       title,
       tree,
+      folded: foldedUids(tree),
       ...indexFields(tree),
       contentHash: hash,
       publishedBy: ctx.userId,

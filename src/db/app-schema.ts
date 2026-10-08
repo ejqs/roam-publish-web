@@ -182,6 +182,11 @@ export const publication = pgTable(
     discoverable: boolean("discoverable").notNull().default(false),
     title: text("title").notNull(),
     tree: jsonb("tree").$type<Node>().notNull(),
+    /**
+     * Uids of the blocks published collapsed, in tree order, so the extension knows them on any
+     * computer. Kept beside the tree (uids only) so encrypted pages have it too.
+     */
+    folded: text("folded").array().notNull().default(sql`'{}'::text[]`),
     contentHash: text("content_hash").notNull(),
     /** Set by a moderator: hidden from the public and locked against republishing. */
     removedAt: timestamp("removed_at", { withTimezone: true }),

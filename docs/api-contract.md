@@ -83,7 +83,9 @@ dashboard (add the blocks back by republishing, or ignore it). Publishing with `
 reports matching the stored `anchorUid` count. Rate-limited per key.
 
 ### `GET /api/ext/publications`
-→ `200 { changeLog, publications: [{ rootUid, kind, title, url, shortUrl, anchorUid, contentHash, visibility, removed, mine, updatedAt }] }` for the key's graph.
+→ `200 { changeLog, publications: [{ rootUid, kind, title, url, shortUrl, anchorUid, contentHash, visibility, removed, mine, updatedAt }] }` for the key's graph. `folded` lists the uids of the
+blocks published collapsed, in tree order, so the extension can republish keeping them ("Republish, keep
+open/collapsed") from any computer.
 `shortUrl` and `anchorUid` are null for pages that don't have them yet.
 `mine` is true for pages this key can change (all of them for the owner, the ones they published for a member).
 `url` is the page's graph URL, or its first collection URL when it isn't shown in the graph.

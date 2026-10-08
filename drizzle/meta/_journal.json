@@ -274,6 +274,13 @@
       "when": 1791342115361,
       "tag": "0038_front_page_folders",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1791426731339,
+      "tag": "0039_publication_folded",
+      "breakpoints": true
     }
   ]
 }

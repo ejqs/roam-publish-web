@@ -39,6 +39,10 @@ describe("collapsed blocks", () => {
     expect((await publish(ownerKey, p)).status).toBe(200);
     const [row] = await db.select().from(publication).where(eq(publication.rootUid, "rootcoll1"));
     expect(row.tree.children[0].collapsed).toBe(true);
+    expect(row.folded).toEqual(["b1"]);
+    // Every computer's extension gets them back with the list.
+    const list = await (await GET(extRequest("/api/ext/publications", ownerKey))).json();
+    expect(list.publications.find((x: { rootUid: string }) => x.rootUid === "rootcoll1").folded).toEqual(["b1"]);
     // The server hashes what it keeps; dropping the field would make this a mismatch.
     expect(p.contentHash).not.toBe(payload({ rootUid: "rootcoll1", tree: { ...tree, children: [{ ...tree.children[0], collapsed: undefined }] } }).contentHash);
   });
