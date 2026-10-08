@@ -7,6 +7,7 @@ import { CopyButton } from "@/components/copy-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RUNG_LEVELS } from "@/components/manage/labels";
 import { cn } from "cn";
 
 /** Who can see pages, as the ladder names it. The open rungs are blues, a step darker per rung. */
@@ -28,9 +29,6 @@ const LEVEL_LABELS: Record<Level, string> = {
   members: "Members",
   removed: "Removed",
 };
-
-/** The ladder's levels, for the legend. */
-export const RUNG_LEVELS: Level[] = ["discover", "listed", "unlisted", "password", "members"];
 
 export type Segment = { level: Level; n: number; href?: string; title?: string; suffix?: string };
 
@@ -56,6 +54,9 @@ export type ResourceItem = {
 const menuItem = "rounded-md px-2 py-1.5 text-sm hover:bg-muted";
 
 const fmt = (n: number) => n.toLocaleString("en-US");
+/** How a count reads under the bar: "3 public", "1 members only". */
+const countText = (s: Segment) =>
+  `${fmt(s.n)} ${s.level === "members" ? "members only" : LEVEL_LABELS[s.level].toLowerCase()}`;
 
 /** A thin bar split by who can see the pages, with the non-zero counts under it. */
 function VisibilityBar({ total, segments }: { total: number; segments: Segment[] }) {
@@ -66,7 +67,7 @@ function VisibilityBar({ total, segments }: { total: number; segments: Segment[]
     <div className="flex flex-col gap-1.5">
       <div
         role="img"
-        aria-label={shown.map((s) => `${fmt(s.n)} ${LEVEL_LABELS[s.level].toLowerCase()}`).join(", ")}
+        aria-label={shown.map(countText).join(", ")}
         className="flex h-1.5 overflow-hidden rounded-[1px] bg-muted"
       >
         {shown.map((s) => (
@@ -75,7 +76,7 @@ function VisibilityBar({ total, segments }: { total: number; segments: Segment[]
       </div>
       <div className="flex flex-wrap gap-x-5 gap-y-0.5 text-xs text-muted-foreground">
         {shown.map((s) => {
-          const text = `${fmt(s.n)} ${LEVEL_LABELS[s.level].toLowerCase()}${s.suffix ?? ""}`;
+          const text = `${countText(s)}${s.suffix ?? ""}`;
           const cls = s.level === "removed" ? "text-destructive" : "text-link";
           return s.href ? (
             <Link key={s.level} href={s.href} title={s.title} className={cn(cls, "hover:underline")}>
@@ -93,7 +94,7 @@ function VisibilityBar({ total, segments }: { total: number; segments: Segment[]
 }
 
 /** The colour key for the bars, shown under a section title. */
-export function LevelLegend({ levels = RUNG_LEVELS }: { levels?: Level[] }) {
+export function LevelLegend({ levels = [...RUNG_LEVELS] }: { levels?: Level[] }) {
   return (
     <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-muted-foreground">
       {levels.map((l) => (

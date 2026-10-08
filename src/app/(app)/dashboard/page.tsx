@@ -23,6 +23,7 @@ import { AttentionBanners, attentionItems } from "./attention-banners";
 import { ChangeLogIssues } from "./change-log-issues";
 import { DashboardShell } from "./dashboard-shell";
 import { missingChangeLogBlocks } from "@/lib/changelog";
+import { RUNG_LEVELS } from "@/components/manage/labels";
 import { AddCollectionDialog } from "./collections/create-form";
 import {
   type AccessCounts,
@@ -34,7 +35,7 @@ import {
   graphPagesPath,
 } from "@/lib/dashboard-filters";
 import { ProfileCard } from "./profile-card";
-import { LevelLegend, RUNG_LEVELS, type ResourceItem, ResourceList } from "./resource-list";
+import { LevelLegend, type ResourceItem, ResourceList } from "./resource-list";
 
 const EMPTY: AccessCounts = { discover: 0, public: 0, unlisted: 0, password: 0, members: 0, removed: 0 };
 const EMPTY_ENTRIES: EntryCounts = { discover: 0, listed: 0, unlisted: 0, password: 0, members: 0, removed: 0 };

@@ -75,3 +75,6 @@ export function readOptions(
     },
   ];
 }
+
+/** The ladder's steps as the dashboard counts them, top first ("listed" is Public). */
+export const RUNG_LEVELS = ["discover", "listed", "unlisted", "password", "members"] as const;
