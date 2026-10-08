@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Node } from "@/db/app-schema";
+import { headingId } from "@/lib/headings";
 import { cn } from "@/lib/utils";
 import { CollapsibleRow } from "./collapsible-row";
 import { blockComponent, isOnlyComponent, isOnlyComponents, type PageLinks, RoamText } from "./markup";
@@ -150,6 +151,7 @@ function Block({
   n,
   aside,
   asides,
+  anchors,
 }: {
   node: Node;
   links: PageLinks;
@@ -157,6 +159,7 @@ function Block({
   n: number;
   aside?: ReactNode;
   asides?: Record<string, ReactNode>;
+  anchors?: boolean;
 }) {
   const kind = blockComponent(node.string);
   // Tables and kanban boards are drawn from the block's children; a diagram's children are its source.
@@ -174,8 +177,10 @@ function Block({
     (embeds.length > 1 && isOnlyComponents(node.string))
   );
   const nested = !kind && node.children.length > 0 && (
-    <BlockList nodes={node.children} links={links} viewType={node.viewType ?? viewType} asides={asides} nested />
+    <BlockList nodes={node.children} links={links} viewType={node.viewType ?? viewType} asides={asides} anchors={anchors} nested />
   );
+  // Headings are linked from the page outline (lib/headings.ts).
+  const id = anchors && node.heading ? headingId(node.uid) : undefined;
   const row = (
     <>
       <Marker node={node} viewType={viewType} n={n} />
@@ -200,11 +205,16 @@ function Block({
     </>
   );
   return nested ? (
-    <CollapsibleRow className={rowClass} caretClassName={node.heading && caretTop[node.heading]} nested={nested}>
+    <CollapsibleRow id={id} className={cn(rowClass, id && "scroll-mt-6")} caretClassName={node.heading && caretTop[node.heading]}
+      nested={nested}
+      foldableChildren={node.children.some((c) => c.children.length > 0 && !blockComponent(c.string))}
+    >
       {row}
     </CollapsibleRow>
   ) : (
-    <li className={rowClass}>{row}</li>
+    <li id={id} className={cn(rowClass, id && "scroll-mt-6")}>
+      {row}
+    </li>
   );
 }
 
@@ -214,6 +224,7 @@ export function BlockList({
   nested,
   viewType,
   asides,
+  anchors,
 }: {
   nodes: Node[];
   links: PageLinks;
@@ -221,6 +232,8 @@ export function BlockList({
   viewType?: ViewType;
   /** Inline content for blocks containing {@link ASIDE_MARK}, keyed by block uid. */
   asides?: Record<string, ReactNode>;
+  /** Give heading blocks ids for the page outline; off inside embeds, which can repeat blocks. */
+  anchors?: boolean;
 }) {
   const List = viewType === "numbered" ? "ol" : "ul";
   return (
@@ -228,7 +241,7 @@ export function BlockList({
       className={cn("flex flex-col", nested && childrenClass, nested && viewType === "document" && "border-transparent")}
     >
       {nodes.map((n, i) => (
-        <Block key={n.uid} node={n} links={links} viewType={viewType} n={i + 1} aside={asides?.[n.uid]} asides={asides} />
+        <Block key={n.uid} node={n} links={links} viewType={viewType} n={i + 1} aside={asides?.[n.uid]} asides={asides} anchors={anchors} />
       ))}
     </List>
   );

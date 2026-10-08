@@ -1,0 +1,86 @@
+"use client";
+
+import { ChevronRightIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { Heading } from "@/lib/headings";
+import { cn } from "@/lib/utils";
+
+const indent = { 1: "pl-2", 2: "pl-5", 3: "pl-8" } as const;
+
+function Links({ headings, active }: { headings: Heading[]; active?: string }) {
+  // Indent relative to the page's biggest heading, so a page of only h2s isn't pushed in.
+  const top = Math.min(...headings.map((h) => h.level));
+  return (
+    <ul className="flex flex-col gap-0.5 text-sm">
+      {headings.map((h) => (
+        <li key={h.id}>
+          <a
+            href={`#${h.id}`}
+            aria-current={h.id === active ? "location" : undefined}
+            className={cn(
+              "block rounded-sm border-l-2 border-transparent py-1 pr-2 leading-snug text-muted-foreground hover:bg-muted hover:text-foreground",
+              indent[(h.level - top + 1) as 1 | 2 | 3],
+              h.id === active && "border-primary font-medium text-foreground",
+            )}
+          >
+            <span className="line-clamp-2">{h.text}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The heading last scrolled past the top of the window, for highlighting in the outline. */
+function useActiveHeading(headings: Heading[]) {
+  const [active, setActive] = useState<string>();
+  useEffect(() => {
+    const update = () => {
+      let current: string | undefined;
+      for (const h of headings) {
+        const el = document.getElementById(h.id);
+        // Folded-away headings have no box; skip them.
+        if (!el || !el.offsetParent) continue;
+        if (el.getBoundingClientRect().top > 96) break;
+        current = h.id;
+      }
+      setActive(current ?? headings[0]?.id);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [headings]);
+  return active;
+}
+
+/** The page's headings beside it on wide screens, following the reader down the page. */
+export function PageOutlineAside({ headings, className }: { headings: Heading[]; className?: string }) {
+  const active = useActiveHeading(headings);
+  return (
+    <nav aria-label="Outline" className={className}>
+      <div className="sticky top-16 max-h-[calc(100vh-8rem)] overflow-y-auto">
+        <p className="mb-2 px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">On this page</p>
+        <Links headings={headings} active={active} />
+      </div>
+    </nav>
+  );
+}
+
+/** The same outline, folded above the page on narrow screens. */
+export function PageOutlineDetails({ headings, className }: { headings: Heading[]; className?: string }) {
+  return (
+    <details className={cn("group rounded-sm border border-border", className)}>
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
+        On this page
+      </summary>
+      <nav aria-label="Outline" className="px-1 pb-2">
+        <Links headings={headings} />
+      </nav>
+    </details>
+  );
+}
