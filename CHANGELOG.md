@@ -5,6 +5,13 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.13.1 (2026-10-08)
+
+### Published pages
+- Improved: **Numbered lists zoom too.** Click an item's number to zoom into it, the same as a bullet.
+- Improved: **One trail when zoomed in.** The page's trail and the blocks above the one you zoomed into now read as
+  a single row, so you can step back to any level, or to the whole page, in one click.
+
 ## 0.13.0 (2026-10-08)
 
 ### Published pages
