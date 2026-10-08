@@ -302,6 +302,13 @@
       "when": 1791469919542,
       "tag": "0042_encryption_version",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791472226063,
+      "tag": "0043_ext_can_seal",
+      "breakpoints": true
     }
   ]
 }

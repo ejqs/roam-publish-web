@@ -89,6 +89,42 @@ revoke the old one in Roam (Settings → Graph → API tokens). An append-only t
 Changing the key without `tokens:rotate` doesn't break anything: tokens the server can no longer read are marked
 invalid the next time they're needed, and owners are asked for a new one.
 
+## Encrypted pages
+
+A page can be encrypted when every place it's shown is Password (`src/lib/encryption.ts`, rules in
+`src/lib/encryption-rules.ts`). Its tree is encrypted with a content key, and that key is sealed to each password's
+X25519 public key; each private key is stored wrapped under scrypt(password). Readers' browsers unlock with a proof
+derived from the password and decrypt the page themselves (`src/lib/reader-crypto.ts`, `src/server/actions/unlock.ts`),
+so rendering never decrypts on the server.
+
+- **v1** (`encryption_version` 1): the server encrypts a plain tree on arrival (`sealNewContent`). Extensions before
+  0.2.0, Roam without X25519, and the dashboard's encrypt switches make these.
+- **v2**: extension 0.2.0 asks `GET /api/ext/publications/:rootUid/seal` for the public keys, encrypts in Roam and
+  sends only the cipher and sealed keys (`src/lib/e2e-publish.ts`). The server never sees the text.
+
+`/privacy/encryption` and `/privacy/encryption/versions` explain both to readers; add a version there (and in
+`ENCRYPTION_VERSIONS`) whenever the format or who runs it changes. The extension's `src/seal.ts` must match
+`encryption.ts` and `reader-crypto.ts` byte for byte.
+
+## Extension versions
+
+The extension sends its version (`x-roam-publish-version`, from 0.2.0), recorded per person and graph in `ext_client`
+and shown at `/admin/extension`; the `extension-versions` job emails admins once everyone active in the last 30 days
+is on the version Roam Depot serves. Every `/api/ext` response names the oldest extension this site works with
+(`x-roam-publish-min-version`, `EXT_MIN_VERSION` in `src/lib/ext-compat.ts`), and older extensions from 0.2.0 ask
+people to update.
+
+`/api/ext` changes are additive; removing something older extensions rely on goes through `/updates/upcoming`
+(`src/lib/upcoming.ts`) and a major release (see `CLAUDE.md`, Extension compatibility). `bun run db:migrate`, the
+production pre-deploy step, runs `scripts/ext-gate.ts` first and fails the deploy while anyone active in the last 30
+days is on an extension older than `EXT_MIN_VERSION`. Elsewhere it only warns.
+
+## What's new
+
+`CHANGELOG.md` is what people see at `/updates`, next to the extension's changelog at the commit Roam Depot serves
+(`src/lib/whats-new.ts`). Every user-facing change adds a `Breaking:`, `New:`, `Improved:` or `Fixed:` bullet; tests
+and the Changelog check enforce the format and the version bump (see `CLAUDE.md`).
+
 ## Deletion
 
 Owners delete a graph in its settings, and themselves at the bottom of the dashboard. Deleting an account goes

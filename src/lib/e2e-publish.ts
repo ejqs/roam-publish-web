@@ -6,12 +6,12 @@ import { defaultCollectionsFor } from "./places";
 import { encryptBlocker, type LockRef, locksOf, lockKeyOf, type Spot, spotsOf, wantsEncryption } from "./encryption";
 
 /**
- * Publishing encrypted in Roam (extension 1.0.0 and later). Before sending a page, the extension asks
+ * Publishing encrypted in Roam (extension 0.2.0 and later). Before sending a page, the extension asks
  * `sealPlan` whether it's encrypted and which passwords' public keys to seal its content key to; it
  * encrypts the tree there and sends only the cipher and the sealed keys, so roam.pub never sees the
  * text. Older extensions still send the plain tree, which the server encrypts itself
- * (`sealNewContent`); that path goes once every extension in use is new enough (CLAUDE.md, Extension
- * compatibility).
+ * (`sealNewContent`), and so does 0.2.0 where Roam lacks X25519; that path goes once every extension in
+ * use is new enough and can encrypt (EXT_NEEDS_SEAL; CLAUDE.md, Extension compatibility).
  */
 
 /** A password to seal to, with its public key (SPKI DER, base64url); null when it has no key pair. */

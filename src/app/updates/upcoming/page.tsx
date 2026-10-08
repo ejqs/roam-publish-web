@@ -23,14 +23,15 @@ async function Readiness({ u, live }: { u: Upcoming; live: string | null }) {
         Extension {u.extension} isn&apos;t on Roam Depot yet. This won&apos;t happen until it is and everyone has updated.
       </p>
     );
-  const { ready, total } = await readyFor(u.extension);
+  const { ready, total } = await readyFor(u.extension, { seal: u.needsSeal });
   const pct = total ? Math.floor((ready / total) * 100) : 100;
+  const seal = u.needsSeal ? " where Roam can encrypt" : "";
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-sm text-muted-foreground">
         {ready === total
-          ? `Every extension in use is on ${u.extension} or newer, so this can happen with the next release.`
-          : `${pct}% of the extensions in use are on ${u.extension} or newer. It happens once they all are.`}
+          ? `Every extension in use is on ${u.extension} or newer${seal}, so this can happen with the next release.`
+          : `${pct}% of the extensions in use are on ${u.extension} or newer${seal}. It happens once they all are.`}
       </p>
       <div className="h-1.5 overflow-hidden rounded-sm bg-muted" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Extensions updated">
         <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
@@ -40,17 +41,18 @@ async function Readiness({ u, live }: { u: Upcoming; live: string | null }) {
 }
 
 /** For someone signed in: which of their graphs' extensions are ready. */
-function Yours({ u, installs }: { u: Upcoming; installs: { graph: string; version: string | null }[] }) {
+function Yours({ u, installs }: { u: Upcoming; installs: { graph: string; version: string | null; canSeal: boolean | null }[] }) {
   if (!installs.length) return null;
   return (
     <ul className="flex flex-col gap-1 text-sm">
       {installs.map((i) => {
-        const ok = extAtLeast(i.version, u.extension);
+        const updated = extAtLeast(i.version, u.extension);
+        const ok = updated && (!u.needsSeal || i.canSeal === true);
         return (
           <li key={i.graph} className="flex flex-wrap gap-x-2">
             <span className="font-medium">{i.graph}</span>
             <span className="text-muted-foreground">extension {i.version ?? "older than 0.2.0"}</span>
-            <span className={ok ? "text-chart-2" : "text-destructive"}>{ok ? "Ready" : "Needs an update"}</span>
+            <span className={ok ? "text-chart-2" : "text-destructive"}>{ok ? "Ready" : updated ? "Roam can't encrypt here: update Roam" : "Needs an update"}</span>
           </li>
         );
       })}

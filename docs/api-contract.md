@@ -55,6 +55,19 @@ type PublishPayload = {
   can't publish that graph's pages under this one's name. Requests without the header (older extensions) aren't
   checked.
 
+## Versions
+
+- From 0.2.0 the extension sends `x-roam-publish-version: <its package.json version>` and
+  `x-roam-publish-can-seal: 1 | 0` (whether Roam can encrypt pages there: WebCrypto X25519, which older desktop
+  apps lack). Older extensions send neither. roam.pub records both per person and graph (`ext_client`), for
+  `/admin/extension`, `/updates/upcoming` and the production deploy gate.
+- Every `/api/ext` response carries `x-roam-publish-min-version: <EXT_MIN_VERSION>`, the exact oldest extension
+  roam.pub works with. An older extension (0.2.0 and later) asks the person to update.
+- Changes are additive. roam.pub drops something only as its next major, raising `EXT_MIN_VERSION`, once everyone
+  active in the last 30 days is on a version that doesn't need it; `scripts/ext-gate.ts` fails a production deploy
+  otherwise. A release that refuses plain Password pages (`EXT_NEEDS_SEAL`) also waits until every one of them can
+  encrypt in Roam. Announced first at `/updates/upcoming`.
+
 ## Endpoints (base: server URL)
 
 All responses are JSON. Errors: `{ error: string }` with 4xx/5xx.
@@ -100,6 +113,31 @@ hash but a different `author` updates only the byline (`status: "updated"`); omi
 `400` invalid body, hash mismatch, or a tree nested more than 200 levels (children and embeds) · `401` bad key ·
 `403` removed by a moderator, or the page was published by another member · `413` payload too large (> 1 MB, in
 bytes).
+
+**Encrypted in Roam (extension 0.2.0 and later).** Before publishing, the extension asks
+`GET /api/ext/publications/:rootUid/seal` → `200 { encrypt: false }` or
+`{ encrypt: true, publicationId, locks: [{ scope: "graph" | "collection", id, publicKey | null }] }`. `publicationId` is
+the page's id (a fresh UUID for a new page); `publicKey` is each password's X25519 public key (SPKI DER, base64url),
+null for a password set before key pairs existed. When `encrypt` is true and Roam can encrypt, it sends instead:
+
+```ts
+type SealedPayload = Omit<PublishPayload, "tree"> & {
+  folded: string[]; // uids of blocks published collapsed
+  contentHash: string; // "k1." + hex(HMAC-SHA256(per-graph "hash-key" setting, plain contentHash))
+  sealed: {
+    publicationId: string;
+    cipher: string; // AES-256-GCM of the tree with a new content key, AAD "tree:<publicationId>": "v1.iv.tag.body" (base64url)
+    keys: { scope; id; publicKey; sealedKey }[]; // content key sealed to each publicKey: ephemeral X25519, HKDF-SHA256 (salt = ephemeral SPKI, info "roam-publish:content-key"), AES-GCM with AAD "content-key": "v1.ephPub.iv.tag.body"
+  };
+};
+```
+
+roam.pub can't check the keyed hash, so it stores it as given; the publication list returns it for the extension to
+compare. If the places or passwords changed since the plan (keys not exactly the plan's locks with a public key, or
+another page's id), it answers `409 { error, reseal: true }` and changes nothing; the extension asks again and retries
+once. Locks without a public key mark the page Needs republish there. Without X25519, or for an `encrypt: false`
+page, it sends `PublishPayload` as before, and roam.pub encrypts it on arrival when the page is encrypted
+(encryption v1).
 
 ### `PATCH /api/ext/publications/:rootUid`
 Body `{ listing: "unlisted" | "listed" | "discover" }` (older extensions: `{ visibility: "public" | "unlisted" }`)
@@ -147,7 +185,7 @@ Moderators can remove a page, suspend a graph, or ban an account. The extension 
 
 ## CORS
 
-Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. Allowed headers: `content-type, x-api-key, x-roam-graph`. Methods: `GET, POST, PATCH, DELETE, OPTIONS`.
+Allowed origins: `https://roamresearch.com`, plus `http://localhost:*` in dev. Allowed headers: `content-type, x-api-key, x-roam-graph, x-roam-publish-version, x-roam-publish-can-seal`. Exposed headers: `x-roam-publish-min-version`. Methods: `GET, POST, PATCH, DELETE, OPTIONS`.
 
 ## Graph verification
 

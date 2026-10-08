@@ -128,6 +128,8 @@ export const extClient = pgTable(
       .notNull()
       .references(() => graph.id, { onDelete: "cascade" }),
     version: text("version"),
+    /** Whether Roam can encrypt pages there (EXT_CAN_SEAL_HEADER); null when the extension didn't say. */
+    canSeal: boolean("can_seal"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.graphId] }), index("ext_client_last_seen_idx").on(t.lastSeenAt)],

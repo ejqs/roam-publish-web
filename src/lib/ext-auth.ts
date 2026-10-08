@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { graph, graphMember, publication, user } from "@/db/schema";
 import { auth } from "./auth";
 import { json } from "./cors";
-import { extVersionOf, recordExtClient } from "./ext-version";
+import { canSealOf, extVersionOf, recordExtClient } from "./ext-version";
 import type { GraphRole } from "./graph-access";
 import { keyGraphId } from "./keys";
 
@@ -72,7 +72,7 @@ export async function requireExtKey(req: Request): Promise<ExtContext | Response
   const inGraph = req.headers.get("x-roam-graph");
   if (inGraph !== null && inGraph !== row.g.name) return wrongGraphResponse(req, row.g.name, inGraph);
   const extVersion = extVersionOf(req);
-  after(() => recordExtClient(holderId, row.g.id, extVersion).catch((e) => console.error("Couldn't record the extension version", e)));
+  after(() => recordExtClient(holderId, row.g.id, extVersion, canSealOf(req)).catch((e) => console.error("Couldn't record the extension version", e)));
   return { userId: holderId, ownerId: row.g.userId, role, graphId: row.g.id, graphName: row.g.name, extVersion };
 }
 
