@@ -5,6 +5,7 @@ import { ENTRY_LISTING, graph, publication } from "@/db/schema";
 import { logChange } from "@/lib/changelog";
 import { dropOrphanLockKeys } from "@/lib/encryption";
 import { json, preflight } from "@/lib/cors";
+import { graphListingBlocked } from "@/lib/control-rules";
 import { extListing, LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
 import { ownPage, requireExtKey } from "@/lib/ext-auth";
 import { primaryUrls } from "@/lib/places";
@@ -46,6 +47,9 @@ export const PATCH = withRoute("PATCH /api/ext/publications/[rootUid]", async (
   if (!parsed.success) return json(req, { error: "Invalid listing" }, 400);
   const pub = await ownPage(req, ctx, (await params).rootUid);
   if (pub instanceof Response) return pub;
+  // Older extensions offer Make listed for pages that are only in collections.
+  const noPlace = graphListingBlocked(pub.inGraph);
+  if (noPlace) return json(req, { error: noPlace }, 409);
   const g = (await db.query.graph.findFirst({ where: eq(graph.id, ctx.graphId) }))!;
   let set: Partial<typeof publication.$inferInsert>;
   let changed: string | undefined;

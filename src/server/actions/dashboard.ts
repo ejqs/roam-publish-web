@@ -16,7 +16,7 @@ import { clearGatedGraphDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { graphUnderModeration, purgeGraph } from "@/lib/deletion";
 import { canEncryptWith, dropLock, dropOrphanLockKeys, KeysError, setLockPassword } from "@/lib/encryption";
-import { encryptNewPagesBlocked, saveContainerAccessBlocked } from "@/lib/control-rules";
+import { encryptNewPagesBlocked, graphListingBlocked, saveContainerAccessBlocked } from "@/lib/control-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
@@ -70,6 +70,8 @@ export async function setAccess(publicationId: string, access: Access): Promise<
       .where(eq(publication.id, publicationId))
       .limit(1);
     if (!row) return { ok: false, message: "You can't change this page." };
+    const noPlace = graphListingBlocked(row.pub.inGraph);
+    if (noPlace) return { ok: false, message: noPlace };
     if (listing === "discover") {
       // Password-protected and members-only pages never go on Discover.
       const blocked = pageDiscoverBlocked(row.g, row.pub);

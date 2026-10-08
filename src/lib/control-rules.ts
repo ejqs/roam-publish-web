@@ -48,6 +48,14 @@ export function hideFromGraphBlocked(collections: number) {
   if (collections === 0) return "Add it to a collection first, or unpublish it instead.";
 }
 
+/**
+ * Unlisted, Listed or Discoverable for a page's graph place: a page that's only in collections has
+ * none, so it's listed in each collection instead.
+ */
+export function graphListingBlocked(inGraph: boolean) {
+  if (!inGraph) return "This page is only in collections, so it's listed, or not, in each collection on roam.pub.";
+}
+
 /** Set or Change on a page's own password in one place. */
 export function setPlacePasswordBlocked(password: string, encrypted: boolean) {
   if (!password) return "Enter a password.";
