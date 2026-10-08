@@ -158,13 +158,13 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
       value: "unlisted",
       label: LABELS.unlisted,
       icon: ICONS.unlisted,
-      description: "Only people with the link can find them.",
+      description: "Only people with the link can find them. [[Links]] to them show as plain text.",
     },
     {
       value: "public",
       label: LABELS.public,
       icon: ICONS.public,
-      description: kind === "graph" ? "Listed on your front page." : `Listed on ${name}'s page.`,
+      description: `${kind === "graph" ? "Listed on your front page." : `Listed on ${name}'s page.`} [[Links]] to them work.`,
     },
     {
       value: "discover",
