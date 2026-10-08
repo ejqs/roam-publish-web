@@ -92,14 +92,14 @@ export async function setAccess(publicationId: string, access: Access): Promise<
   });
 }
 
-/** Whether a page shows up in roam.pub site search where it's Listed. Discoverable places always do. */
+/** Whether a page shows up in roam.pub site search where it's Public. Places on Discover always do. */
 export async function setPageSearchable(publicationId: string, searchable: boolean): Promise<NonNullable<FormState>> {
   return withAction("dashboard.setPageSearchable", async () => {
     const session = await getSession();
     if (!session) return { ok: false, message: "Your session expired. Please log in again." };
-    // Discoverable pages are always searchable, so the switch is locked on.
+    // Pages on Discover are always searchable, so the switch is locked on.
     if (!searchable && (await onDiscoverAnywhere(publicationId)))
-      return { ok: false, message: "Discoverable pages are always searchable. Make it Listed first." };
+      return { ok: false, message: "Pages on Discover are always searchable. Make it Public first." };
     const [changed] = await db
       .update(publication)
       .set({ searchable: !!searchable })
@@ -251,13 +251,7 @@ export async function updateGraphSettings(graphId: string, input: Partial<GraphS
 const GraphAccess = z.object({
   indexAccess: z.enum(ACCESS),
   defaultAccess: z.enum(ACCESS),
-  showAuthors: z.boolean(),
-  views: z.enum(VIEWS_MODE),
-  showViewCountries: z.boolean(),
-  newPagesInGraph: z.boolean(),
   encryptNewPages: z.boolean(),
-  /** Collections new pages join; only ones the owner belongs to are kept. */
-  defaultCollections: z.array(z.string()).max(50),
   /** A new graph password, or "" to keep the current one. */
   password: z.union([z.literal(""), Password]),
   clearPassword: z.boolean(),
@@ -268,10 +262,7 @@ const GraphAccess = z.object({
 });
 export type GraphAccess = z.input<typeof GraphAccess>;
 
-/**
- * Who can open the front page, what pages use unless they set their own access, bylines, and where
- * new pages from the extension go. Owner only.
- */
+/** Who can open the front page, what new pages start as, and the graph password. Owner only. */
 export async function updateGraphAccess(graphId: string, input: GraphAccess): Promise<FormState> {
   return withAction("dashboard.updateGraphAccess", async () => {
     const session = await getSession();
@@ -297,10 +288,6 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
     )
       return { ok: false, message: "Too many changes. Try again in a few minutes." };
 
-    const keep: string[] = [];
-    for (const id of new Set(s.defaultCollections))
-      if (await collectionRole(session.user.id, id)) keep.push(id);
-
     if (!hasPassword && (await pagesNeedingContainerPassword("graph", g.id)))
       return { ok: false, message: "Some pages still use the graph password. Change them first." };
 
@@ -321,10 +308,6 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
         .set({
           indexAccess: s.indexAccess,
           defaultAccess: s.defaultAccess,
-          showAuthors: s.showAuthors,
-          views: s.views,
-          showViewCountries: s.showViewCountries,
-          newPagesInGraph: s.newPagesInGraph,
           encryptNewPages,
           ...(s.password
             ? { passwordHash: hashPassword(s.password), passwordVersion: g.passwordVersion + 1 }
@@ -333,9 +316,6 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
               : {}),
         })
         .where(eq(graph.id, g.id));
-      await tx.delete(graphDefaultCollection).where(eq(graphDefaultCollection.graphId, g.id));
-      if (keep.length)
-        await tx.insert(graphDefaultCollection).values(keep.map((collectionId) => ({ graphId: g.id, collectionId })));
     });
     } catch (e) {
       if (e instanceof KeysError) return { ok: false, message: e.message, needCurrentPassword: e.need === "currentPassword" };
@@ -348,6 +328,51 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
     revalidatePath("/");
     updateTag(DISCOVER_TAG);
     return { ok: true, message: "Access saved." };
+  });
+}
+
+const GraphDisplay = z.object({
+  showAuthors: z.boolean(),
+  views: z.enum(VIEWS_MODE),
+  showViewCountries: z.boolean(),
+  showOwner: z.boolean(),
+  hideUnlistedBreadcrumbs: z.boolean(),
+  rss: z.boolean(),
+  newPagesInGraph: z.boolean(),
+  /** Collections new pages join; only ones the owner belongs to are kept. */
+  defaultCollections: z.array(z.string()).max(50),
+});
+export type GraphDisplay = z.input<typeof GraphDisplay>;
+
+/**
+ * How the graph's pages look and where new ones go: bylines, view counts, breadcrumbs, the RSS
+ * feed and default collections. None of it changes who can see a page. Owner only.
+ */
+export async function updateGraphDisplay(graphId: string, input: GraphDisplay): Promise<FormState> {
+  return withAction("dashboard.updateGraphDisplay", async () => {
+    const session = await getSession();
+    if (!session) return { ok: false, message: "Your session expired. Please log in again." };
+    const parsed = GraphDisplay.safeParse(input);
+    if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+    const s = parsed.data;
+    const g = await db.query.graph.findFirst({
+      where: and(eq(graph.id, graphId), eq(graph.userId, session.user.id)),
+      columns: { id: true, frontPage: true },
+    });
+    if (!g) return { ok: false, message: "Graph not found." };
+    const keep: string[] = [];
+    const { defaultCollections, ...cols } = s;
+    for (const id of new Set(defaultCollections)) if (await collectionRole(session.user.id, id)) keep.push(id);
+    await db.transaction(async (tx) => {
+      // The feed lists the front page, so it can't outlive it.
+      await tx.update(graph).set({ ...cols, rss: s.rss && g.frontPage }).where(eq(graph.id, g.id));
+      await tx.delete(graphDefaultCollection).where(eq(graphDefaultCollection.graphId, g.id));
+      if (keep.length)
+        await tx.insert(graphDefaultCollection).values(keep.map((collectionId) => ({ graphId: g.id, collectionId })));
+    });
+    revalidatePath("/dashboard", "layout");
+    revalidatePath("/[graph]", "layout");
+    return { ok: true, message: "Settings saved." };
   });
 }
 

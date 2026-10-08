@@ -207,7 +207,7 @@ const TOPICS: { re: RegExp; topic: (m: RegExpExecArray) => string; setting: bool
   { re: /^(?:Encrypted with password|Encryption turned off)$/, topic: () => "encryption", setting: true },
   { re: /^Made (?:unlisted|public)/, topic: () => "visibility", setting: true },
   { re: /^(?:Shown in the graph again|Hidden from the graph)/, topic: () => "in graph", setting: true },
-  { re: /^(?:Unlisted|Listed|Discoverable) in (.+)$/, topic: (m) => `listing ${m[1]}`, setting: true },
+  { re: /^(?:Unlisted|Listed|Discoverable|Public|On Discover) in (.+)$/, topic: (m) => `listing ${m[1]}`, setting: true },
   { re: /^Byline changed to /, topic: () => "byline", setting: true },
   { re: /^Republished$/, topic: () => "republished", setting: false },
 ];

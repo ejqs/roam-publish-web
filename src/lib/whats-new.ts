@@ -222,6 +222,12 @@ async function loadExt(now: number): Promise<Entry[]> {
   return extCache.entries;
 }
 
+/** The newest extension version Roam Depot serves, or null when it can't be read. */
+export async function liveExtVersion(now = Date.now()): Promise<string | null> {
+  const versions = (await loadExt(now)).map((e) => e.version).filter((v): v is string => !!v && !!semver(v));
+  return versions.sort((a, b) => semver(b)!.join(".").localeCompare(semver(a)!.join("."), undefined, { numeric: true }))[0] ?? null;
+}
+
 /**
  * The website's file ships with the deploy, so it's read once per process, and the entries it adds are stamped
  * with the time this deploy first ran (src/instrumentation.ts calls this at boot). The first time ever, the

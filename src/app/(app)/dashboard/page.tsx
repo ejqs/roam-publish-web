@@ -12,7 +12,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { db } from "@/db";
-import { collectionEntry, ENTRY_LISTING, profile, publication } from "@/db/schema";
+import { collectionEntry, profile, publication } from "@/db/schema";
 import { collectionsOf } from "@/lib/collections";
 import { canReceiveInvite, graphsOf } from "@/lib/graph-access";
 import { graphPath } from "@/lib/graphs";
@@ -23,12 +23,22 @@ import { AttentionBanners, attentionItems } from "./attention-banners";
 import { ChangeLogIssues } from "./change-log-issues";
 import { DashboardShell } from "./dashboard-shell";
 import { missingChangeLogBlocks } from "@/lib/changelog";
+import { RUNG_LEVELS } from "@/components/manage/labels";
 import { AddCollectionDialog } from "./collections/create-form";
-import { type AccessCounts, accessCounts, collectionPagesPath, discoverBlocked, graphPagesPath } from "@/lib/dashboard-filters";
+import {
+  type AccessCounts,
+  accessCounts,
+  collectionPagesPath,
+  discoverBlocked,
+  type EntryCounts,
+  entryCounts as entryCountColumns,
+  graphPagesPath,
+} from "@/lib/dashboard-filters";
 import { ProfileCard } from "./profile-card";
 import { LevelLegend, type ResourceItem, ResourceList } from "./resource-list";
 
-const EMPTY: AccessCounts = { unlisted: 0, public: 0, discover: 0, removed: 0 };
+const EMPTY: AccessCounts = { discover: 0, public: 0, unlisted: 0, password: 0, members: 0, removed: 0 };
+const EMPTY_ENTRIES: EntryCounts = { discover: 0, listed: 0, unlisted: 0, password: 0, members: 0, removed: 0 };
 
 export default async function DashboardPage() {
   const session = await requireSession("/dashboard");
@@ -52,18 +62,14 @@ export default async function DashboardPage() {
       : [],
     collections.length
       ? db
-          .select({ collectionId: collectionEntry.collectionId, listing: collectionEntry.listing, n: count() })
+          .select({ collectionId: collectionEntry.collectionId, ...entryCountColumns })
           .from(collectionEntry)
+          .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
           .where(inArray(collectionEntry.collectionId, collections.map((c) => c.id)))
-          .groupBy(collectionEntry.collectionId, collectionEntry.listing)
+          .groupBy(collectionEntry.collectionId)
       : [],
   ]);
-  const entryCounts = new Map<string, Record<(typeof ENTRY_LISTING)[number], number>>();
-  for (const r of entryRows) {
-    const c = entryCounts.get(r.collectionId) ?? { unlisted: 0, listed: 0, discover: 0 };
-    c[r.listing] = r.n;
-    entryCounts.set(r.collectionId, c);
-  }
+  const entryCounts = new Map<string, EntryCounts>(entryRows.map(({ collectionId, ...c }) => [collectionId, c]));
   const counts = new Map(countRows.map(({ graphId, ...c }) => [graphId, c]));
   const changeLogIssues = await missingChangeLogBlocks(session.user.id);
   const banners = (
@@ -102,8 +108,8 @@ export default async function DashboardPage() {
   );
 
   const collectionItems: ResourceItem[] = collections.map((c) => {
-    const n = entryCounts.get(c.id) ?? { unlisted: 0, listed: 0, discover: 0 };
-    const total = n.unlisted + n.listed + n.discover;
+    const n = entryCounts.get(c.id) ?? EMPTY_ENTRIES;
+    const total = RUNG_LEVELS.reduce((sum, l) => sum + n[l as keyof EntryCounts], 0) + n.removed;
     const manageHref = collectionPagesPath(c.slug);
     return {
       id: c.id,
@@ -113,11 +119,11 @@ export default async function DashboardPage() {
       role: c.role === "owner" ? "Owner" : "Member",
       badges: c.suspendedAt ? <Badge variant="destructive">Suspended</Badge> : undefined,
       total,
-      segments: [
-        { level: "unlisted", n: n.unlisted, href: `${manageHref}?access=unlisted` },
-        { level: "listed", n: n.listed, href: `${manageHref}?access=listed` },
-        { level: "discover", n: n.discover, href: `${manageHref}?access=discover` },
-      ],
+      segments: (["discover", "listed", "unlisted", "password", "members"] as const).map((level) => ({
+        level,
+        n: n[level],
+        href: `${manageHref}?access=${level}`,
+      })),
       view: { href: collectionPath(c.slug), url: `${appUrl}${collectionPath(c.slug)}`, label: "View collection" },
       membersHref: `${manageHref}/members`,
       settingsHref: c.role === "owner" ? `${manageHref}/settings` : undefined,
@@ -155,8 +161,6 @@ export default async function DashboardPage() {
       role: g.role === "owner" ? "Owner" : "Member",
       total: c.total,
       segments: [
-        { level: "unlisted", n: c.unlisted, href: `${pagesHref}?access=unlisted` },
-        { level: "listed", n: c.public, href: `${pagesHref}?access=public` },
         {
           level: "discover",
           n: c.discover,
@@ -164,6 +168,10 @@ export default async function DashboardPage() {
           title: paused ? `Discover is paused: ${paused}` : undefined,
           suffix: paused ? " (paused)" : undefined,
         },
+        { level: "listed", n: c.public, href: `${pagesHref}?access=public` },
+        { level: "unlisted", n: c.unlisted, href: `${pagesHref}?access=unlisted` },
+        { level: "password", n: c.password, href: `${pagesHref}?access=password` },
+        { level: "members", n: c.members, href: `${pagesHref}?access=members` },
         { level: "removed", n: c.removed, href: `${pagesHref}?access=removed` },
       ],
       view: g.frontPage
@@ -228,7 +236,7 @@ export default async function DashboardPage() {
       <ResourceList
         title="Graphs"
         nameLabel="Graph"
-        description={<LevelLegend levels={anyRemoved ? ["unlisted", "listed", "discover", "removed"] : undefined} />}
+        description={<LevelLegend levels={anyRemoved ? [...RUNG_LEVELS, "removed"] : undefined} />}
         action={
           <Link href="/onboarding" className={buttonVariants({ variant: "outline" })}>
             <PlusIcon />

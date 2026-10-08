@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { EXT_MIN_VERSION, EXT_MIN_VERSION_HEADER, EXT_VERSION_HEADER } from "./ext-compat";
 
 function allowedOrigin(origin: string | null) {
   if (!origin) return null;
@@ -14,7 +15,8 @@ export function corsHeaders(req: Request): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "content-type, x-api-key, x-roam-graph",
+    "Access-Control-Allow-Headers": `content-type, x-api-key, x-roam-graph, ${EXT_VERSION_HEADER}`,
+    "Access-Control-Expose-Headers": EXT_MIN_VERSION_HEADER,
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -25,5 +27,5 @@ export function preflight(req: Request) {
 }
 
 export function json(req: Request, body: unknown, status = 200) {
-  return NextResponse.json(body, { status, headers: corsHeaders(req) });
+  return NextResponse.json(body, { status, headers: { ...corsHeaders(req), [EXT_MIN_VERSION_HEADER]: EXT_MIN_VERSION } });
 }

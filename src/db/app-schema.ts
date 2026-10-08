@@ -113,6 +113,26 @@ export const graph = pgTable("graph", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * The extension version each person last used with each graph (lib/ext-version.ts), so /admin/extension
+ * shows when everyone has moved past an older API and it can be retired. `version` is null for
+ * extensions from before they said (0.1.x).
+ */
+export const extClient = pgTable(
+  "ext_client",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    graphId: text("graph_id")
+      .notNull()
+      .references(() => graph.id, { onDelete: "cascade" }),
+    version: text("version"),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.graphId] }), index("ext_client_last_seen_idx").on(t.lastSeenAt)],
+);
+
 /** People the owner invited to publish from a shared graph. The owner is graph.userId, never a row here. */
 export const graphMember = pgTable(
   "graph_member",

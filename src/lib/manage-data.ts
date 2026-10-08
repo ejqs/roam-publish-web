@@ -138,9 +138,9 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           discoverBlocked: c.suspendedAt
             ? "This collection is suspended."
             : c.indexAccess !== "open"
-              ? "The collection's page is protected, so its pages can't be Discoverable."
+              ? "The collection's page is protected, so its pages can't go on Discover."
               : !c.indexable
-                ? "Turn on search engines for the collection to make pages Discoverable."
+                ? "Turn on search engines for the collection to put pages on Discover."
                 : undefined,
         },
       }));

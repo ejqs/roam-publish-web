@@ -83,7 +83,7 @@ const PlaceInput = z.object({
 });
 export type PlaceInput = z.input<typeof PlaceInput>;
 
-const LISTING_LOG = { unlisted: "Unlisted", listed: "Listed", discover: "Discoverable" } as const;
+const LISTING_LOG = { unlisted: "Unlisted", listed: "Public", discover: "On Discover" } as const;
 
 const SESSION_EXPIRED: PlaceResult = { ok: false, message: "Your session expired. Please log in again." };
 const NOT_ALLOWED: PlaceResult = { ok: false, message: "You can't change this page." };

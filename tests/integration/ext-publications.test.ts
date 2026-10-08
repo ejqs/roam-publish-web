@@ -210,7 +210,7 @@ describe("listing", () => {
     expect((await (await byUid("PATCH", ownerKey, p.rootUid, { listing: "unlisted" })).json()).listing).toBe("unlisted");
   });
 
-  test("Discoverable is refused with the reason when the graph or page can't be on Discover", async () => {
+  test("Discover is refused with the reason when the graph or page can't be on Discover", async () => {
     const p = payload();
     await publish(ownerKey, p);
     await db.update(graph).set({ indexable: false }).where(eq(graph.id, g.id));
@@ -223,7 +223,7 @@ describe("listing", () => {
     await db.update(publication).set({ access: "members" }).where(eq(publication.rootUid, p.rootUid));
     const gated = await byUid("PATCH", ownerKey, p.rootUid, { listing: "discover" });
     expect(gated.status).toBe(400);
-    expect((await gated.json()).error).toContain("members-only");
+    expect((await gated.json()).error).toContain("anyone can read");
     // Listed still works.
     expect((await byUid("PATCH", ownerKey, p.rootUid, { listing: "listed" })).status).toBe(200);
   });

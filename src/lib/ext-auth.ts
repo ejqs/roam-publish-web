@@ -1,9 +1,11 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
+import { after } from "next/server";
 import { db } from "@/db";
 import { graph, graphMember, publication, user } from "@/db/schema";
 import { auth } from "./auth";
 import { json } from "./cors";
+import { extVersionOf, recordExtClient } from "./ext-version";
 import type { GraphRole } from "./graph-access";
 import { keyGraphId } from "./keys";
 
@@ -14,6 +16,8 @@ export type ExtContext = {
   role: GraphRole;
   graphId: string;
   graphName: string;
+  /** The extension's version, or null for versions from before it said (lib/ext-version.ts). */
+  extVersion: string | null;
 };
 
 /**
@@ -67,7 +71,9 @@ export async function requireExtKey(req: Request): Promise<ExtContext | Response
   // publish that graph's pages under this one's name. Older extensions don't send it.
   const inGraph = req.headers.get("x-roam-graph");
   if (inGraph !== null && inGraph !== row.g.name) return wrongGraphResponse(req, row.g.name, inGraph);
-  return { userId: holderId, ownerId: row.g.userId, role, graphId: row.g.id, graphName: row.g.name };
+  const extVersion = extVersionOf(req);
+  after(() => recordExtClient(holderId, row.g.id, extVersion).catch((e) => console.error("Couldn't record the extension version", e)));
+  return { userId: holderId, ownerId: row.g.userId, role, graphId: row.g.id, graphName: row.g.name, extVersion };
 }
 
 export function wrongGraphResponse(req: Request, keyGraph: string, inGraph: string) {

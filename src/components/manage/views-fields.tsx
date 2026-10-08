@@ -13,7 +13,7 @@ export const VIEWS_LABELS: Record<ViewsMode, string> = {
 };
 
 export const VIEWS_DESCRIPTIONS: Record<ViewsMode, string> = {
-  show: "Listed pages show their count. Unlisted pages show theirs only when set to.",
+  show: "Public pages show their count. Unlisted pages show theirs only when set to.",
   hide: "Views are counted, but only you see the number, with a crossed-out eye. Visitors see nothing.",
   off: "No counts for anyone, and views aren't looked up. You can turn them back on from the page.",
 };

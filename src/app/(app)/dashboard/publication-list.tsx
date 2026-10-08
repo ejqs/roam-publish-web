@@ -63,7 +63,7 @@ export function PublicationList({
             <AllCheckbox />
             <HeaderCell label="Title" sort={sort?.title} />
           </span>
-          <span>Access · Visibility</span>
+          <span>Who can see it</span>
           <HeaderCell label="Updated" sort={sort?.updated} />
           <span />
         </div>
@@ -130,7 +130,7 @@ export function PublicationList({
                     ) : !p.inGraph ? (
                       <Badge variant="outline">Collections only</Badge>
                     ) : !m?.canManagePage ? (
-                      <Badge variant="outline">{p.visibility === "public" ? "Listed" : "Unlisted"}</Badge>
+                      <Badge variant="outline">{p.visibility === "public" ? "Public" : "Unlisted"}</Badge>
                     ) : (
                       <AccessMenu
                         target={{ kind: "graph", publicationId: p.id, frontPage: g.frontPage, indexable: g.indexable && g.indexAccess === "open" }}

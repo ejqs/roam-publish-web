@@ -14,6 +14,7 @@ const TABS = [
   { href: "/admin/blocked", label: "Blocked" },
   { href: "/admin/log", label: "Log" },
   { href: "/admin/jobs", label: "Jobs" },
+  { href: "/admin/extension", label: "Extension" },
   { href: "/admin/status", label: "Status" },
   { href: "/admin/announcement", label: "Announcement" },
 ];

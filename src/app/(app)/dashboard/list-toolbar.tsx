@@ -1,4 +1,4 @@
-import { BanIcon, CompassIcon, FileTextIcon, type LucideIcon, SearchIcon } from "lucide-react";
+import { BanIcon, CompassIcon, GlobeIcon, type LucideIcon, SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import { buttonVariants } from "@/components/ui/button";
@@ -8,12 +8,14 @@ import { LinkMenu } from "./link-menu";
 
 const KIND_LABELS: Record<KindFilter, string> = { page: "Pages", block: "Blocks" };
 
-// The access menu's icons. Graphs call listed pages "public", collections "listed".
+// The ladder's icons, as in the access menu. Graphs call listed pages "public", collections "listed".
 const FILTER_ICONS: Record<string, LucideIcon | undefined> = {
-  unlisted: PRIVACY_ICONS.unlisted,
-  public: FileTextIcon,
-  listed: FileTextIcon,
   discover: CompassIcon,
+  public: GlobeIcon,
+  listed: GlobeIcon,
+  unlisted: PRIVACY_ICONS.unlisted,
+  password: PRIVACY_ICONS.password,
+  members: PRIVACY_ICONS.members,
   removed: BanIcon,
 };
 
