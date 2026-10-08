@@ -64,8 +64,8 @@ export type Viewer = {
 
 /** Why the reader can't see something yet, or null when they can. */
 export type Blocker =
-  /** `encrypted`: everyone needs the password, members too; `again`: they unlocked before it was encrypted. */
-  | { need: "password"; lock: Lock | null; encrypted?: boolean; again?: boolean }
+  /** `encrypted`: everyone needs the password, members too. */
+  | { need: "password"; lock: Lock | null; encrypted?: boolean }
   | { need: "signin" }
   | { need: "member" }
   /** Encrypted, and a password it was encrypted with was reset: unreadable here until republished. */

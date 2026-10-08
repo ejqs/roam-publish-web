@@ -55,11 +55,14 @@ const outline = [
     ),
     block("Cookies, all needed for the site to work, none for advertising or tracking:", [
       block("Your login session."),
-      block("Each password-protected page you unlock, plus its key (encrypted) when the page is encrypted."),
+      block("Each password-protected page you unlock."),
       block("An announcement you dismissed."),
       block("When you last opened What's new."),
     ]),
     block("Your browser also notes each page you've viewed while signed in, so a view is only counted once."),
+    block(
+      "When you unlock encrypted pages, your browser keeps the password's key in its own storage for 30 days so it can decrypt them. It never leaves your browser.",
+    ),
   ]),
   block("**Analytics**", [
     block(

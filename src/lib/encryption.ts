@@ -1,6 +1,7 @@
 import "server-only";
 import {
   createCipheriv,
+  createHash,
   createDecipheriv,
   createPrivateKey,
   createPublicKey,
@@ -10,12 +11,13 @@ import {
   type KeyObject,
   randomBytes,
   scryptSync,
+  timingSafeEqual,
 } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import { cookies } from "next/headers";
 import { db } from "@/db";
 import { type Blocker, isUnlocked } from "@/lib/gates";
 import { ENCRYPT_PASSWORD_MIN } from "./encryption-rules";
+import { type SealedPage, UNLOCK_PROOF_INFO } from "./reader-crypto";
 import { entryPath, publicationPath } from "./publications";
 import {
   collection,
@@ -33,8 +35,9 @@ import {
  * collection entry's) gets an X25519 key pair whose private key is stored encrypted with a key made
  * from the password. An encrypted page's content is AES-256-GCM under a random content key, sealed
  * once to the key pair of every password that opens it. So republishing needs no password (it seals
- * to the public keys), while reading needs one: the reader's unlock stores the password's key in a
- * cookie, itself encrypted with the server secret.
+ * to the public keys), while reading needs one, typed in the reader's browser: it derives the
+ * password's key there, proves it to the server with `unlockProof` (lib/reader-crypto.ts), gets the
+ * wrapped private key back and opens pages itself. The server never decrypts a page for a reader.
  *
  * Stored strings are "v1.{part}.{part}…", each part base64url.
  */
@@ -96,10 +99,25 @@ const passwordKey = (password: string, salt: Buffer) => scryptSync(password, sal
 /** A new key pair for a password: what `lock_key` stores. */
 export function newLockKey(password: string) {
   const pair = generateKeyPairSync("x25519");
+  const { kek, wrapped } = wrapPrivateKey(pair.privateKey.export({ type: "pkcs8", format: "der" }), password);
   return {
     publicKey: b64(pair.publicKey.export({ type: "spki", format: "der" })),
-    wrappedPrivateKey: wrapPrivateKey(pair.privateKey.export({ type: "pkcs8", format: "der" }), password).wrapped,
+    wrappedPrivateKey: wrapped,
+    proofHash: proofHashOf(kek),
   };
+}
+
+/** What `lock_key.proof_hash` stores for a password's key: the hash of the proof its readers send. */
+export function proofHashOf(kek: Buffer) {
+  const proof = Buffer.from(hkdfSync("sha256", kek, "", UNLOCK_PROOF_INFO, 32));
+  return b64(createHash("sha256").update(proof).digest());
+}
+
+/** Whether an unlock proof (base64url) matches the stored hash. */
+export function proofMatches(proof: string, stored: string) {
+  const a = createHash("sha256").update(unb64(proof)).digest();
+  const b = unb64(stored);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 function wrapPrivateKey(pkcs8: Buffer, password: string) {
@@ -126,7 +144,8 @@ function unwrapPrivateKey(wrapped: string, kek: Buffer): KeyObject | null {
 export function rewrapLockKey(wrapped: string, kek: Buffer, newPassword: string) {
   const key = unwrapPrivateKey(wrapped, kek);
   if (!key) return null;
-  return wrapPrivateKey(key.export({ type: "pkcs8", format: "der" }), newPassword).wrapped;
+  const next = wrapPrivateKey(key.export({ type: "pkcs8", format: "der" }), newPassword);
+  return { wrappedPrivateKey: next.wrapped, proofHash: proofHashOf(next.kek) };
 }
 
 function sharedKey(privateKey: KeyObject, publicKey: KeyObject, ephemeral: Buffer) {
@@ -171,28 +190,6 @@ export const sealHash = (publicationId: string, hash: string) =>
 export function plainHash(p: { id: string; encrypted: boolean; contentHash: string }) {
   if (!p.encrypted) return p.contentHash;
   return serverOpen("content-hash", p.contentHash, p.id)?.toString() ?? "";
-}
-
-// --- Key cookies -------------------------------------------------------------------------------
-
-const UNLOCK_DAYS = 30;
-const keyCookie = (l: LockRef) => `rp_key_${l.scope}_${l.id}`;
-const keyAad = (l: VersionedLock) => `key:${l.scope}:${l.id}:${l.version}`;
-
-/** Only from a server action or route handler. Bound to the password version, like the unlock cookie. */
-export async function setKeyCookie(l: VersionedLock, kek: Buffer) {
-  (await cookies()).set(keyCookie(l), serverSeal("key-cookie", kek, keyAad(l)), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: UNLOCK_DAYS * 24 * 60 * 60,
-  });
-}
-
-async function keyFromCookie(l: VersionedLock) {
-  const value = (await cookies()).get(keyCookie(l))?.value;
-  return value ? serverOpen("key-cookie", value, keyAad(l)) : null;
 }
 
 // --- Where a page is shown ---------------------------------------------------------------------
@@ -272,10 +269,10 @@ export function locksOf(spots: Spot[]) {
 
 // --- Content keys ------------------------------------------------------------------------------
 
-/** What can open an encrypted page: passwords typed just now, and keys in the viewer's cookies. */
+/** What can open an encrypted page: passwords typed just now. */
 export type Credentials = {
   passwords?: string[];
-  /** Opened before the change, when the change itself would stop the cookie's key from fitting. */
+  /** Opened before the change, when the change itself would stop the password from fitting. */
   contentKey?: Buffer | null;
   /**
    * When nothing opens the page, add the new places anyway and mark it Needs republish: they open
@@ -284,27 +281,15 @@ export type Credentials = {
   orRepublish?: boolean;
 };
 
-/** Opens a page's content key with any of its sealed keys the credentials can open. */
+/** Opens a page's content key with any of its sealed keys a typed password opens. */
 export async function contentKeyFor(tx: Db, pub: { id: string }, creds: Credentials = {}) {
+  if (!creds.passwords?.length) return null;
   const sealed = await tx
     .select({ k: publicationKey, lk: lockKey })
     .from(publicationKey)
     .innerJoin(lockKey, and(eq(lockKey.scope, publicationKey.scope), eq(lockKey.targetId, publicationKey.targetId)))
     .where(eq(publicationKey.publicationId, pub.id));
-  const versions = await lockVersions(
-    tx,
-    sealed.map((s) => ({ scope: s.k.scope, id: s.k.targetId })),
-  );
-  // Cookies first: they cost nothing to try.
-  for (const { k, lk } of sealed) {
-    const version = versions.get(lockId({ scope: k.scope, id: k.targetId }));
-    if (version === undefined) continue;
-    const kek = await keyFromCookie({ scope: k.scope, id: k.targetId, version });
-    const key = kek && unwrapPrivateKey(lk.wrappedPrivateKey, kek);
-    const ck = key && openContentKey(k.sealedKey, key);
-    if (ck) return ck;
-  }
-  for (const password of creds.passwords ?? [])
+  for (const password of creds.passwords)
     for (const { k, lk } of sealed) {
       const kek = passwordKeyFor(lk.wrappedPrivateKey, password);
       const key = kek && unwrapPrivateKey(lk.wrappedPrivateKey, kek);
@@ -341,26 +326,6 @@ export function passwordOpener(password: string) {
     }
     return null;
   };
-}
-
-/** Current password versions, to check cookies against. */
-async function lockVersions(tx: Db, locks: LockRef[]) {
-  const ids = (scope: LockScope) => locks.filter((l) => l.scope === scope).map((l) => l.id);
-  const out = new Map<string, number>();
-  const add = (scope: LockScope, rows: { id: string; passwordVersion: number }[]) =>
-    rows.forEach((r) => out.set(lockId({ scope, id: r.id }), r.passwordVersion));
-  const cols = { id: true, passwordVersion: true } as const;
-  if (ids("graph").length) add("graph", await tx.query.graph.findMany({ where: inArray(graph.id, ids("graph")), columns: cols }));
-  if (ids("collection").length)
-    add("collection", await tx.query.collection.findMany({ where: inArray(collection.id, ids("collection")), columns: cols }));
-  if (ids("publication").length)
-    add(
-      "publication",
-      await tx.query.publication.findMany({ where: inArray(publication.id, ids("publication")), columns: cols }),
-    );
-  if (ids("entry").length)
-    add("entry", await tx.query.collectionEntry.findMany({ where: inArray(collectionEntry.id, ids("entry")), columns: cols }));
-  return out;
 }
 
 export async function lockKeyOf(tx: Db, l: LockRef) {
@@ -447,8 +412,7 @@ export async function pagesSealedTo(tx: Db, l: LockRef) {
 
 /**
  * Keeps a password's key pair in step with a new password. With pages sealed to it, the same key
- * pair is re-encrypted under the new password, which needs the current one (typed, or in the
- * viewer's cookie); `reset` instead starts a new key pair, and those pages need republishing to be
+ * pair is re-encrypted under the new password, which needs the current one; `reset` instead starts a new key pair, and those pages need republishing to be
  * read in this place again. Without such pages, a new key pair is made when the new password is long
  * enough, and none kept otherwise. Throws KeysError.
  */
@@ -464,18 +428,16 @@ export async function setLockPassword(
   if (sealed.length && password.length < ENCRYPT_PASSWORD_MIN)
     throw new KeysError(`It protects encrypted pages, so it needs at least ${ENCRYPT_PASSWORD_MIN} characters.`);
   if (sealed.length && lk && !opts.reset) {
-    const kek =
-      (opts.currentPassword ? passwordKeyFor(lk.wrappedPrivateKey, opts.currentPassword) : null) ??
-      (await keyFromCookie(l));
-    const wrapped = kek && rewrapLockKey(lk.wrappedPrivateKey, kek, password);
-    if (!wrapped)
+    const kek = opts.currentPassword ? passwordKeyFor(lk.wrappedPrivateKey, opts.currentPassword) : null;
+    const rewrapped = kek && rewrapLockKey(lk.wrappedPrivateKey, kek, password);
+    if (!rewrapped)
       throw new KeysError(
         opts.currentPassword
           ? "The current password isn't right."
           : `It protects ${sealed.length === 1 ? "an encrypted page" : `${sealed.length} encrypted pages`}. Enter the current password to change it.`,
         "currentPassword",
       );
-    await tx.update(lockKey).set({ wrappedPrivateKey: wrapped }).where(where);
+    await tx.update(lockKey).set(rewrapped).where(where);
     return;
   }
   if (sealed.length) {
@@ -494,18 +456,44 @@ export async function dropLock(tx: Db, l: LockRef) {
   await tx.delete(lockKey).where(and(eq(lockKey.scope, l.scope), eq(lockKey.targetId, l.id)));
 }
 
+/** The wrapped private key a reader's browser opens pages with, when the lock has one. */
+export type ReaderKey = { wrappedPrivateKey: string };
+
 /**
- * After a reader typed the right password: keeps its key in their cookie so encrypted pages open,
- * making the key pair first for a password set before encryption existed (when it's long enough).
+ * A reader unlocked with the password itself (no proof yet): makes the key pair first for a password
+ * set before encryption existed (when it's long enough), and stores the proof hash a key made before
+ * proofs lacks, so this browser and every later one unlock with a proof instead.
  */
-export async function rememberKey(l: VersionedLock, password: string) {
+export async function readerKeyFromPassword(l: LockRef, password: string): Promise<ReaderKey | null> {
   let lk = await lockKeyOf(db, l);
   if (!lk && password.length >= ENCRYPT_PASSWORD_MIN) {
     await db.insert(lockKey).values({ scope: l.scope, targetId: l.id, ...newLockKey(password) }).onConflictDoNothing();
     lk = await lockKeyOf(db, l);
   }
   const kek = lk && passwordKeyFor(lk.wrappedPrivateKey, password);
-  if (kek) await setKeyCookie(l, kek);
+  if (!lk || !kek) return null;
+  if (!lk.proofHash)
+    await db
+      .update(lockKey)
+      .set({ proofHash: proofHashOf(kek) })
+      .where(and(eq(lockKey.scope, l.scope), eq(lockKey.targetId, l.id), eq(lockKey.wrappedPrivateKey, lk.wrappedPrivateKey)));
+  return { wrappedPrivateKey: lk.wrappedPrivateKey };
+}
+
+/**
+ * Checks a reader's unlock proof. "password" when the lock's key predates proofs, or it has no key
+ * pair (a short or older password): the browser sends the password itself instead.
+ */
+export async function readerKeyFromProof(l: LockRef, proof: string): Promise<ReaderKey | "wrong" | "password"> {
+  const lk = await lockKeyOf(db, l);
+  if (!lk?.proofHash) return "password";
+  return proofMatches(proof, lk.proofHash) ? { wrappedPrivateKey: lk.wrappedPrivateKey } : "wrong";
+}
+
+/** The salt a reader's browser derives the password's key with, when the lock has a key pair with a proof. */
+export async function unlockSaltOf(l: LockRef) {
+  const lk = await lockKeyOf(db, l);
+  return lk?.proofHash ? lk.wrappedPrivateKey.split(".")[1] : null;
 }
 
 // --- Encrypting and decrypting a page ----------------------------------------------------------
@@ -530,32 +518,18 @@ export async function sealNewContent(tx: Tx, publicationId: string, tree: Node) 
   return { cipher, needsRepublish: !sealedAll };
 }
 
-export type Opened =
-  | { tree: Node }
-  /** `again`: they unlocked before the page was encrypted, so their browser has no key yet. */
-  | { need: "password"; again: boolean }
-  | { need: "republish" };
+export type { SealedPage } from "./reader-crypto";
 
-/** An encrypted page for a reader who reached it through this password. */
-export async function openForReader(
-  pub: { id: string; cipher: string | null },
-  l: VersionedLock,
-  unlocked: boolean,
-): Promise<Opened> {
+/** An encrypted page as sealed to one password, or null when it isn't (it needs a republish). */
+async function sealedFor(pub: { id: string; cipher: string | null }, l: LockRef): Promise<SealedPage | null> {
+  if (!pub.cipher) return null;
   const [row] = await db
-    .select({ k: publicationKey, lk: lockKey })
+    .select({ sealedKey: publicationKey.sealedKey })
     .from(publicationKey)
     .innerJoin(lockKey, and(eq(lockKey.scope, publicationKey.scope), eq(lockKey.targetId, publicationKey.targetId)))
-    .where(
-      and(eq(publicationKey.publicationId, pub.id), eq(publicationKey.scope, l.scope), eq(publicationKey.targetId, l.id)),
-    )
+    .where(and(eq(publicationKey.publicationId, pub.id), eq(publicationKey.scope, l.scope), eq(publicationKey.targetId, l.id)))
     .limit(1);
-  if (!row || !pub.cipher) return { need: "republish" };
-  const kek = unlocked ? await keyFromCookie(l) : null;
-  const key = kek && unwrapPrivateKey(row.lk.wrappedPrivateKey, kek);
-  const ck = key && openContentKey(row.k.sealedKey, key);
-  const tree = ck && decryptTree(ck, pub.cipher, pub.id);
-  return tree ? { tree } : { need: "password", again: unlocked };
+  return row ? { id: pub.id, cipher: pub.cipher, sealedKey: row.sealedKey } : null;
 }
 
 /** Key pairs of pages, entries, graphs and collections that no longer exist. Run after deleting any. */
@@ -596,19 +570,20 @@ export async function afterReturnToGraph(tx: Tx, publicationIds: string[]) {
 }
 
 /**
- * What a reader gets for an encrypted page at one place: its tree, or why not. Nobody gets past the
- * password here, members and managers included: the server can't read the page without it.
+ * What a reader gets for an encrypted page at one place: the page still sealed, for their browser to
+ * open with the password's key, or why not. Nobody gets past the password here, members and managers
+ * included: the server can't read the page, and only hands it out to readers who proved the password.
  */
 export async function readEncrypted(
   pub: { id: string; cipher: string | null },
   access: "open" | "password" | "members",
   lock: VersionedLock | null,
-): Promise<{ tree: Node } | { blocker: NonNullable<Blocker> }> {
+): Promise<{ sealed: SealedPage } | { blocker: NonNullable<Blocker> }> {
   if (access !== "password" || !lock) return { blocker: { need: "password", lock: null } };
-  const opened = await openForReader(pub, lock, await isUnlocked(lock));
-  if ("tree" in opened) return opened;
-  if (opened.need === "republish") return { blocker: { need: "republish" } };
-  return { blocker: { need: "password", lock, encrypted: true, again: opened.again } };
+  const sealed = await sealedFor(pub, lock);
+  if (!sealed) return { blocker: { need: "republish" } };
+  if (!(await isUnlocked(lock))) return { blocker: { need: "password", lock, encrypted: true } };
+  return { sealed };
 }
 
 /** Titles of the encrypted pages that open with this password, for its settings. */

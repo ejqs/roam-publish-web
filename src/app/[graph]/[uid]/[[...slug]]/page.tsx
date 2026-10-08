@@ -107,7 +107,8 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
       />
     );
   }
-  const tree = opened && "tree" in opened ? opened.tree : pub.tree;
+  // The browser opens an encrypted page with the password's key; the server only hands it over sealed.
+  const sealed = opened && "sealed" in opened && lock ? { page: opened.sealed, lock, members: g.name } : undefined;
 
   const showBreadcrumbs = pub.visibility === "public" || !g.hideUnlistedBreadcrumbs;
   // Only open pages listed on Discover can be upvoted.
@@ -186,7 +187,9 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
 
   return (
     <PublicationView
-      pub={{ ...pub, tree }}
+      pub={pub}
+      sealed={sealed}
+      tagBase={tagsBrowsable ? { graph: g.name } : null}
       path={path}
       zoom={zoomParam(await props.searchParams)}
       crumbs={

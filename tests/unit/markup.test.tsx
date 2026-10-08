@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { languageLabel } from "@/components/roam/code-block";
+import * as shiki from "shiki";
+import { languageLabel as label } from "@/components/roam/code-langs";
 import { isMermaid, mermaidSource, PageLinks, RoamText } from "@/components/roam/markup";
 
 const html = (text: string) => renderToStaticMarkup(<RoamText text={text} links={new PageLinks()} />);
@@ -114,6 +115,7 @@ describe("mermaid and code blocks", () => {
   });
 
   test("code blocks name their language", () => {
+    const languageLabel = (lang: string) => label(shiki, lang);
     expect(languageLabel("js")).toBe("JavaScript");
     expect(languageLabel("c++")).toBe("C++");
     expect(languageLabel("")).toBe("Plain text");

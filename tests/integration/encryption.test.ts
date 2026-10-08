@@ -13,7 +13,10 @@ import { setPageTags } from "@/server/actions/tags";
 import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
 import CPage from "@/app/c/[id]/[[...slug]]/page";
 import { GET, POST } from "@/app/api/ext/publications/route";
-import { unlock } from "@/server/actions/unlock";
+// Readers unlock as their browser does: a proof for passwords that take one, keeping the key.
+import { unlockHere as unlock } from "@/lib/reader-unlock";
+import { clearReaderKeys, loadReaderKey } from "@/lib/reader-keys";
+import { openPage } from "@/lib/reader-crypto";
 import { GateNotice } from "@/components/gate-notice";
 import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";
@@ -73,18 +76,29 @@ async function readGraphPage(pub: { rootUid: string }) {
   return GraphPage({ params: Promise.resolve({ graph: g.name, uid: pub.rootUid }) } as never);
 }
 
-/** The tree a reader sees, or the gate they get instead. */
+/**
+ * The tree a reader sees, or the gate they get instead. An encrypted page reaches them sealed and
+ * opens in their browser with the key it kept when they unlocked; `needKey` when it has none.
+ */
 async function readerSees(out: unknown) {
   type Gate = { blocker: Record<string, unknown>; manageHref?: string };
+  type Sealed = { page: { id: string; cipher: string; sealedKey: string }; lock: { scope: "graph"; id: string; version: number } };
   const view = findElements(out as never, PublicationView)[0];
   const gate = findElements(out as never, GateNotice)[0];
-  return { tree: (view?.props.pub as { tree: Node } | undefined)?.tree, gate: gate?.props as Gate };
+  const sealed = view?.props.sealed as Sealed | undefined;
+  if (sealed) {
+    const key = await loadReaderKey(sealed.lock, sealed.lock.version);
+    const tree = key && (await openPage(sealed.page, key));
+    return { tree: tree ?? undefined, needKey: !tree, gate: gate?.props as Gate };
+  }
+  return { tree: (view?.props.pub as { tree: Node } | undefined)?.tree, needKey: false, gate: gate?.props as Gate };
 }
 
-/** A fresh reader's browser: no session, no unlock cookies. */
+/** A fresh reader's browser: no session, no unlock cookies, no keys. */
 function newReader() {
   actAs(null);
   request.cookies.clear();
+  clearReaderKeys();
 }
 
 describe("turning encryption on", () => {
@@ -142,22 +156,27 @@ describe("reading an encrypted page", () => {
 
     newReader();
     expect((await readerSees(await readGraphPage(pub))).gate.blocker).toMatchObject({ need: "password", encrypted: true });
-    expect((await unlock({ scope: "graph", id: g.id, password: GRAPH_PW })).ok).toBe(true);
-    const seen = await readerSees(await readGraphPage(pub));
-    expect(textOf(seen.tree)).toContain(SECRET);
+    expect(await unlock({ scope: "graph", id: g.id, password: GRAPH_PW })).toMatchObject({ ok: true });
+    const out = await readGraphPage(pub);
+    // The server sends it sealed: nothing it renders holds the text, which opens in the browser.
+    expect(textOf(out)).not.toContain(SECRET);
+    expect(textOf((await readerSees(out)).tree)).toContain(SECRET);
   });
 
   test("a reader who unlocked before it was encrypted is asked again", async () => {
     const pub = await passwordPage();
     newReader();
     await unlock({ scope: "graph", id: g.id, password: GRAPH_PW });
-    for (const k of [...request.cookies.keys()]) if (k.startsWith("rp_key_")) request.cookies.delete(k);
     actAs(owner);
     await setEncryption(pub.id, { on: true, passwords: { [`graph:${g.id}`]: GRAPH_PW } });
     const saved = new Map(request.cookies);
     newReader();
     for (const [k, v] of saved) if (k.startsWith("rp_unlock_")) request.cookies.set(k, v);
-    expect((await readerSees(await readGraphPage(pub))).gate.blocker).toMatchObject({ again: true });
+    // Their browser has no key yet: it asks for the password again, and opens once it's typed.
+    const seen = await readerSees(await readGraphPage(pub));
+    expect(seen).toMatchObject({ needKey: true, tree: undefined });
+    await unlock({ scope: "graph", id: g.id, password: GRAPH_PW });
+    expect(textOf((await readerSees(await readGraphPage(pub))).tree)).toContain(SECRET);
   });
 });
 

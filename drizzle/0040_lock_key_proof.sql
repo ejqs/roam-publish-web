@@ -1,0 +1,1 @@
+ALTER TABLE "lock_key" ADD COLUMN "proof_hash" text;

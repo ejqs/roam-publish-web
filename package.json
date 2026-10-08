@@ -1,6 +1,6 @@
 {
   "name": "roam-publish-web",
-  "version": "0.16.2",
+  "version": "0.16.3",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -22,6 +22,7 @@
     "@base-ui/react": "^1.8.0",
     "@better-auth/api-key": "^1.7.7",
     "@fontsource/noto-sans": "^5.3.0",
+    "@noble/hashes": "^1.8.0",
     "@tanstack/react-table": "^9.2.4",
     "better-auth": "^1.7.7",
     "class-variance-authority": "^0.7.1",

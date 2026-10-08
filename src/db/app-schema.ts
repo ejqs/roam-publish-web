@@ -747,6 +747,12 @@ export const lockKey = pgTable(
     publicKey: text("public_key").notNull(),
     /** "v1.{salt}.{iv}.{tag}.{ciphertext}", base64url: the private key under scrypt(password, salt). */
     wrappedPrivateKey: text("wrapped_private_key").notNull(),
+    /**
+     * SHA-256 of the unlock proof (lib/reader-crypto.ts `unlockProof`), so a reader's browser unlocks
+     * without sending the password. Null for keys made before proofs existed, until the next unlock
+     * or password change fills it in.
+     */
+    proofHash: text("proof_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.scope, t.targetId] })],
