@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PageLinks, RoamText } from "@/components/roam/markup";
+import { languageLabel } from "@/components/roam/code-block";
+import { isMermaid, mermaidSource, PageLinks, RoamText } from "@/components/roam/markup";
 
 const html = (text: string) => renderToStaticMarkup(<RoamText text={text} links={new PageLinks()} />);
 
@@ -87,5 +88,36 @@ describe("nested page refs", () => {
       expect(out).toContain('title="This page isn&#x27;t published"');
       expect(out).not.toContain("Missing</a>");
     }
+  });
+});
+
+describe("mermaid and code blocks", () => {
+  const block = (string: string, children: { string: string; children: never[] }[] = []) => ({ string, children });
+
+  test("a {{mermaid}} block's children are its source, indented by depth", () => {
+    const src = mermaidSource([
+      { string: "mindmap", children: [{ string: "root", children: [block("a"), block("b")] }] },
+    ]);
+    expect(src).toBe("mindmap\n  root\n    a\n    b");
+    expect(mermaidSource([block("graph TD"), block("A --> B")])).toBe("graph TD\nA --> B");
+  });
+
+  test("mermaid is recognised however Roam writes it", () => {
+    expect(isMermaid("{{mermaid}}")).toBe(true);
+    expect(isMermaid("{{[[mermaid]]}}")).toBe(true);
+    expect(isMermaid("{{drawing}}")).toBe(false);
+  });
+
+  test("the component itself draws nothing in the text; other diagrams still say they're hidden", () => {
+    expect(html("{{mermaid}}")).toBe("<span></span>");
+    expect(html("{{drawing}}")).toContain("Diagram not shown");
+  });
+
+  test("code blocks name their language", () => {
+    expect(languageLabel("js")).toBe("JavaScript");
+    expect(languageLabel("c++")).toBe("C++");
+    expect(languageLabel("")).toBe("Plain text");
+    expect(languageLabel("Plain Text")).toBe("Plain text");
+    expect(languageLabel("madeup")).toBe("madeup");
   });
 });

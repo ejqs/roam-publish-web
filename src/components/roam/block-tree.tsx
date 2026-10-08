@@ -5,7 +5,8 @@ import { headingId } from "@/lib/headings";
 import { zoomHref } from "@/lib/publications";
 import { cn } from "@/lib/utils";
 import { CollapsibleRow } from "./collapsible-row";
-import { blockComponent, isOnlyComponent, isOnlyComponents, type PageLinks, RoamText } from "./markup";
+import { CodeBlock } from "./code-block";
+import { blockComponent, isMermaid, isOnlyComponent, isOnlyComponents, mermaidSource, type PageLinks, RoamText } from "./markup";
 import { bulletClass, childrenClass, rowClass } from "./outline";
 
 type ViewType = Node["viewType"];
@@ -184,6 +185,8 @@ function Block({
       <Table rows={node.children} links={links} />
     ) : kind === "kanban" ? (
       <Kanban columns={node.children} links={links} />
+    ) : kind === "diagram" && isMermaid(node.string) && node.children.length > 0 ? (
+      <CodeBlock code={mermaidSource(node.children)} lang="mermaid" />
     ) : null;
   const embeds = [node.embed, ...(node.moreEmbeds ?? [])].filter((e): e is Node => !!e);
   const embed = embeds.length > 0 && embeds.map((e, i) => <Embed key={`${e.uid}-${i}`} node={e} links={links} />);

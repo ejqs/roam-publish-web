@@ -1,6 +1,6 @@
 {
   "name": "roam-publish-web",
-  "version": "0.13.2",
+  "version": "0.14.0",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -30,6 +30,7 @@
     "drizzle-orm": "^0.45.3",
     "katex": "^0.19.0",
     "lucide-react": "^1.49.0",
+    "mermaid": "^12.1.0",
     "next": "16.3.8",
     "next-themes": "^0.4.6",
     "pg": "^8.23.1",

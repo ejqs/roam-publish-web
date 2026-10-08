@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BARE_TAG, pageRef, type RefMatch } from "@/lib/roam-refs";
 import { CodeBlock } from "./code-block";
+import { InlineCode } from "./inline-code";
 
 /**
  * Published pages in the same graph or collection: lowercase title → href. `tagHref` is where a
@@ -142,6 +143,23 @@ export function blockComponent(text: string): "table" | "kanban" | "diagram" | n
   return null;
 }
 
+/** True when the block holds a `{{mermaid}}` component, whose children are the diagram's source. */
+export function isMermaid(text: string) {
+  const all = new RegExp(COMPONENT.source, "g");
+  return [...text.matchAll(all)].some((m) => parseComponent(m[1]).name === "mermaid");
+}
+
+/** A `{{mermaid}}` block's source: one line per child block, indented by depth as Roam nests them. */
+type Tree = { string: string; children: Tree[] };
+export function mermaidSource(children: Tree[], depth = 0): string {
+  return children
+    .flatMap((c) => [
+      ...c.string.split("\n").map((line) => "  ".repeat(depth) + line),
+      ...(c.children.length ? [mermaidSource(c.children, depth + 1)] : []),
+    ])
+    .join("\n");
+}
+
 /** True when the block is a single `{{…}}` component, which Roam draws in place of the text. */
 export const isOnlyComponent = (text: string) => new RegExp(`^\\s*${COMPONENT.source}\\s*$`).test(text);
 /** Nothing but `{{…}}` components, e.g. several embeds in one block. */
@@ -167,6 +185,8 @@ function Component({ inner }: { inner: string }) {
   const { name, arg } = parseComponent(inner);
   const url = safeUrl(/https?:\/\/[^\s)\]}]+/.exec(arg)?.[0] ?? "");
 
+  // Mermaid diagrams are drawn from the block's children, at the block level.
+  if (name === "mermaid") return null;
   if (DIAGRAMS.has(name)) return <Placeholder>Diagram not shown</Placeholder>;
   if (name === "query" || name === "mentions") return <Placeholder>Query results aren&apos;t published</Placeholder>;
 
@@ -224,7 +244,7 @@ const rules: Rule[] = [
   { find: re(/\$\$([\s\S]+?)\$\$/), render: (g) => <TeX tex={g[1]} /> },
   {
     find: re(/`([^`]+)`/),
-    render: (g) => <code className="rounded-sm bg-muted px-1 font-mono text-[0.9em]">{g[1]}</code>,
+    render: (g) => <InlineCode code={g[1]} />,
   },
   {
     find: re(/\{\{(?:\[\[)?(TODO|DONE)(?:\]\])?\}\}\s?/),
