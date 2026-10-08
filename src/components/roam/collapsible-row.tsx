@@ -18,6 +18,20 @@ export function FoldAllRoot({ children }: { children: ReactNode }) {
   );
 }
 
+/** A thread line that thickens and darkens while its button is hovered, instead of shading the blocks. */
+function ThreadLine({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "absolute inset-y-0 left-1/2 w-px -translate-x-1/2 rounded-full bg-roam-thread transition-[width,background-color,opacity] duration-150",
+        "group-hover:w-[3px] group-hover:bg-roam-bullet",
+        className,
+      )}
+    />
+  );
+}
+
 /**
  * The page's own thread line, left of its top-level bullets, like the line under any block with children: clicking
  * it folds every top-level block if any is open, otherwise opens them all.
@@ -26,10 +40,7 @@ export function PageThread({ children }: { children: ReactNode }) {
   const setFold = useContext(SetPageFoldContext);
   const ref = useRef<HTMLDivElement>(null);
   return (
-    <div
-      ref={ref}
-      className="relative [&:has(>[data-thread]:hover)>:is(ul,ol)]:rounded-sm [&:has(>[data-thread]:hover)>:is(ul,ol)]:bg-muted/60"
-    >
+    <div ref={ref} className="relative">
       <button
         type="button"
         data-thread
@@ -40,10 +51,11 @@ export function PageThread({ children }: { children: ReactNode }) {
           const rows = [...(ref.current?.querySelectorAll(":scope > * > li > button[aria-expanded]") ?? [])];
           setFold?.({ collapsed: rows.some((b) => b.getAttribute("aria-expanded") === "true") });
         }}
-        // Outside the top-level carets, so only where the page has room beside it.
-        className="group absolute inset-y-0 -left-[1.875em] z-10 hidden w-[0.75em] cursor-pointer md:block"
+        // Outside the top-level carets, so only where the page has room beside it. The line only shows while the
+        // pointer is near it.
+        className="group absolute inset-y-0 -left-[2.25em] z-10 hidden w-[1.25em] cursor-pointer md:block"
       >
-        <span className="absolute inset-y-0 left-1/2 w-px bg-roam-thread group-hover:bg-roam-bullet" />
+        <ThreadLine className="opacity-0 group-hover:opacity-100" />
       </button>
       {children}
     </div>
@@ -119,11 +131,7 @@ export function CollapsibleRow({
       <div
         ref={ref}
         hidden={collapsed || undefined}
-        className={cn(
-          "relative",
-          // Hovering the thread line marks the children it folds, like Roam.
-          "[&:has(>[data-thread]:hover)>:is(ul,ol)]:rounded-sm [&:has(>[data-thread]:hover)>:is(ul,ol)]:border-roam-bullet [&:has(>[data-thread]:hover)>:is(ul,ol)]:bg-muted/60",
-        )}
+        className="relative"
       >
         <button
           type="button"
@@ -138,8 +146,11 @@ export function CollapsibleRow({
             if (!rows.length) return setCollapsed(true);
             setChildrenFold({ collapsed: rows.some((b) => b.getAttribute("aria-expanded") === "true") });
           }}
-          className="absolute inset-y-0 -left-[1.625em] z-10 w-[0.75em] cursor-pointer"
-        />
+          className="group absolute inset-y-0 -left-[1.625em] z-10 w-[0.75em] cursor-pointer"
+        >
+          {/* Drawn over the children's border, which is the line at rest. */}
+          <ThreadLine className="opacity-0 group-hover:opacity-100" />
+        </button>
         <FoldAllContext.Provider value={childrenFold}>{nested}</FoldAllContext.Provider>
       </div>
     </li>

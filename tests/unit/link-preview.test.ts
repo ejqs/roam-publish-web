@@ -82,11 +82,14 @@ describe("privacyNotes", () => {
     ]);
     expect(privacyNotes({ ...base, access: "members" }).map((n) => n.kind)).toEqual(["members"]);
   });
-  test("a listed page out of search says so; an unlisted one only says unlisted", () => {
-    expect(privacyNotes({ ...base, access: "password", unsearchable: true }).map((n) => n.kind)).toEqual([
-      "password",
-      "unsearchable",
-    ]);
+  test("a listed open page out of search says so; unlisted or protected pages don't repeat it", () => {
+    expect(privacyNotes({ ...base, access: "open", unsearchable: true }).map((n) => n.kind)).toEqual(["unsearchable"]);
+    // A password, members-only or encrypted page is never in search anyway.
+    expect(privacyNotes({ ...base, access: "password", unsearchable: true }).map((n) => n.kind)).toEqual(["password"]);
+    expect(privacyNotes({ ...base, access: "members", unsearchable: true }).map((n) => n.kind)).toEqual(["members"]);
+    expect(
+      privacyNotes({ ...base, access: "password", encrypted: true, unsearchable: true }).map((n) => n.kind),
+    ).toEqual(["encrypted"]);
     expect(privacyNotes({ ...base, access: "open", unlisted: true, unsearchable: true }).map((n) => n.kind)).toEqual([
       "unlisted",
     ]);
