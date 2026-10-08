@@ -252,13 +252,14 @@ export function AccessFields({
     disabled: v === "discover" && s.reach !== "discover" ? s.blocked : undefined,
   }));
   const reachDescription = {
-    unlisted: "Only people with the link can find it. Never indexed.",
+    unlisted: "Only people with the link can find it. Never indexed, and [[links]] to it from other pages show as plain text.",
     public:
       target.kind === "entry"
-        ? `Listed on ${container.label}'s page.`
+        ? `Listed on ${container.label}'s page, and [[links]] on its other pages lead here.`
         : [
             target.frontPage ? "On your front page." : "Your front page is off, so it isn't listed anywhere.",
             target.indexable ? "Search engines can index it." : "Hidden from search engines.",
+            "[[Links]] on your other pages lead here.",
           ].join(" "),
     discover: s.paused ? `Not shown on Discover right now: ${s.blocked}` : "Listed, and also on roam.pub/discover.",
   }[s.reach];

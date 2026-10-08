@@ -5,6 +5,13 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.16.2 (2026-10-08)
+
+### Dashboard
+- Improved: **Listed and Unlisted say what they do to links.** Choosing whether a page is listed now says that
+  [[links]] on your other pages only lead to listed pages, and show unlisted ones as plain text. An unlisted
+  page's privacy note says the same.
+
 ## 0.16.1 (2026-10-08)
 
 ### Published pages

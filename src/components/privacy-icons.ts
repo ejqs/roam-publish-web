@@ -59,7 +59,7 @@ export function privacyNotes({
       kind: "unlisted",
       label: LISTING_LABELS.unlisted,
       // Unlisted pages can hide their graph from readers, so this doesn't name it.
-      text: "Only people with the link can find it. It isn't on a front page, in search engines or on Discover.",
+      text: "Only people with the link can find it. It isn't on a front page, in search engines or on Discover, and links on other pages don't lead here.",
     });
   // A protected page is never in site search, so saying so again only adds noise.
   else if (unsearchable && access === "open" && !encrypted)
