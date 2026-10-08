@@ -29,14 +29,21 @@ const textClass = (node: Node) =>
 function Marker({ node, viewType, n, zoom }: { node: Node; viewType: ViewType; n: number; zoom?: boolean }) {
   if (viewType === "document") return null;
   if (viewType === "numbered") {
-    return (
-      <span
-        aria-hidden
-        className={cn(
-          "absolute left-0 w-[1.875em] pr-[0.375em] text-right leading-[1.6] text-roam-bullet tabular-nums",
-          node.heading === 1 ? "top-[6px]" : node.heading === 2 ? "top-[4px]" : node.heading === 3 ? "top-[3px]" : "top-0.5",
-        )}
+    const className = cn(
+      "absolute left-0 w-[1.875em] pr-[0.375em] text-right leading-[1.6] text-roam-bullet tabular-nums",
+      node.heading === 1 ? "top-[6px]" : node.heading === 2 ? "top-[4px]" : node.heading === 3 ? "top-[3px]" : "top-0.5",
+    );
+    // Numbers zoom like bullets do.
+    return zoom ? (
+      <Link
+        href={zoomHref(node.uid)}
+        aria-label={`Zoom into item ${n}`}
+        className={cn(className, "rounded-sm hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring")}
       >
+        {n}.
+      </Link>
+    ) : (
+      <span aria-hidden className={className}>
         {n}.
       </span>
     );

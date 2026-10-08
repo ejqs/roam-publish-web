@@ -1,4 +1,3 @@
-import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { plainText } from "@/lib/slug";
 import { Breadcrumbs, type Crumb } from "@/components/breadcrumbs";
@@ -21,6 +20,12 @@ import { headingsOf, zoomPath } from "@/lib/headings";
 import { zoomHref } from "@/lib/publications";
 import type { ManageData } from "@/lib/manage-data";
 import type { ViewFooter } from "@/lib/views-data";
+
+/** A block's text as a breadcrumb: plain, and cut short so a long block doesn't take the whole trail. */
+const crumbLabel = (s: string) => {
+  const t = plainText(s) || "Untitled";
+  return t.length > 40 ? `${t.slice(0, 39).trimEnd()}…` : t;
+};
 
 export type Byline = { label: string; href?: string } | null;
 
@@ -104,23 +109,19 @@ export function PublicationView({
           {outline && (
             <PageOutlineAside headings={outline} className="absolute top-16 right-full bottom-16 hidden w-60 pr-6 xl:block" />
           )}
-          {crumbs && <Breadcrumbs items={crumbs} />}
           {zoomed && zoomNode ? (
             <>
-              <nav aria-label="Zoomed in from" className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
-                {[
-                  { label: pub.kind === "page" ? pub.title : tree.string, href: path },
-                  ...zoomed.slice(0, -1).map((n) => ({ label: n.string, href: zoomHref(n.uid) })),
-                ].map((c, i) => (
-                  <span key={c.href} className="flex min-w-0 items-center gap-1.5">
-                    {i > 0 && <ChevronRightIcon aria-hidden className="size-3.5 shrink-0" />}
-                    <Link href={c.href} className="max-w-56 truncate hover:text-foreground hover:underline">
-                      {plainText(c.label) || "Untitled"}
-                    </Link>
-                  </span>
-                ))}
-                <PrivacyBadges notes={privacy} className="ml-1 inline-flex flex-wrap gap-1" />
-              </nav>
+              {/* One trail: the site's crumbs, the page (leaving the zoom), then the blocks above this one. */}
+              <Breadcrumbs
+                className="mb-3"
+                items={[
+                  ...(crumbs ?? [{ label: plainText(pub.kind === "page" ? pub.title : tree.string) || "Untitled" }]).map((c, i, all) =>
+                    i === all.length - 1 ? { ...c, href: path } : c,
+                  ),
+                  ...zoomed.slice(0, -1).map((n) => ({ label: crumbLabel(n.string), href: zoomHref(n.uid) })),
+                  { label: crumbLabel(zoomNode.string) },
+                ]}
+              />
               {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
               {zoomNode.embed || blockComponent(zoomNode.string) ? (
                 <BlockList nodes={[{ ...zoomNode, collapsed: undefined }]} links={links} viewType={zoomViewType} anchors />
@@ -129,6 +130,7 @@ export function PublicationView({
                   {/* Like Roam, the block zoomed into reads as the title, with its children below it. */}
                   <h1 className="mb-6 text-[26px] sm:text-[32px] leading-tight font-semibold break-words whitespace-pre-wrap">
                     <RoamText text={zoomNode.string} links={links} />
+                    <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
                   </h1>
                   <BlockList nodes={zoomNode.children} links={links} viewType={zoomNode.viewType} anchors />
                 </>
@@ -136,6 +138,7 @@ export function PublicationView({
             </>
           ) : pub.kind === "page" ? (
             <>
+              {crumbs && <Breadcrumbs items={crumbs} />}
               <h1 className="mb-2 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
                 {pub.title}
                 <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
@@ -148,6 +151,7 @@ export function PublicationView({
             </>
           ) : (
             <>
+              {crumbs && <Breadcrumbs items={crumbs} />}
               <PrivacyBadges notes={privacy} className="mb-3 flex flex-wrap gap-1" />
               <BylineLine byline={byline} className="mb-4" />
               {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
