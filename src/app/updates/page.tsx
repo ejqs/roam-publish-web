@@ -37,6 +37,7 @@ const FILTERS: { value: Source | null; label: string }[] = [
 const KIND_FILTERS: { value: Kind | null; label: string }[] = [{ value: null, label: "All" }, ...KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))];
 
 const KIND_CHIP: Record<Kind, string> = {
+  breaking: "rounded-sm bg-destructive/10 px-1 text-destructive",
   new: "text-chart-2",
   improved: "text-link",
   fixed: "text-chart-3",
@@ -145,7 +146,7 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
                     i > 0 && (i === firstOld && fresh.size > 0 ? "border-t border-primary/35" : "border-t"),
                   )}
                 >
-                  <div className="flex gap-3 text-sm text-muted-foreground tabular-nums sm:flex-col sm:gap-1">
+                  <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground tabular-nums sm:flex-col sm:flex-nowrap sm:gap-1">
                     {/* Backfilled entries are stamped with their section's day, so there's no time to show. */}
                     <ReleaseTime iso={d.at.toISOString()} withTime={d.entries.some((e) => e.stampedAt.getTime() !== e.date.getTime())} />
                     {versions.map((v) => (

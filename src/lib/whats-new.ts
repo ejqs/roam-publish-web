@@ -10,7 +10,7 @@ import { timed } from "./telemetry";
 /**
  * What's new (/updates): the website's CHANGELOG.md and the extension's, as one timeline. Both files
  * use the same shape: `## 0.1.0 (2026-10-02)` (or `## Unreleased` in the extension's), then `### Area`,
- * then one bullet per change, which starts with its kind (`New:`, `Improved:` or `Fixed:`). Not to be confused
+ * then one bullet per change, which starts with its kind (`Breaking:`, `New:`, `Improved:` or `Fixed:`). Not to be confused
  * with lib/changelog.ts, the change log written into Roam.
  *
  * Each entry is stamped (table whats_new_stamp) with when it went live: a website entry when the deploy carrying
@@ -21,10 +21,11 @@ import { timed } from "./telemetry";
 export type Source = "web" | "ext";
 export const SOURCE_LABEL: Record<Source, string> = { web: "Website", ext: "Extension" };
 
-export const KINDS = ["new", "improved", "fixed"] as const;
+/** `breaking`: something that used to work stops working as before (an older extension has to update, say); it needs a major version. */
+export const KINDS = ["breaking", "new", "improved", "fixed"] as const;
 export type Kind = (typeof KINDS)[number];
-export const KIND_LABEL: Record<Kind, string> = { new: "New", improved: "Improved", fixed: "Fixed" };
-const KIND_PREFIX = /^(New|Improved|Fixed):\s+/;
+export const KIND_LABEL: Record<Kind, string> = { breaking: "Breaking", new: "New", improved: "Improved", fixed: "Fixed" };
+const KIND_PREFIX = /^(Breaking|New|Improved|Fixed):\s+/;
 
 export type Entry = {
   id: string;
@@ -35,7 +36,7 @@ export type Entry = {
   stampedAt: Date;
   /** Its release's version ("0.1.0", or "Unreleased" in the extension's file); null under a bare date. */
   version: string | null;
-  /** From the bullet's `New:` / `Improved:` / `Fixed:`; null without one. */
+  /** From the bullet's `Breaking:` / `New:` / `Improved:` / `Fixed:`; null without one. */
   kind: Kind | null;
   area: string;
   /** Markdown-lite: **bold**, `code` and [links](https://…). */

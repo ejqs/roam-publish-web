@@ -52,8 +52,9 @@ describe("parseChangelog", () => {
   });
 
   test("kinds", () => {
-    const md = "## 2026-10-01\n\n### A\n- New: One\n- Improved: Two\n- Fixed: Three\n- Plain\n- Newer: not a kind\n";
+    const md = "## 2026-10-01\n\n### A\n- Breaking: Zero\n- New: One\n- Improved: Two\n- Fixed: Three\n- Plain\n- Newer: not a kind\n";
     expect(parseChangelog(md, "web").map((x) => [x.kind, x.text])).toEqual([
+      ["breaking", "Zero"],
       ["new", "One"],
       ["improved", "Two"],
       ["fixed", "Three"],
@@ -75,18 +76,21 @@ describe("the website's versions", () => {
     expect([...dates].sort().reverse()).toEqual(dates);
   });
 
-  test("each release bumps the one before it: minor or major with a New change, else at least the patch", () => {
+  test("each release bumps the one before it: major with a Breaking change, minor or major with a New one, else at least the patch", () => {
     const versions = releases.map((h) => semver(h.split(" ")[0])!);
     const problems: string[] = [];
     for (let i = 0; i < versions.length - 1; i++) {
       const [ma, mi, pa] = versions[i];
       const [pma, pmi, ppa] = versions[i + 1];
       const name = releases[i];
-      const hasNew = entries.some((x) => x.version === name.split(" ")[0] && x.kind === "new");
+      const has = (kind: string) => entries.some((x) => x.version === name.split(" ")[0] && x.kind === kind);
+      const hasNew = has("new");
+      const breaking = has("breaking");
       const major = ma === pma + 1 && mi === 0 && pa === 0;
       const minor = ma === pma && mi === pmi + 1 && pa === 0;
       const patch = ma === pma && mi === pmi && pa === ppa + 1;
-      if (!(major || minor || (patch && !hasNew))) problems.push(`${name} after ${releases[i + 1]}${hasNew ? " (has New: needs minor or major)" : ""}`);
+      if (breaking ? !major : !(major || minor || (patch && !hasNew)))
+        problems.push(`${name} after ${releases[i + 1]}${breaking ? " (has Breaking: needs major)" : hasNew ? " (has New: needs minor or major)" : ""}`);
     }
     expect(problems).toEqual([]);
   });
