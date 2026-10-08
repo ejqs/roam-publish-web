@@ -17,7 +17,6 @@ export function CollapsibleRow({
   caretClassName,
   children,
   nested,
-  foldableChildren,
   defaultCollapsed = false,
 }: {
   id?: string;
@@ -27,8 +26,6 @@ export function CollapsibleRow({
   children: ReactNode;
   /** The block's children. */
   nested: ReactNode;
-  /** Whether any child has children of its own, so the thread line can fold them all, like Roam. */
-  foldableChildren?: boolean;
   /** Start folded, as the block is in Roam. */
   defaultCollapsed?: boolean;
 }) {
@@ -64,8 +61,8 @@ export function CollapsibleRow({
         className={cn(
           "absolute -left-[1em] flex size-[1.25em] items-center justify-center rounded-sm text-muted-foreground opacity-0 transition-opacity",
           "hover:bg-muted hover:text-foreground hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring",
-          // Shown while the pointer is on this block's own line (not its children), and always on touch screens.
-          "[li:has(>[data-line]:hover)>&]:opacity-100 [@media(hover:none)]:opacity-60",
+          // Shown while the pointer is on this block's own line or bullet (not its children), and always on touch screens.
+          "[li:has(>:is([data-line],a):hover)>&]:opacity-100 [@media(hover:none)]:opacity-60",
           collapsed && "opacity-100 [@media(hover:none)]:opacity-100",
           caretClassName ?? "top-[calc(0.175em_+_2px)]",
         )}
@@ -85,21 +82,20 @@ export function CollapsibleRow({
           "[&:has(>[data-thread]:hover)>:is(ul,ol)]:rounded-sm [&:has(>[data-thread]:hover)>:is(ul,ol)]:border-roam-bullet [&:has(>[data-thread]:hover)>:is(ul,ol)]:bg-muted/60",
         )}
       >
-        {foldableChildren && (
-          <button
-            type="button"
-            data-thread
-            tabIndex={-1}
-            aria-label="Fold or unfold all children"
-            onClick={() => {
-              // Like Roam: fold them all if any is open, otherwise open them all.
-              const rows = ref.current?.querySelectorAll(":scope > * > li > button[aria-expanded]") ?? [];
-              const anyOpen = [...rows].some((b) => b.getAttribute("aria-expanded") === "true");
-              setChildrenFold({ collapsed: anyOpen });
-            }}
-            className="absolute inset-y-0 -left-[1.625em] z-10 w-[0.75em] cursor-pointer"
-          />
-        )}
+        <button
+          type="button"
+          data-thread
+          tabIndex={-1}
+          aria-label="Fold or unfold all children"
+          onClick={() => {
+            // Like Roam: fold the children if any is open, otherwise open them all. When none of them has
+            // children to fold, the line folds this block instead, so pressing it always does something.
+            const rows = [...(ref.current?.querySelectorAll(":scope > * > li > button[aria-expanded]") ?? [])];
+            if (!rows.length) return setCollapsed(true);
+            setChildrenFold({ collapsed: rows.some((b) => b.getAttribute("aria-expanded") === "true") });
+          }}
+          className="absolute inset-y-0 -left-[1.625em] z-10 w-[0.75em] cursor-pointer"
+        />
         <FoldAllContext.Provider value={childrenFold}>{nested}</FoldAllContext.Provider>
       </div>
     </li>

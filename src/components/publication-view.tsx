@@ -15,15 +15,26 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { UpvoteButton } from "@/components/upvote-button";
 import { ViewBeacon } from "@/components/view-beacon";
 import { PasswordViewsWarning, ViewCount } from "@/components/view-count";
+import type { Node } from "@/db/app-schema";
 import type { publication } from "@/db/schema";
 import { headingsOf, zoomPath } from "@/lib/headings";
 import { zoomHref } from "@/lib/publications";
 import type { ManageData } from "@/lib/manage-data";
 import type { ViewFooter } from "@/lib/views-data";
 
-/** A block's text as a breadcrumb: plain, and cut short so a long block doesn't take the whole trail. */
-const crumbLabel = (s: string) => {
-  const t = plainText(s) || "Untitled";
+const componentName = { table: "Table", kanban: "Kanban board", diagram: "Diagram" } as const;
+
+/**
+ * A block as a breadcrumb: its plain text, cut short so a long block doesn't take the whole trail. A block that is
+ * only a table, board or embed is named after it.
+ */
+const crumbLabel = (n: Node) => {
+  const kind = blockComponent(n.string);
+  const t =
+    plainText(n.string) ||
+    (kind && componentName[kind]) ||
+    (n.embed && (n.embed.title ?? plainText(n.embed.string))) ||
+    "Untitled";
   return t.length > 40 ? `${t.slice(0, 39).trimEnd()}…` : t;
 };
 
@@ -118,8 +129,8 @@ export function PublicationView({
                   ...(crumbs ?? [{ label: plainText(pub.kind === "page" ? pub.title : tree.string) || "Untitled" }]).map((c, i, all) =>
                     i === all.length - 1 ? { ...c, href: path } : c,
                   ),
-                  ...zoomed.slice(0, -1).map((n) => ({ label: crumbLabel(n.string), href: zoomHref(n.uid) })),
-                  { label: crumbLabel(zoomNode.string) },
+                  ...zoomed.slice(0, -1).map((n) => ({ label: crumbLabel(n), href: zoomHref(n.uid) })),
+                  { label: crumbLabel(zoomNode) },
                 ]}
               />
               {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
