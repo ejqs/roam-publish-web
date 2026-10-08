@@ -59,7 +59,7 @@ const outline = [
         "It opens there once you republish it from Roam, which locks it for every place's password at once. Adding it from the Roam extension republishes it for you, so it opens right away.",
       ),
       block(
-        "Added on roam.pub, it shows Needs republish until then. To open it there right away instead, enter a password that opens it now when you add it, or unlock it in your browser first.",
+        "Added on roam.pub, it shows Needs republish there until then. If you've unlocked the page in your browser first, it opens there right away instead.",
       ),
       block(
         "Taking it out of its last collection puts it back in your graph, unlisted, behind the graph's password. If your graph has no password, roam.pub refuses: set one, unpublish the page, or turn encryption off first.",

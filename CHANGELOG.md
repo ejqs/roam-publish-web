@@ -9,7 +9,7 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 
 ### Security
 - New: **Add encrypted pages to collections without typing their password.** From the Roam extension they open there
-  right away. Added on roam.pub, they open once you republish them from Roam (or enter their password while adding).
+  right away. Added on roam.pub, they open once you republish them from Roam (or right away, if you unlocked the page in your browser first).
 
 ### Site
 - Improved: **The encryption rules, in one place.** [Encrypted pages](/privacy/encryption) now says where a page
