@@ -5,6 +5,14 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.15.0 (2026-10-08)
+
+### Published pages
+- New: **Fold the whole page from its own thread line.** A line now runs beside the page's top-level blocks, like
+  the one under any block with children: click it to fold them all, and again to open them.
+- New: **Hide the "On this page" outline.** Click the button beside it to tuck it away; it stays hidden on every
+  page until you bring it back.
+
 ## 0.14.1 (2026-10-08)
 
 ### Publishing
