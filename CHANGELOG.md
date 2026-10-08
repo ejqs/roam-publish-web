@@ -5,13 +5,6 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
-## 0.16.2 (2026-10-08)
-
-### Published pages
-- Improved: **Links between unlisted pages work.** An unlisted page now links to your other published pages,
-  listed or not, so two pages you just published link to each other. Listed pages still link only to listed
-  ones, so nothing public gives away an unlisted page's address.
-
 ## 0.16.1 (2026-10-08)
 
 ### Published pages
