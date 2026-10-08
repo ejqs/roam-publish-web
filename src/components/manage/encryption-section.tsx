@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { ENCRYPT_PASSWORD_MIN, NEEDS_REPUBLISH } from "@/lib/encryption-rules";
+import { E2E_EXTENSION, ENCRYPT_PASSWORD_MIN, ENCRYPTION_VERSIONS, type EncryptionVersion, NEEDS_REPUBLISH } from "@/lib/encryption-rules";
 import type { ManageData } from "@/lib/manage-data";
 import { usePasswordPrompt } from "./password-prompt";
 
@@ -147,6 +147,7 @@ export function EncryptionSection({
               ? `Encrypted. It opens with the ${spots.map((s) => s.label).join(" or the ")} password.`
               : "Stores the page so only its password can open it. Even someone with a copy of the database can't read it."}
           </span>
+          {data.encrypted && data.encryptionVersion && <VersionNote version={data.encryptionVersion} by={data.encryptedBy} />}
         </div>
         <Switch
           id={`encrypt-${data.publicationId}`}
@@ -292,8 +293,9 @@ export function EncryptionSection({
                 </li>
               </ul>
               <p className="rounded-sm bg-muted px-3 py-2.5 text-xs text-muted-foreground">
-                Readers&apos; browsers decrypt it, so roam.pub never reads it to show it. It isn&apos;t fully end-to-end yet:
-                roam.pub still sees the text when you publish it from Roam.{" "}
+                Readers&apos; browsers decrypt it, so roam.pub never reads it to show it. Encrypting it here is encryption v1:
+                roam.pub has its text now. Republish it from Roam with extension {E2E_EXTENSION} or newer to encrypt it
+                end-to-end (v2).{" "}
                 <Link href="/privacy/encryption" target="_blank" className="text-link hover:underline">
                   How encrypted pages work
                 </Link>
@@ -313,5 +315,21 @@ export function EncryptionSection({
       </Dialog>
       {passwordPrompt.element}
     </section>
+  );
+}
+
+/** Which encryption version the page has (ENCRYPTION_VERSIONS), and how to get end-to-end from an older one. */
+function VersionNote({ version, by }: { version: number; by: string | null }) {
+  const what = ENCRYPTION_VERSIONS[version as EncryptionVersion];
+  if (!what) return null;
+  return (
+    <span className="text-xs text-muted-foreground">
+      <Link href={`/privacy/encryption/versions#v${version}`} target="_blank" className="font-medium text-link hover:underline">
+        Encryption v{version}
+      </Link>
+      : {what}
+      {by ? `, by ${by}` : ""}.
+      {version < 2 && ` Republish it from Roam with extension ${E2E_EXTENSION} or newer to encrypt it end-to-end.`}
+    </span>
   );
 }

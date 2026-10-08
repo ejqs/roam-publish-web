@@ -1,6 +1,6 @@
 {
   "name": "roam-publish-web",
-  "version": "0.17.1",
+  "version": "0.18.0",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "bun scripts/ext-gate.ts && drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "bun test",

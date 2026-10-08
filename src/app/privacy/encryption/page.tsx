@@ -11,11 +11,11 @@ export const metadata: Metadata = {
   description: "The rules for encrypting a page with its password, what that protects against, and what it doesn't.",
 };
 
-const links = new PageLinks([...siteLinks, ["privacy policy", "/privacy"]]);
+const links = new PageLinks([...siteLinks, ["privacy policy", "/privacy"], ["encryption versions", "/privacy/encryption/versions"]]);
 
 const outline = [
   block(
-    "A password-protected page can also be encrypted with its password: its text is stored locked, and only that password unlocks it. This page explains the rules, then what encryption protects against and what it doesn't. In short: **readers' browsers decrypt it, so roam.pub never reads it to show it. It isn't fully end-to-end yet: roam.pub still sees the text when you publish it.**",
+    "A password-protected page can also be encrypted with its password: its text is stored locked, and only that password unlocks it. This page explains the rules, then what encryption protects against and what it doesn't. In short: **readers' browsers decrypt it, so roam.pub never reads it to show it. Published from extension 0.2.0 or newer, it's encrypted in Roam, so roam.pub never sees its text at all.** Each encrypted page says which version of encryption it has: see [[Encryption versions]].",
   ),
   block("**The rules**", [
     block("**Every place it's shown needs a password**", [
@@ -51,7 +51,7 @@ const outline = [
     ]),
     block("**Republishing doesn't need the password**", [
       block(
-        "When you republish from Roam, the new text is locked to the same passwords right away. Nothing to type.",
+        "When you republish from Roam, the new text is locked to the same passwords right away. Nothing to type. From extension 0.2.0, it's locked in Roam before it's sent.",
       ),
     ]),
     block("**Adding it somewhere new**", [
@@ -95,7 +95,7 @@ const outline = [
   ]),
   block("**What it doesn't protect against**", [
     block(
-      "**The server sees it when it's published or managed.** The Roam extension still sends the page's text to roam.pub, which encrypts it before storing it. Passwords you type on your dashboard (to set or change one, encrypt or decrypt pages, or add a page somewhere new) reach the server too. So does a reader's password the first time it's used after this change, if it was set before proofs existed: from then on, it's a proof.",
+      "**The server sees it when it encrypts it (encryption v1).** Extensions older than 0.2.0 send the page's text to roam.pub, which encrypts it before storing it, and so does encrypting a page on your dashboard. Passwords you type on your dashboard (to set or change one, encrypt or decrypt pages, or add a page somewhere new) reach the server too. So does a reader's password the first time it's used after this change, if it was set before proofs existed: from then on, it's a proof.",
     ),
     block(
       "**The site's own code.** The code that decrypts pages in readers' browsers comes from roam.pub. Someone in control of the running server could change it to collect passwords as they're typed. That could be the operator of roam.pub, [Railway](https://railway.com) (which hosts it), or an attacker who broke into it.",
@@ -125,7 +125,7 @@ const outline = [
   ]),
   block("**If you need more than this**", [
     block(
-      "If a page must stay secret even from roam.pub and its host, don't publish it. Encryption here protects stored data and reading, but the text still passes through roam.pub when you publish it.",
+      "If a page must stay secret even from roam.pub and its host, publish it from extension 0.2.0 or newer where it's Password everywhere, so it's encrypted in Roam (v2), and don't encrypt or decrypt it on your dashboard. The site's own code is still a limit, as above.",
     ),
     block("Everything else roam.pub does with your data is in the [[Privacy policy]]."),
   ]),

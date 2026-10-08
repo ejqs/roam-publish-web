@@ -19,6 +19,7 @@ import { type Blocker, isUnlocked } from "@/lib/gates";
 import { ENCRYPT_PASSWORD_MIN } from "./encryption-rules";
 import { type SealedPage, UNLOCK_PROOF_INFO } from "./reader-crypto";
 import { entryPath, publicationPath } from "./publications";
+import { SITE_VERSION } from "./version";
 import {
   collection,
   collectionEntry,
@@ -186,9 +187,15 @@ export const emptyTree = (rootUid: string): Node => ({ uid: rootUid, string: "",
 export const sealHash = (publicationId: string, hash: string) =>
   serverSeal("content-hash", Buffer.from(hash), publicationId);
 
-/** The plain content hash of any page. */
+/**
+ * A page encrypted in Roam stores the extension's own keyed hash ("k1.{hex}", lib/e2e-publish.ts), which
+ * says whether it changed without telling roam.pub anything about the text.
+ */
+export const isKeyedHash = (hash: string) => /^k1\.[0-9a-f]{64}$/.test(hash);
+
+/** The content hash of any page as the extension compares it: plain, or keyed when encrypted in Roam. */
 export function plainHash(p: { id: string; encrypted: boolean; contentHash: string }) {
-  if (!p.encrypted) return p.contentHash;
+  if (!p.encrypted || isKeyedHash(p.contentHash)) return p.contentHash;
   return serverOpen("content-hash", p.contentHash, p.id)?.toString() ?? "";
 }
 
@@ -498,6 +505,9 @@ export async function unlockSaltOf(l: LockRef) {
 
 // --- Encrypting and decrypting a page ----------------------------------------------------------
 
+/** What `publication.encryptedBy` says for a page this server encrypted (encryption 1). */
+export const ENCRYPTED_BY_SERVER = `roam.pub ${SITE_VERSION}`;
+
 /** Encrypts a tree for a page and seals its new content key to every password that opens it. */
 export async function sealNewContent(tx: Tx, publicationId: string, tree: Node) {
   const ck = randomBytes(32);
@@ -642,6 +652,8 @@ export async function encryptPage(tx: Tx, pub: typeof publication.$inferSelect) 
     .set({
       encrypted: true,
       cipher,
+      encryptionVersion: 1,
+      encryptedBy: ENCRYPTED_BY_SERVER,
       needsRepublish,
       tree: emptyTree(pub.rootUid),
       searchText: "",
@@ -650,6 +662,13 @@ export async function encryptPage(tx: Tx, pub: typeof publication.$inferSelect) 
     })
     .where(eq(publication.id, pub.id));
 }
+
+/**
+ * Whether a new page is encrypted, given whether its graph place (when shown) and any of its
+ * collections ask for it; it also needs `encryptBlocker` to find nothing. Shared with
+ * lib/e2e-publish.ts, which predicts this before the page exists.
+ */
+export const wantsEncryption = (graphAsks: boolean, aCollectionAsks: boolean) => graphAsks || aCollectionAsks;
 
 export async function encryptNewPageIfWanted(publicationId: string): Promise<boolean> {
   return db.transaction(async (tx) => {
@@ -665,7 +684,7 @@ export async function encryptNewPageIfWanted(publicationId: string): Promise<boo
       .from(collectionEntry)
       .innerJoin(collection, eq(collection.id, collectionEntry.collectionId))
       .where(eq(collectionEntry.publicationId, publicationId));
-    const wanted = (row.pub.inGraph && row.g.encryptNewPages) || entries.some(({ c }) => c.encryptNewPages);
+    const wanted = wantsEncryption(row.pub.inGraph && row.g.encryptNewPages, entries.some(({ c }) => c.encryptNewPages));
     if (!wanted) return false;
     if (await encryptBlocker(tx, await spotsOf(tx, publicationId))) return false;
     await encryptPage(tx, row.pub);

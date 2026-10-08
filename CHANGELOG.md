@@ -6,6 +6,22 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.18.0 (2026-10-08)
+
+### Security
+- New: Password pages can be encrypted in Roam before they're published, so roam.pub never sees their text, not
+  even while publishing. This needs extension 0.2.0; earlier versions keep publishing as before.
+- New: **Encryption versions.** An encrypted page's badge says **End-to-end encrypted** (v2, encrypted in Roam) or
+  **Encrypted** (v1, encrypted by roam.pub when it was published), with the code that did it, and so does its Manage
+  dialog. [Encryption versions](/privacy/encryption/versions) explains each one; a v1 page becomes v2 when it's
+  republished from extension 0.2.0 or newer.
+- Fixed: An encrypted page's badge no longer says roam.pub decrypts it for readers. Readers' browsers do.
+
+### Site
+- New: **Upcoming changes** lists changes that will need you to do something, before they happen: what changes,
+  what to do, and how many extensions are ready. Signed in, it shows which of your graphs' extensions need an
+  update. Find it from What's new.
+
 ## 0.17.1 (2026-10-08)
 
 ### Dashboard

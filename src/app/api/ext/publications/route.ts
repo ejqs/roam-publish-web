@@ -1,10 +1,11 @@
 import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { collectionEntry, graph, type Node, publication, shortlink } from "@/db/schema";
+import { collectionEntry, graph, LOCK_SCOPES, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
+import { type SealedContent, sealPlan, sealsMatch, storeSealedKeys } from "@/lib/e2e-publish";
 import { foldedUids } from "@/lib/folds";
-import { emptyTree, encryptNewPageIfWanted, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
+import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
 import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
@@ -45,6 +46,34 @@ const Body = z.object({
   /** The publisher's IANA time zone, for dating change log entries. Not hashed. */
   timeZone: z.string().max(64).optional(),
 });
+
+/**
+ * A page encrypted in Roam (extension 1.0.0 and later, lib/e2e-publish.ts): the cipher and its sealed
+ * keys instead of the tree, which blocks start collapsed, and the extension's keyed hash.
+ */
+const SealedBody = Body.omit({ tree: true, contentHash: true }).extend({
+  folded: z.array(z.string().min(1).max(64)).max(100_000),
+  contentHash: z.string().regex(/^k1\.[0-9a-f]{64}$/),
+  sealed: z.object({
+    publicationId: z.uuid(),
+    cipher: z.string().regex(/^v1(\.[\w-]+){3}$/),
+    keys: z
+      .array(
+        z.object({
+          scope: z.enum(LOCK_SCOPES),
+          id: z.string().min(1).max(64),
+          publicKey: z.string().regex(/^[\w-]+$/).max(200),
+          sealedKey: z.string().regex(/^v1(\.[\w-]+){4}$/).max(1000),
+        }),
+      )
+      .max(100),
+  }),
+});
+type Sealed = z.infer<typeof SealedBody>;
+
+/** Where the page is shown, or a password, changed while the extension was encrypting it: it asks again and retries. */
+const resealResponse = (req: Request) =>
+  json(req, { error: "Where this page is shown changed while it was being published. Publish it again.", reseal: true }, 409);
 
 const MAX_BYTES = 1_000_000;
 /** Far deeper than any real outline; checked before zod, which recurses once per level. */
@@ -134,11 +163,14 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   }
   if (tooDeep(body))
     return json(req, { error: `This page is nested more than ${MAX_DEPTH} levels deep, which can't be published.` }, 400);
-  const parsed = Body.safeParse(body);
+  const isSealed = !!body && typeof body === "object" && "sealed" in body;
+  const parsed = isSealed ? SealedBody.safeParse(body) : Body.safeParse(body);
   if (!parsed.success) return json(req, { error: "Invalid publish payload" }, 400);
-  const p = parsed.data;
+  const p = parsed.data as z.infer<typeof Body> | Sealed;
+  const sealed: SealedContent | null = "sealed" in p ? p.sealed : null;
 
-  const hash = contentHash(p);
+  // Encrypted in Roam: roam.pub can't check the hash, which is keyed and only means something to the extension.
+  const hash = "sealed" in p ? p.contentHash : contentHash(p);
   if (hash !== p.contentHash) return json(req, { error: "Content hash mismatch" }, 400);
 
   const title =
@@ -162,8 +194,14 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
       // The owner's zone wins; a member's only fills in a missing one.
       .where(and(eq(graph.id, ctx.graphId), ctx.role === "owner" ? undefined : sql`${graph.timeZone} is null`));
   const page = { graphId: ctx.graphId, rootUid: p.rootUid };
-  // The hash covers what the extension sent; shortlink blocks in it are never stored or shown.
-  const tree = withoutShortlinks(p.tree, await shortlinkSet(ctx.graphId));
+  // The hash covers what the extension sent; shortlink blocks in it are never stored or shown. A page
+  // encrypted in Roam had them left out there.
+  const tree = "tree" in p ? withoutShortlinks(p.tree, await shortlinkSet(ctx.graphId)) : emptyTree(p.rootUid);
+  const folded = "folded" in p ? p.folded : foldedUids(tree);
+  const plan = sealed && (await sealPlan(ctx.graphId, ctx.userId, p.rootUid, sealed.publicationId));
+  if (sealed && !(plan && sealsMatch(plan, sealed))) return resealResponse(req);
+  if (sealed && !existing && (await db.query.publication.findFirst({ where: eq(publication.id, sealed.publicationId), columns: { id: true } })))
+    return resealResponse(req);
   const short = shortUrl(link.id);
   const g = (await db.query.graph.findFirst({ where: eq(graph.id, ctx.graphId) }))!;
 
@@ -179,10 +217,24 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     if (same && !authorChanged)
       return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility, ...listing, encrypted: existing.encrypted, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
     await db.transaction(async (tx) => {
-      // An encrypted page stays encrypted: the new content is sealed to its passwords' public keys.
-      const content = existing.encrypted
+      // An encrypted page stays encrypted: the new content is sealed to its passwords' public keys,
+      // in Roam by newer extensions, here for older ones.
+      const content = sealed
+        ? {
+            cipher: sealed.cipher,
+            encryptionVersion: 2,
+            encryptedBy: `extension ${ctx.extVersion ?? "0.2.0"}`,
+            needsRepublish: await storeSealedKeys(tx, plan as typeof plan & { encrypt: true }, sealed),
+            tree,
+            searchText: "",
+            tags: [],
+            contentHash: hash,
+          }
+        : existing.encrypted
         ? {
             ...(await sealNewContent(tx, existing.id, tree)),
+            encryptionVersion: 1,
+            encryptedBy: ENCRYPTED_BY_SERVER,
             tree: emptyTree(existing.rootUid),
             searchText: "",
             tags: [],
@@ -198,7 +250,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
                 title,
                 // Website tag edits survive republishing.
                 ...content,
-                folded: foldedUids(tree),
+                folded,
                 kind: p.kind,
                 updatedAt: new Date(),
                 ...(p.author !== undefined && { authorName }),
@@ -227,13 +279,14 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   const [created] = await db
     .insert(publication)
     .values({
+      ...(sealed && { id: sealed.publicationId, encrypted: true, cipher: sealed.cipher, encryptionVersion: 2, encryptedBy: `extension ${ctx.extVersion ?? "0.2.0"}` }),
       graphId: ctx.graphId,
       rootUid: p.rootUid,
       kind: p.kind,
       title,
       tree,
-      folded: foldedUids(tree),
-      ...indexFields(tree),
+      folded,
+      ...(sealed ? { tags: [], searchText: "" } : indexFields(tree)),
       contentHash: hash,
       publishedBy: ctx.userId,
       authorName,
@@ -243,11 +296,17 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     })
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
-  // The page is published either way; a failure here leaves it readable behind its password.
-  const encrypted = await encryptNewPageIfWanted(created.id).catch((e) => {
-    console.error("Couldn't encrypt a new page", created.id, e);
-    return false;
-  });
+  const encrypted = sealed
+    ? await db.transaction(async (tx) => {
+        const waits = await storeSealedKeys(tx, plan as typeof plan & { encrypt: true }, sealed);
+        if (waits) await tx.update(publication).set({ needsRepublish: true }).where(eq(publication.id, created.id));
+        return true;
+      })
+    : // The page is published either way; a failure here leaves it readable behind its password.
+      await encryptNewPageIfWanted(created.id).catch((e) => {
+        console.error("Couldn't encrypt a new page", created.id, e);
+        return false;
+      });
   const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
   logChange(page, "publishing", `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
   if (encrypted) logChange(page, "access", "Encrypted with password", `encrypted:${created.id}`);

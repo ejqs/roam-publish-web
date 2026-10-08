@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { FieldDescription, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { decryptExistingPagesBlocked, ENCRYPT_PASSWORD_MIN, encryptExistingPagesBlocked } from "@/lib/encryption-rules";
+import { decryptExistingPagesBlocked, E2E_EXTENSION, ENCRYPT_PASSWORD_MIN, encryptExistingPagesBlocked } from "@/lib/encryption-rules";
 import type { Access } from "@/db/schema";
 import { Choice, readOptions } from "./choice";
 
@@ -393,8 +393,9 @@ function EncryptConsequences() {
         </li>
       </ul>
       <p className="rounded-sm bg-muted px-3 py-2.5 text-xs text-muted-foreground">
-        Readers&apos; browsers decrypt them, so roam.pub never reads them to show them. It isn&apos;t fully end-to-end
-        yet: roam.pub still sees the text when you publish from Roam.{" "}
+        Readers&apos; browsers decrypt them, so roam.pub never reads them to show them. Pages published from extension{" "}
+        {E2E_EXTENSION} or newer are encrypted in Roam, so roam.pub never sees their text (encryption v2). Pages
+        encrypted on roam.pub are v1 until they&apos;re republished.{" "}
         <Link href="/privacy/encryption" target="_blank" className="text-link hover:underline">
           How encrypted pages work
         </Link>

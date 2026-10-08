@@ -126,7 +126,7 @@ const outline = [
     block("Everything is sent over HTTPS."),
     block("Account passwords, page passwords and API keys are stored hashed, and append-only tokens encrypted."),
     block(
-      "The operator can access what's stored, and only uses it to run, support and moderate the service. The exception is encrypted pages, whose text is stored encrypted with their passwords; their titles stay readable. Readers' browsers decrypt them, so the server doesn't read them to show them, but it still sees their text when they're published. See [[Encrypted pages]].",
+      "The operator can access what's stored, and only uses it to run, support and moderate the service. The exception is encrypted pages, whose text is stored encrypted with their passwords; their titles stay readable. Readers' browsers decrypt them, so the server doesn't read them to show them. Pages published from extension 0.2.0 or newer are encrypted in Roam, so the server never sees their text; older ones, and pages encrypted on the website, were encrypted by the server, which saw their text then. See [[Encrypted pages]].",
     ),
     block(
       "If a data breach affects your information, you'll be told, and so will the National Privacy Commission, as the law requires.",

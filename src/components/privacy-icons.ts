@@ -18,7 +18,16 @@ export const PRIVACY_ICONS = {
 
 export type PrivacyKind = keyof typeof PRIVACY_ICONS;
 
-export type PrivacyNote = { kind: PrivacyKind; label: string; text: string; href?: string };
+export type PrivacyNote = {
+  kind: PrivacyKind;
+  label: string;
+  text: string;
+  /** Shown after the label, smaller: the encryption version ("v2"). */
+  tag?: string;
+  href?: string;
+  /** The link's words; "How it works" by default. */
+  linkLabel?: string;
+};
 
 /**
  * What a reader is told about a page they're reading: whether it's protected, and whether it's
@@ -28,12 +37,15 @@ export type PrivacyNote = { kind: PrivacyKind; label: string; text: string; href
 export function privacyNotes({
   access,
   encrypted,
+  encryption,
   unlisted,
   unsearchable = false,
   container,
 }: {
   access: Access;
   encrypted: boolean;
+  /** How it was encrypted (lib/encryption-rules.ts ENCRYPTION_VERSIONS), and the code that did it. */
+  encryption?: { version: number | null; by: string | null };
   unlisted: boolean;
   /**
    * Listed here, and its owner took it out of roam.pub search. Unlisted already says it can't be found, and a
@@ -43,13 +55,21 @@ export function privacyNotes({
   container: string;
 }): PrivacyNote[] {
   const notes: PrivacyNote[] = [];
-  if (encrypted)
+  if (encrypted) {
+    const v = encryption?.version ?? 1;
+    const by = encryption?.by ? ` by ${encryption.by}` : "";
     notes.push({
       kind: "encrypted",
-      label: "Encrypted",
-      text: "Stored encrypted with its password, so a copy of the database can't be read. roam.pub decrypts it for readers who unlock it.",
-      href: "/privacy/encryption",
+      label: v >= 2 ? "End-to-end encrypted" : "Encrypted",
+      tag: `v${v}`,
+      text:
+        v >= 2
+          ? `Encrypted in Roam${by} before it was published, so roam.pub never saw its text. Your browser decrypts it once you unlock it.`
+          : `Encrypted${by || " by roam.pub"} when it was published, so a copy of the database can't be read, but roam.pub saw its text then. Your browser decrypts it once you unlock it.`,
+      href: `/privacy/encryption/versions#v${v}`,
+      linkLabel: `Encryption v${v}`,
     });
+  }
   else if (access === "password")
     notes.push({ kind: "password", label: ACCESS_LABELS.password, text: "Readers need the password. Unlocking lasts 30 days on a browser." });
   else if (access === "members")
