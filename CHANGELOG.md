@@ -6,6 +6,12 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.18.0 (2026-10-08)
+
+### Security
+- New: Password pages can be encrypted in Roam before they're published, so roam.pub never sees their text, not
+  even while publishing. This needs the extension's next release; earlier versions keep publishing as before.
+
 ## 0.17.1 (2026-10-08)
 
 ### Dashboard
