@@ -11,9 +11,10 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 ### Security
 - New: Password pages can be encrypted in Roam before they're published, so roam.pub never sees their text, not
   even while publishing. This needs extension 0.2.0; earlier versions keep publishing as before.
-- New: **Encryption versions.** Each encrypted page's Manage dialog says how it was encrypted: v1, by roam.pub when
-  it was published, or v2, end-to-end in Roam (and by which extension). [Encrypted pages](/privacy/encryption) lists
-  the versions; a v1 page becomes v2 when it's republished from extension 0.2.0 or newer.
+- New: **Encryption versions.** An encrypted page's badge says **End-to-end encrypted** (v2, encrypted in Roam) or
+  **Encrypted** (v1, encrypted by roam.pub when it was published), with the code that did it, and so does its Manage
+  dialog. [Encryption versions](/privacy/encryption/versions) explains each one; a v1 page becomes v2 when it's
+  republished from extension 0.2.0 or newer.
 
 ### Site
 - New: **Upcoming changes** lists changes that will need you to do something, before they happen: what changes,

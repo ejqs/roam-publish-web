@@ -19,6 +19,7 @@ import { type Blocker, isUnlocked } from "@/lib/gates";
 import { ENCRYPT_PASSWORD_MIN } from "./encryption-rules";
 import { type SealedPage, UNLOCK_PROOF_INFO } from "./reader-crypto";
 import { entryPath, publicationPath } from "./publications";
+import { SITE_VERSION } from "./version";
 import {
   collection,
   collectionEntry,
@@ -504,6 +505,9 @@ export async function unlockSaltOf(l: LockRef) {
 
 // --- Encrypting and decrypting a page ----------------------------------------------------------
 
+/** What `publication.encryptedBy` says for a page this server encrypted (encryption 1). */
+export const ENCRYPTED_BY_SERVER = `roam.pub ${SITE_VERSION}`;
+
 /** Encrypts a tree for a page and seals its new content key to every password that opens it. */
 export async function sealNewContent(tx: Tx, publicationId: string, tree: Node) {
   const ck = randomBytes(32);
@@ -649,7 +653,7 @@ export async function encryptPage(tx: Tx, pub: typeof publication.$inferSelect) 
       encrypted: true,
       cipher,
       encryptionVersion: 1,
-      encryptedBy: null,
+      encryptedBy: ENCRYPTED_BY_SERVER,
       needsRepublish,
       tree: emptyTree(pub.rootUid),
       searchText: "",

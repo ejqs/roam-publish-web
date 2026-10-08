@@ -23,13 +23,17 @@ export function PrivacyBadges({ notes, className }: { notes: PrivacyNote[]; clas
             >
               <Icon className="size-3.5" aria-hidden />
               {n.label}
+              {n.tag && <span className="font-mono text-[10px] opacity-70">{n.tag}</span>}
             </PopoverTrigger>
             <PopoverContent side="bottom" align="start" className="w-72 gap-1 text-xs">
-              <p className="font-medium">{n.label}</p>
+              <p className="font-medium">
+                {n.label}
+                {n.tag && <span className="ml-1 font-mono text-[10px] text-muted-foreground">{n.tag}</span>}
+              </p>
               <p className="text-muted-foreground">{n.text}</p>
               {n.href && (
                 <Link href={n.href} className="text-link hover:underline">
-                  How it works
+                  {n.linkLabel ?? "How it works"}
                 </Link>
               )}
             </PopoverContent>

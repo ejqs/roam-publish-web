@@ -4,18 +4,18 @@ import { PageLinks } from "@/components/roam/markup";
 import { block, siteLinks } from "@/components/roam/outline";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { ENCRYPT_PASSWORD_MIN, ENCRYPTION_VERSIONS, type EncryptionVersion } from "@/lib/encryption-rules";
+import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 
 export const metadata: Metadata = {
   title: "Encrypted pages · Roam Publish",
   description: "The rules for encrypting a page with its password, what that protects against, and what it doesn't.",
 };
 
-const links = new PageLinks([...siteLinks, ["privacy policy", "/privacy"]]);
+const links = new PageLinks([...siteLinks, ["privacy policy", "/privacy"], ["encryption versions", "/privacy/encryption/versions"]]);
 
 const outline = [
   block(
-    "A password-protected page can also be encrypted with its password: its text is stored locked, and only that password unlocks it. This page explains the rules, then what encryption protects against and what it doesn't. In short: **readers' browsers decrypt it, so roam.pub never reads it to show it. Published from extension 0.2.0 or newer, it's encrypted in Roam, so roam.pub never sees its text at all.** Each encrypted page says which encryption version it has; the versions are listed at the end of this page.",
+    "A password-protected page can also be encrypted with its password: its text is stored locked, and only that password unlocks it. This page explains the rules, then what encryption protects against and what it doesn't. In short: **readers' browsers decrypt it, so roam.pub never reads it to show it. Published from extension 0.2.0 or newer, it's encrypted in Roam, so roam.pub never sees its text at all.** Each encrypted page says which version of encryption it has: see [[Encryption versions]].",
   ),
   block("**The rules**", [
     block("**Every place it's shown needs a password**", [
@@ -131,42 +131,6 @@ const outline = [
   ]),
 ];
 
-/** Encryption versions, newest first: what each page's "Encryption v…" means. Add one whenever how pages are encrypted changes. */
-const VERSIONS: { v: EncryptionVersion; since: string; text: string }[] = [
-  {
-    v: 2,
-    since: "roam.pub 0.18.0 and extension 0.2.0, 8 Oct 2026",
-    text: "End-to-end. The extension encrypts the page in Roam and sends roam.pub only the encrypted page, sealed to each place's password. roam.pub never sees its text.",
-  },
-  {
-    v: 1,
-    since: "roam.pub 0.3.0, 3 Oct 2026",
-    text: "Encrypted by roam.pub: the extension sends the text, and roam.pub encrypts it before storing it, so roam.pub saw it then. Encrypting a page on your dashboard still makes v1. Since roam.pub 0.16.3, readers' browsers decrypt it. Republish it from Roam with extension 0.2.0 or newer to make it v2.",
-  },
-];
-
-function Versions() {
-  return (
-    <section id="versions" className="mt-8 flex scroll-mt-20 flex-col gap-4 border-t pt-6">
-      <h2 className="text-xl font-semibold">Encryption versions</h2>
-      <p className="text-muted-foreground">Each encrypted page says which version it has in its Manage dialog.</p>
-      <dl className="flex flex-col gap-4">
-        {VERSIONS.map((x) => (
-          <div key={x.v} className="flex flex-col gap-1">
-            <dt className="font-semibold">
-              v{x.v} <span className="font-normal text-muted-foreground">· {ENCRYPTION_VERSIONS[x.v]}</span>
-            </dt>
-            <dd className="text-[15px] leading-relaxed">
-              <span className="text-sm text-muted-foreground">From {x.since}. </span>
-              {x.text}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-}
-
 export default function EncryptionPage() {
   return (
     <>
@@ -175,7 +139,6 @@ export default function EncryptionPage() {
         <article className="mx-auto w-full max-w-[700px] rounded-sm bg-card px-5 py-8 text-[16px] shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)] sm:px-12 sm:py-12">
           <h1 className="mb-6 text-[32px] sm:text-[42px] leading-tight font-semibold">Encrypted pages</h1>
           <BlockList nodes={outline} links={links} />
-          <Versions />
         </article>
       </main>
       <SiteFooter />

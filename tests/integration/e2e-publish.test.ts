@@ -135,7 +135,8 @@ describe("publishing encrypted in Roam", () => {
     expect((await (await POST(extRequest("/api/ext/publications", key, { body }))).json()).status).toBe("updated");
     expect(textOf((await readerSees("pg1"))!)).toContain("plain again");
     // roam.pub saw the text this time: back to encryption 1.
-    expect(await row("pg1")).toMatchObject({ encryptionVersion: 1, encryptedBy: null });
+    expect((await row("pg1"))!.encryptedBy).toMatch(/^roam\.pub \d+\.\d+\.\d+$/);
+    expect((await row("pg1"))!.encryptionVersion).toBe(1);
   });
 
   test("asks to reseal when the passwords changed since the plan", async () => {

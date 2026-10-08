@@ -5,7 +5,7 @@ import { collectionEntry, graph, LOCK_SCOPES, type Node, publication, shortlink 
 import { contentHash } from "@/lib/content-hash";
 import { type SealedContent, sealPlan, sealsMatch, storeSealedKeys } from "@/lib/e2e-publish";
 import { foldedUids } from "@/lib/folds";
-import { emptyTree, encryptNewPageIfWanted, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
+import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
 import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
@@ -223,7 +223,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
         ? {
             cipher: sealed.cipher,
             encryptionVersion: 2,
-            encryptedBy: ctx.extVersion,
+            encryptedBy: `extension ${ctx.extVersion ?? "0.2.0"}`,
             needsRepublish: await storeSealedKeys(tx, plan as typeof plan & { encrypt: true }, sealed),
             tree,
             searchText: "",
@@ -234,7 +234,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
         ? {
             ...(await sealNewContent(tx, existing.id, tree)),
             encryptionVersion: 1,
-            encryptedBy: null,
+            encryptedBy: ENCRYPTED_BY_SERVER,
             tree: emptyTree(existing.rootUid),
             searchText: "",
             tags: [],
@@ -279,7 +279,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   const [created] = await db
     .insert(publication)
     .values({
-      ...(sealed && { id: sealed.publicationId, encrypted: true, cipher: sealed.cipher, encryptionVersion: 2, encryptedBy: ctx.extVersion }),
+      ...(sealed && { id: sealed.publicationId, encrypted: true, cipher: sealed.cipher, encryptionVersion: 2, encryptedBy: `extension ${ctx.extVersion ?? "0.2.0"}` }),
       graphId: ctx.graphId,
       rootUid: p.rootUid,
       kind: p.kind,

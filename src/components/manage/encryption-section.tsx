@@ -324,11 +324,11 @@ function VersionNote({ version, by }: { version: number; by: string | null }) {
   if (!what) return null;
   return (
     <span className="text-xs text-muted-foreground">
-      <Link href="/privacy/encryption#versions" target="_blank" className="font-medium text-link hover:underline">
+      <Link href={`/privacy/encryption/versions#v${version}`} target="_blank" className="font-medium text-link hover:underline">
         Encryption v{version}
       </Link>
       : {what}
-      {by ? `, by extension ${by}` : ""}.
+      {by ? `, by ${by}` : ""}.
       {version < 2 && ` Republish it from Roam with extension ${E2E_EXTENSION} or newer to encrypt it end-to-end.`}
     </span>
   );
