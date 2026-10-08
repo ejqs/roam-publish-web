@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { backgroundJob } from "@/db/schema";
 import { flushChangeLog } from "./changelog";
+import { runExtVersionCheck } from "./ext-version";
 import type { JobDef } from "./jobs";
 import { jobsWarmedUp, runAlerts } from "./alerts";
 import { runStatusBanner } from "./status-banner";
@@ -69,6 +70,17 @@ export const JOBS: JobDef[] = [
     exclusive: true,
     disabledReason: () => (process.env.STATUS_BANNER === "off" ? "STATUS_BANNER=off" : null),
     run: ({ cursor }) => runStatusBanner(cursor, JOBS, new Date(), { checkJobs: jobsWarmedUp() }),
+  },
+  {
+    name: "extension-versions",
+    label: "Extension versions",
+    description:
+      "Emails the admins once every install that used the extension in the last 30 days is on the version Roam Depot serves, so code kept for older versions can go.",
+    schedule: "Every 6 hours",
+    intervalMs: 6 * HOUR,
+    exclusive: true,
+    disabledReason: () => (process.env.ALERTS === "off" ? "ALERTS=off" : null),
+    run: ({ cursor }) => runExtVersionCheck(cursor),
   },
   {
     name: FULL_SWEEP,
