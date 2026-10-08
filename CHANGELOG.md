@@ -5,6 +5,12 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.17.1 (2026-10-08)
+
+### Security
+- Fixed: The note under encryption settings no longer says roam.pub decrypts pages to show them. Since 0.16.3,
+  readers' browsers do that.
+
 ## 0.17.0 (2026-10-08)
 
 ### Dashboard
