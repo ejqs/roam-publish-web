@@ -3,16 +3,32 @@
 User-facing changes to roam.pub, newest first. Each release is a [semantic version](https://semver.org) dated the day
 it landed on `main`. The site shows this file, with the extension's, at `/updates`: one bullet is one entry, written
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
-tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
+tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
+**Fixed:**.
+
+## 0.17.1 (2026-10-08)
+
+### Dashboard
+- Improved: The choice between Discover, Public, Unlisted, Password and Members is called **Visibility** everywhere,
+  in the page menu, Manage, bulk changes and the page lists.
+
+### Security
+- Fixed: The note under encryption settings no longer says roam.pub decrypts pages to show them. Since 0.16.3,
+  readers' browsers do that.
+
+### Site
+- Improved: What's new marks breaking changes, ones that need you to do something such as update the extension,
+  with a red **Breaking** label, and you can filter to just those.
+- Fixed: On phones, What's new no longer runs off the side of the screen on a day with many releases.
 
 ## 0.17.0 (2026-10-08)
 
 ### Dashboard
-- Improved: **One "Who can see it" choice for every page.** Wherever a page is published, it's Discover, Public,
+- Improved: **One Visibility choice for every page.** Wherever a page is published, it's Discover, Public,
   Unlisted, Password or Members, the same five steps in the page menu, Manage, bulk changes, the filters and the
   bar under each graph. "Listed" is now called Public. Password and Members pages have one checkbox to show their
   title on the front page.
-- Improved: **The Sharing tab is only about who can see your pages.** Bylines, view counts, breadcrumbs, the RSS
+- Improved: **The Sharing tab is only about your pages' visibility.** Bylines, view counts, breadcrumbs, the RSS
   feed and where new pages go moved to a Display section on the graph's Settings tab.
 
 ### Publishing

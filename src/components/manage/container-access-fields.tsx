@@ -393,8 +393,8 @@ function EncryptConsequences() {
         </li>
       </ul>
       <p className="rounded-sm bg-muted px-3 py-2.5 text-xs text-muted-foreground">
-        This isn&apos;t end-to-end encryption: roam.pub decrypts pages to show them to readers, so they&apos;re only as safe
-        as you trust roam.pub and its host.{" "}
+        Readers&apos; browsers decrypt them, so roam.pub never reads them to show them. It isn&apos;t fully end-to-end
+        yet: roam.pub still sees the text when you publish from Roam.{" "}
         <Link href="/privacy/encryption" target="_blank" className="text-link hover:underline">
           How encrypted pages work
         </Link>

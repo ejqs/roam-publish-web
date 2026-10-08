@@ -182,10 +182,10 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
       className="sticky top-2 z-10 mb-3 flex flex-wrap items-center gap-2 rounded-md border bg-card px-3 py-2 shadow-sm"
     >
       <span className="text-sm font-medium tabular-nums">{n.toLocaleString("en-US")} selected</span>
-      <BulkMenu label="Who can see them" disabled={pending}>
+      <BulkMenu label="Visibility" disabled={pending}>
         {(close) => (
           <Section
-            label="Who can see them"
+            label="Visibility"
             value={"" as Rung}
             options={rungOptions}
             onChoose={(rung) => {
@@ -231,7 +231,7 @@ function BulkBar({ kind, name, onDone }: { kind: "graph" | "collection"; name: s
               {staged?.tags && <TagChangeSummary change={staged.tags} n={n} />}
               {stagedOption && (
                 <>
-                  Sets who can see {n === 1 ? "it" : "them"} to <span className="font-medium text-foreground">{stagedOption.label}</span>. {stagedOption.description}
+                  Sets {n === 1 ? "its" : "their"} visibility to <span className="font-medium text-foreground">{stagedOption.label}</span>. {stagedOption.description}
                 </>
               )}
               {discoverWarning && (
