@@ -15,6 +15,7 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
   **Encrypted** (v1, encrypted by roam.pub when it was published), with the code that did it, and so does its Manage
   dialog. [Encryption versions](/privacy/encryption/versions) explains each one; a v1 page becomes v2 when it's
   republished from extension 0.2.0 or newer.
+- Fixed: An encrypted page's badge no longer says roam.pub decrypts it for readers. Readers' browsers do.
 
 ### Site
 - New: **Upcoming changes** lists changes that will need you to do something, before they happen: what changes,
