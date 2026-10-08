@@ -320,7 +320,8 @@ async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: s
       />
     );
   }
-  const tree = opened && "tree" in opened ? opened.tree : pub.tree;
+  // The browser opens an encrypted page with the password's key; the server only hands it over sealed.
+  const sealed = opened && "sealed" in opened && lock ? { page: opened.sealed, lock, members: c.name } : undefined;
 
   // Only open pages listed on Discover in an open, indexable collection can be upvoted.
   const onDiscover = entry.listing === "discover" && access === "open" && c.indexAccess === "open" && c.indexable;
@@ -376,7 +377,9 @@ async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: s
 
   return (
     <PublicationView
-      pub={{ ...pub, tree }}
+      pub={pub}
+      sealed={sealed}
+      tagBase={{ collection: c.slug }}
       path={path}
       zoom={zoom}
       crumbs={[{ label: c.name, href: collectionPath(c.slug) }, { label: plainText(pub.title) }]}

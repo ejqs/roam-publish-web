@@ -15,7 +15,7 @@ const links = new PageLinks([...siteLinks, ["privacy policy", "/privacy"]]);
 
 const outline = [
   block(
-    "A password-protected page can also be encrypted with its password: its text is stored locked, and only that password unlocks it. This page explains the rules, then what encryption protects against and what it doesn't. In short: **it isn't end-to-end encryption. It's as safe as you trust roam.pub and the company that hosts it.**",
+    "A password-protected page can also be encrypted with its password: its text is stored locked, and only that password unlocks it. This page explains the rules, then what encryption protects against and what it doesn't. In short: **readers' browsers decrypt it, so roam.pub never reads it to show it. It isn't fully end-to-end yet: roam.pub still sees the text when you publish it.**",
   ),
   block("**The rules**", [
     block("**Every place it's shown needs a password**", [
@@ -35,6 +35,9 @@ const outline = [
       ),
       block(
         "Everyone needs it: members, collection managers and you too. Signing in doesn't unlock an encrypted page, because roam.pub itself can't read it without a password.",
+      ),
+      block(
+        "The page is decrypted in the reader's browser. roam.pub sends it still encrypted, and only to readers who proved they know the password.",
       ),
     ]),
     block("**Ways to turn it on**", [
@@ -59,7 +62,7 @@ const outline = [
         "It opens there once you republish it from Roam, which locks it for every place's password at once. Adding it from the Roam extension republishes it for you, so it opens right away.",
       ),
       block(
-        "Added on roam.pub, it shows Needs republish there until then. If you've unlocked the page in your browser first, it opens there right away instead.",
+        "Added on roam.pub, it shows Needs republish there until then, unless you enter the page's current password when you add it.",
       ),
       block(
         "Taking it out of its last collection puts it back in your graph, unlisted, behind the graph's password. If your graph has no password, roam.pub refuses: set one, unpublish the page, or turn encryption off first.",
@@ -86,13 +89,16 @@ const outline = [
     block(
       "So if the database or a backup of it leaks, or someone gets to look inside it, they can't read encrypted pages. They'd have to guess the password, and each guess is made deliberately slow.",
     ),
+    block(
+      "Reading doesn't expose it either. Readers' browsers decrypt the page, and unlocking sends roam.pub a proof made from the password, not the password. So the running server never sees an encrypted page's text or a reader's password when someone reads it.",
+    ),
   ]),
   block("**What it doesn't protect against**", [
     block(
-      "**The server can read the page while it's in use.** roam.pub decrypts an encrypted page every time someone reads it, to build the page they see. It also sees the page's text when you publish it from Roam, and readers' passwords when they type them in. The page is never stored readable, but it passes through the server readable.",
+      "**The server sees it when it's published or managed.** The Roam extension still sends the page's text to roam.pub, which encrypts it before storing it. Passwords you type on your dashboard (to set or change one, encrypt or decrypt pages, or add a page somewhere new) reach the server too. So does a reader's password the first time it's used after this change, if it was set before proofs existed: from then on, it's a proof.",
     ),
     block(
-      "That means someone in control of the running server could read encrypted pages or collect passwords. That could be the operator of roam.pub, [Railway](https://railway.com) (which hosts it), or an attacker who broke into it. End-to-end encryption, where only readers' browsers can decrypt, would protect against that. This isn't that.",
+      "**The site's own code.** The code that decrypts pages in readers' browsers comes from roam.pub. Someone in control of the running server could change it to collect passwords as they're typed. That could be the operator of roam.pub, [Railway](https://railway.com) (which hosts it), or an attacker who broke into it.",
     ),
     block(
       "**Anyone with the password.** Everyone who knows it can read the page, and can pass it on. Members of the graph or collection need it too: encryption doesn't let them in on their own.",
@@ -109,7 +115,7 @@ const outline = [
       `Encrypted pages need a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Longer is better: a leaked database lets someone try guesses without asking roam.pub, so a short or common password can be found.`,
     ),
     block(
-      "When a reader unlocks an encrypted page, their browser keeps a key made from the password for 30 days, in a cookie that's itself encrypted with the server's secret key. That's what lets them come back without typing it again.",
+      "When a reader unlocks an encrypted page, their browser keeps the password's key for 30 days, in its own storage, where pages can use it but not read it out. That's what lets them come back without typing it again. roam.pub never gets that key. A private window forgets it when it closes.",
     ),
   ]),
   block("**What turns off**", [
@@ -119,7 +125,7 @@ const outline = [
   ]),
   block("**If you need more than this**", [
     block(
-      "If a page must stay secret even from roam.pub and its host, don't publish it. Encryption here protects against leaks of stored data, not against the service itself.",
+      "If a page must stay secret even from roam.pub and its host, don't publish it. Encryption here protects stored data and reading, but the text still passes through roam.pub when you publish it.",
     ),
     block("Everything else roam.pub does with your data is in the [[Privacy policy]]."),
   ]),

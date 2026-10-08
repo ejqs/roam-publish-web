@@ -281,6 +281,13 @@
       "when": 1791426731339,
       "tag": "0039_publication_folded",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791456915931,
+      "tag": "0040_lock_key_proof",
+      "breakpoints": true
     }
   ]
 }

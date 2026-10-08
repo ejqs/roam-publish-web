@@ -3,11 +3,13 @@
 import { LockIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { unlock } from "@/server/actions/unlock";
+import type { KeyLock } from "@/lib/reader-keys";
+import { unlockHere } from "@/lib/reader-unlock";
+import type { UnlockResult } from "@/server/actions/unlock";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function UnlockForm({ lock, what }: { lock: { scope: "graph" | "collection" | "publication" | "entry"; id: string }; what: string }) {
+export function UnlockForm({ lock, what }: { lock: KeyLock; what: string }) {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +21,7 @@ export function UnlockForm({ lock, what }: { lock: { scope: "graph" | "collectio
         e.preventDefault();
         setError(null);
         start(async () => {
-          const res = await unlock({ ...lock, password });
+          const res = await unlockHere({ ...lock, password }).catch((): UnlockResult => ({ ok: false, message: "Couldn't unlock. Try again." }));
           if (!res.ok) return setError(res.message);
           router.refresh();
         });
