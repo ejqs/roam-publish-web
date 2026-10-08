@@ -12,6 +12,11 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 - New: Password pages can be encrypted in Roam before they're published, so roam.pub never sees their text, not
   even while publishing. This needs the extension's next release; earlier versions keep publishing as before.
 
+### Site
+- New: **Upcoming changes** lists changes that will need you to do something, before they happen: what changes,
+  what to do, and how many extensions are ready. Signed in, it shows which of your graphs' extensions need an
+  update. Find it from What's new.
+
 ## 0.17.1 (2026-10-08)
 
 ### Dashboard

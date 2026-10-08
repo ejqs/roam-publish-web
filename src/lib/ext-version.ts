@@ -1,7 +1,7 @@
 import "server-only";
-import { gt, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { extClient, type JobResult } from "@/db/schema";
+import { extClient, graph, type JobResult } from "@/db/schema";
 import { alertRecipients } from "./alerts";
 import { json } from "./cors";
 import { sendEmail } from "./email";
@@ -57,7 +57,7 @@ export async function recordExtClient(userId: string, graphId: string, version: 
     });
 }
 
-export type VersionUse = { version: string | null; people: number; graphs: number; lastSeenAt: Date };
+export type VersionUse = { version: string | null; people: number; graphs: number; installs: number; lastSeenAt: Date };
 
 /** Installs seen in the last `days`, per version, newest version first and unknown last. */
 export async function extVersionUse(days = ACTIVE_DAYS, now = new Date()): Promise<VersionUse[]> {
@@ -67,6 +67,7 @@ export async function extVersionUse(days = ACTIVE_DAYS, now = new Date()): Promi
       version: extClient.version,
       people: sql<number>`count(distinct ${extClient.userId})::int`,
       graphs: sql<number>`count(distinct ${extClient.graphId})::int`,
+      installs: sql<number>`count(*)::int`,
       lastSeenAt: sql<Date>`max(${extClient.lastSeenAt})`,
     })
     .from(extClient)
@@ -80,6 +81,26 @@ export async function extVersionUse(days = ACTIVE_DAYS, now = new Date()): Promi
 /** True when every install seen in the last `days` is `min` or newer, so code for older ones can go. */
 export async function everyoneAtLeast(min: string, days = ACTIVE_DAYS, now = new Date()) {
   return (await extVersionUse(days, now)).every((r) => extAtLeast(r.version, min));
+}
+
+/** How many installs seen in the last `days` are `min` or newer, of how many (for /updates/upcoming). */
+export async function readyFor(min: string, days = ACTIVE_DAYS, now = new Date()) {
+  const use = await extVersionUse(days, now);
+  return {
+    ready: use.filter((r) => extAtLeast(r.version, min)).reduce((n, r) => n + r.installs, 0),
+    total: use.reduce((n, r) => n + r.installs, 0),
+  };
+}
+
+/** One person's installs seen in the last `days`: each graph they publish from, and the version there. */
+export async function installsOf(userId: string, days = ACTIVE_DAYS, now = new Date()) {
+  const since = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  return db
+    .select({ graph: graph.name, version: extClient.version })
+    .from(extClient)
+    .innerJoin(graph, eq(graph.id, extClient.graphId))
+    .where(and(eq(extClient.userId, userId), gt(extClient.lastSeenAt, since)))
+    .orderBy(graph.name);
 }
 
 /**

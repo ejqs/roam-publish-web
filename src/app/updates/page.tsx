@@ -5,6 +5,7 @@ import { cn } from "cn";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { UnseenDot } from "@/components/whats-new-anchor";
+import { UPCOMING } from "@/lib/upcoming";
 import {
   type Entry,
   type Kind,
@@ -113,6 +114,14 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
                 <a href="/updates/feed.xml" className="text-link hover:underline">
                   RSS
                 </a>
+                {UPCOMING.length > 0 && (
+                  <>
+                    {" · "}
+                    <Link href="/updates/upcoming" className="text-link hover:underline">
+                      Upcoming changes ({UPCOMING.length})
+                    </Link>
+                  </>
+                )}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
