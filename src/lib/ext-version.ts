@@ -88,7 +88,9 @@ export async function everyoneAtLeast(min: string, days = ACTIVE_DAYS, now = new
  * leave behind. Production deploys refuse such a release while there are any (scripts/ext-gate.ts).
  */
 export async function leftBehind(min: string, days = ACTIVE_DAYS, now = new Date()) {
-  return (await extVersionUse(days, now)).filter((r) => !extAtLeast(r.version, min));
+  // Extensions that don't say their version are 0.1.x, so a release needing 0.1.0 or less leaves no one behind.
+  const unknownOk = compareVersions(min, "0.1.0") <= 0;
+  return (await extVersionUse(days, now)).filter((r) => (r.version === null ? !unknownOk : !extAtLeast(r.version, min)));
 }
 
 /** How many installs seen in the last `days` are `min` or newer, of how many (for /updates/upcoming). */

@@ -56,6 +56,9 @@ describe("which extension versions are in use", () => {
     expect(await everyoneAtLeast("0.2.0")).toBe(false);
     // What a release needing 0.2.0 would leave behind, which stops a production deploy (scripts/ext-gate.ts).
     expect((await leftBehind("0.2.0")).map((r) => [r.version, r.people])).toEqual([[null, 1]]);
+    // Those are 0.1.x, so a release that needs no newer extension than that (EXT_MIN_VERSION today) goes ahead.
+    expect(await leftBehind(EXT_MIN_VERSION)).toEqual([]);
+    expect(await leftBehind("0.1.0")).toEqual([]);
     expect(await readyFor("0.2.0")).toEqual({ ready: 1, total: 2 });
     await call(await keyFor(other.id, g2), "0.10.0");
     await runAfter();
