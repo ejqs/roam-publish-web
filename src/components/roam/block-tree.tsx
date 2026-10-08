@@ -224,7 +224,6 @@ function Block({
     <CollapsibleRow id={id} className={cn(rowClass, id && "scroll-mt-6")} caretClassName={node.heading && caretTop[node.heading]}
       nested={nested}
       defaultCollapsed={node.collapsed}
-      foldableChildren={node.children.some((c) => c.children.length > 0 && !blockComponent(c.string))}
     >
       {row}
     </CollapsibleRow>

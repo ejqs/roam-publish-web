@@ -5,6 +5,14 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.13.2 (2026-10-08)
+
+### Published pages
+- Improved: **Every thread line folds.** Click the line under any block with children: it folds the blocks under
+  it, or the block itself when none of them has children of its own.
+- Fixed: Zooming into a kanban board, table or embed named it "Untitled" in the trail; it now says what it is.
+- Fixed: The fold arrow beside a block disappeared when you moved onto its bullet.
+
 ## 0.13.1 (2026-10-08)
 
 ### Published pages
