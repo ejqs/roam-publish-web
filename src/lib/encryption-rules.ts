@@ -21,3 +21,11 @@ export function encryptExistingPagesBlocked(kind: "graph" | "collection", s: { c
   if (!s.canEncrypt)
     return `Needs a saved ${kind} password of at least ${ENCRYPT_PASSWORD_MIN} characters. Set one and save, or enter it again if it was set before encryption existed.`;
 }
+
+/** After adding an encrypted page somewhere without a password that opens it. */
+export const OPENS_AFTER_REPUBLISH = (place: string) =>
+  `It's encrypted, so it opens in ${place} once you republish it from Roam.`;
+
+/** Why an encrypted page shows Needs republish. */
+export const NEEDS_REPUBLISH =
+  "Some places can't open it yet: it was added somewhere new, or a password it used was reset. Republish it from Roam to make it readable everywhere.";

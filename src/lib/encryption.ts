@@ -277,6 +277,11 @@ export type Credentials = {
   passwords?: string[];
   /** Opened before the change, when the change itself would stop the cookie's key from fitting. */
   contentKey?: Buffer | null;
+  /**
+   * When nothing opens the page, add the new places anyway and mark it Needs republish: they open
+   * once it's republished from Roam, which seals new content to every place without a password.
+   */
+  orRepublish?: boolean;
 };
 
 /** Opens a page's content key with any of its sealed keys the credentials can open. */
@@ -375,11 +380,13 @@ export class KeysError extends Error {
 /**
  * Seals the page's content key to exactly the passwords that open it now, after a change to where
  * it's shown or which password a place uses. Adding a password needs the content key, so the
- * credentials must open one of the page's current ones. Throws KeysError, to roll back the change.
+ * credentials must open one of the page's current ones, unless `orRepublish`. Throws KeysError, to
+ * roll back the change. True when the new places wait for a republish.
  */
-export async function syncPublicationKeys(tx: Tx, publicationId: string, creds: Credentials = {}) {
+export async function syncPublicationKeys(tx: Tx, publicationId: string, creds: Credentials = {}): Promise<boolean> {
+  let waits = false;
   const pub = await tx.query.publication.findFirst({ where: eq(publication.id, publicationId) });
-  if (!pub?.encrypted) return;
+  if (!pub?.encrypted) return false;
   const spots = await spotsOf(tx, publicationId);
   const open = unprotectedSpots(spots);
   if (open.length)
@@ -393,7 +400,8 @@ export async function syncPublicationKeys(tx: Tx, publicationId: string, creds: 
   const extra = have.filter((h) => !wanted.has(lockId({ scope: h.scope, id: h.targetId })));
   if (missing.length) {
     const ck = creds.contentKey ?? (await contentKeyFor(tx, pub, creds));
-    if (!ck) {
+    if (!ck && creds.orRepublish) waits = true;
+    else if (!ck) {
       const current = spots.find((s) => s.lock && have.some((h) => h.scope === s.lock!.scope && h.targetId === s.lock!.id));
       throw new KeysError(
         `This page is encrypted. Enter its current password${current ? ` (${current.label})` : ""} to continue.`,
@@ -408,6 +416,7 @@ export async function syncPublicationKeys(tx: Tx, publicationId: string, creds: 
           `The ${spot?.label ?? "new"} password can't be used for an encrypted page. Encrypted pages need a password of at least ${ENCRYPT_PASSWORD_MIN} characters: set a longer one.`,
         );
       }
+      if (!ck) continue;
       await tx
         .insert(publicationKey)
         .values({ publicationId, scope: l.scope, targetId: l.id, sealedKey: sealContentKey(lk.publicKey, ck) });
@@ -423,6 +432,8 @@ export async function syncPublicationKeys(tx: Tx, publicationId: string, creds: 
           eq(publicationKey.targetId, h.targetId),
         ),
       );
+  if (waits) await tx.update(publication).set({ needsRepublish: true }).where(eq(publication.id, publicationId));
+  return waits;
 }
 
 /** Pages whose content key is sealed to this password. */

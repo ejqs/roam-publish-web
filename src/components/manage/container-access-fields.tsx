@@ -119,7 +119,7 @@ export function ContainerAccessFields({
             <FieldLabel htmlFor={`${kind}-encrypt-new`}>Encrypt new password pages</FieldLabel>
             <FieldDescription>
               {passwordDefault
-                ? `Pages ${pagesVerb} from now on are stored encrypted with the ${kind} password, so not even roam.pub can read them. Needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Pages already here aren't changed: encrypt them below.`
+                ? `Pages ${pagesVerb} from now on are stored encrypted with the ${kind} password, so a copy of the database can't read them. Needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Pages already here aren't changed: encrypt them below.`
                 : `Only applies while new pages start as Password.`}
             </FieldDescription>
             {passwordDefault && !canTurnOnEncrypt && (

@@ -222,7 +222,7 @@ describe("changing an encrypted page", () => {
 });
 
 describe("collections", () => {
-  test("adding needs a collection password and the page's current one", async () => {
+  test("adding needs a collection password; with the page's current one it opens there right away", async () => {
     const pub = await encrypted();
     request.cookies.clear();
     const open = await makeCollection(owner.id);
@@ -232,8 +232,9 @@ describe("collections", () => {
     // The collection's password gets its key pair when someone unlocks with it.
     await unlock({ scope: "collection", id: c.id, password: "collection-pw-1" });
     request.cookies.clear();
-    expect(await addToCollection(pub.id, c.id)).toMatchObject({ ok: false, needCurrentPassword: true });
+    expect(await addToCollection(pub.id, c.id, "not-the-password")).toMatchObject({ ok: false, needCurrentPassword: true });
     expect((await addToCollection(pub.id, c.id, GRAPH_PW)).ok).toBe(true);
+    expect((await row(pub.id))!.needsRepublish).toBe(false);
     const entry = (await db.query.collectionEntry.findFirst({ where: eq(collectionEntry.publicationId, pub.id) }))!;
     expect(entry.access).toBe("password");
 
@@ -244,6 +245,41 @@ describe("collections", () => {
       "EntryPage",
     );
     expect(textOf((await readerSees(out)).tree)).toContain(SECRET);
+  });
+
+  test("added without a password, it waits for a republish from Roam, which opens it there", async () => {
+    const pub = await encrypted();
+    request.cookies.clear();
+    const c = await makeCollection(owner.id, { passwordHash: hashPassword("collection-pw-1") });
+    await unlock({ scope: "collection", id: c.id, password: "collection-pw-1" });
+    request.cookies.clear();
+    const res = await addToCollection(pub.id, c.id);
+    expect(res).toMatchObject({ ok: true });
+    expect(res.message).toContain("once you republish it from Roam");
+    expect((await row(pub.id))!.needsRepublish).toBe(true);
+    const entry = (await db.query.collectionEntry.findFirst({ where: eq(collectionEntry.publicationId, pub.id) }))!;
+    expect(entry.access).toBe("password");
+    const read = async () => {
+      newReader();
+      await unlock({ scope: "collection", id: c.id, password: "collection-pw-1" });
+      return readerSees(
+        await renderNested(await CPage({ params: Promise.resolve({ id: c.slug, slug: [entry.entryUid, "plans"] }) } as never), "EntryPage"),
+      );
+    };
+    expect((await read()).gate.blocker).toEqual({ need: "republish" });
+    // Still opens in the graph meanwhile.
+    newReader();
+    await unlock({ scope: "graph", id: g.id, password: GRAPH_PW });
+    expect(textOf((await readerSees(await readGraphPage(pub))).tree)).toContain(SECRET);
+
+    // Republishing the same text from Roam seals it to the collection's password too.
+    actAs(owner);
+    const key = await keyFor(owner.id, g);
+    const t = tree(pub.rootUid);
+    const body = { rootUid: pub.rootUid, kind: "page", title: "Plans", tree: t, contentHash: contentHash({ kind: "page", title: "Plans", tree: t }) };
+    expect((await (await POST(extRequest("/api/ext/publications", key, { body }))).json()).status).toBe("updated");
+    expect((await row(pub.id))!.needsRepublish).toBe(false);
+    expect(textOf((await read()).tree)).toContain(SECRET);
   });
 
   test("leaving its last collection is refused when the graph has no password", async () => {

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
+import { ENCRYPT_PASSWORD_MIN, NEEDS_REPUBLISH } from "@/lib/encryption-rules";
 import type { ManageData } from "@/lib/manage-data";
 import { usePasswordPrompt } from "./password-prompt";
 
@@ -159,7 +159,7 @@ export function EncryptionSection({
       {data.needsRepublish && !compact && (
         <p className="flex gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <RefreshCwIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-          <span>Needs republish. A password it was encrypted with was reset: republish this page from Roam to make it readable everywhere again.</span>
+          <span>Needs republish. {NEEDS_REPUBLISH}</span>
         </p>
       )}
 
