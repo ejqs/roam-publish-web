@@ -5,6 +5,13 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.14.0 (2026-10-08)
+
+### Published pages
+- New: **Mermaid diagrams are drawn.** A `{{mermaid}}` block, or a code block set to Mermaid, now shows the diagram
+  instead of "Diagram not shown", with a button to see its source.
+- New: **Copy code in one click.** Every code block has a copy button, and its header names the language.
+
 ## 0.13.2 (2026-10-08)
 
 ### Published pages
