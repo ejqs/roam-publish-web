@@ -5,6 +5,8 @@ import { GET as LIST, POST as PUBLISH } from "@/app/api/ext/publications/route";
 import { db } from "@/db";
 import { collectionEntry, graph, graphDefaultCollection, publication } from "@/db/schema";
 import { addToCollection } from "@/server/actions/places";
+import { unlock } from "@/server/actions/unlock";
+import { hashPassword } from "@/lib/gates";
 import { resetDb } from "../helpers/db";
 import { actAs, addCollectionMember, addGraphMember, extRequest, keyFor, makeCollection, makeGraph, makeUser, payload } from "../helpers/factories";
 import { resetRequest } from "../helpers/request";
@@ -113,6 +115,31 @@ describe("adding a page to a collection", () => {
     const res = await add(ownerKey, q.rootUid, other.id);
     expect(res.status).toBe(409);
     expect((await res.json()).error).toContain("encrypted");
+  });
+
+  test("an encrypted page is added with Password, and waits for the republish the extension sends next", async () => {
+    const p = payload();
+    await publish(ownerKey, p);
+    // Encrypted pages only use Password: with no graph place shown, it has nowhere open.
+    await db.update(publication).set({ encrypted: true, inGraph: false }).where(eq(publication.rootUid, p.rootUid));
+    await makeCollection(owner.id, { name: "Open" });
+    const locked = await makeCollection(owner.id, { name: "Locked", passwordHash: hashPassword("collection-pw-1") });
+    const choices = async () =>
+      Object.fromEntries(((await (await list(ownerKey, p.rootUid)).json()).collections as { name: string; blocked: string | null }[]).map((c) => [c.name, c]));
+    let byName = await choices();
+    expect(byName.Open.blocked).toContain("Give Open a password first");
+    // A password set before encryption existed has no key pair until someone enters it again.
+    expect(byName.Locked.blocked).toContain("can't encrypt yet");
+    expect((await add(ownerKey, p.rootUid, locked.id)).status).toBe(409);
+    await unlock({ scope: "collection", id: locked.id, password: "collection-pw-1" });
+    byName = await choices();
+    expect(byName.Locked).toMatchObject({ blocked: null, access: "password", listing: "listed" });
+    const res = await add(ownerKey, p.rootUid, locked.id);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ access: "password", encrypted: true, needsRepublish: true });
+    expect((await pubOf(p.rootUid))!.needsRepublish).toBe(true);
+    const entry = (await db.query.collectionEntry.findFirst({ where: eq(collectionEntry.collectionId, locked.id) }))!;
+    expect(entry.access).toBe("password");
   });
 
   test("a member adds their own pages to collections they belong to, not other people's", async () => {

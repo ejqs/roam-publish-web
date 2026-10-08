@@ -26,6 +26,7 @@ import { EncryptionSection } from "./encryption-section";
 import { PlacePasswordForm, type PlaceState } from "./place-access-form";
 import { usePasswordPrompt } from "./password-prompt";
 import { TagsEditor } from "./tags-editor";
+import { NEEDS_REPUBLISH } from "@/lib/encryption-rules";
 
 const noop = () => () => {};
 
@@ -134,7 +135,7 @@ export function ManageDialog({
         {data.needsRepublish && (
           <p className="flex gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <RefreshCwIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-            <span>Needs republish. A password it was encrypted with was reset: republish this page from Roam to make it readable everywhere again.</span>
+            <span>Needs republish. {NEEDS_REPUBLISH}</span>
           </p>
         )}
 

@@ -35,6 +35,7 @@ import {
   syncPublicationKeys,
   type VersionedLock,
 } from "@/lib/encryption";
+import { OPENS_AFTER_REPUBLISH } from "@/lib/encryption-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { SEARCHABLE_FOR } from "@/lib/listing";
@@ -297,8 +298,9 @@ export async function updateEntry(
 
 /**
  * Adds a page you manage to a collection you own or belong to. An encrypted page goes in with
- * Password access, so the collection needs a password, and sealing its key there needs one of the
- * page's passwords (`currentPassword`, unless the viewer unlocked it in this browser).
+ * Password access, so the collection needs a password. It opens there right away when the viewer
+ * unlocked it in this browser (or typed `currentPassword`); otherwise it's added anyway and opens
+ * there once it's republished from Roam (Needs republish).
  */
 export async function addToCollection(
   publicationId: string,
@@ -322,19 +324,16 @@ export async function addToCollection(
     if (pub.encrypted && !c.passwordHash)
       return { ok: false, message: `This page is encrypted. Give ${c.name} a password first, or turn off encryption.` };
     const ck = await preKey(pub, currentPassword);
-    if (pub.encrypted && !ck)
-      return {
-        ok: false,
-        needCurrentPassword: true,
-        message: currentPassword ? "That password doesn't open this page." : "This page is encrypted. Enter its current password to add it.",
-      };
+    if (currentPassword && pub.encrypted && !ck)
+      return { ok: false, needCurrentPassword: true, message: "That password doesn't open this page." };
+    let waits = false;
     const entry = await addEntry(collectionId, publicationId, uid);
     if (!entry) return { ok: false, message: "It's already in that collection." };
     if (pub.encrypted) {
       const sealed = await withKeys(async () => {
         await db.transaction(async (tx) => {
           await tx.update(collectionEntry).set({ access: "password", listing: "listed" }).where(eq(collectionEntry.id, entry.id));
-          await syncPublicationKeys(tx, pub.id, { contentKey: ck });
+          waits = await syncPublicationKeys(tx, pub.id, { contentKey: ck, orRepublish: true });
         });
         return { ok: true, message: "" };
       });
@@ -354,7 +353,8 @@ export async function addToCollection(
     await logForPublications([publicationId], "collections", (p) => `Added to collection ${collectionLink(c)}: ${entryUrl(c.slug, entry.entryUid, p.title)}`);
     if (left) logChange(left, "listing", "Hidden from the graph (collections only)");
     revalidateAll();
-    return { ok: true, message: left ? `Added to ${c.name}, and taken out of the graph.` : `Added to ${c.name}.` };
+    const added = left ? `Added to ${c.name}, and taken out of the graph.` : `Added to ${c.name}.`;
+    return { ok: true, message: waits ? `${added} ${OPENS_AFTER_REPUBLISH(c.name)}` : added };
   });
 }
 

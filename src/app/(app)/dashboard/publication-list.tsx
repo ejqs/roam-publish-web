@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import type { graph, publication } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
 import { publicationPath } from "@/lib/publications";
+import { NEEDS_REPUBLISH } from "@/lib/encryption-rules";
 import { AccessMenu } from "./access-menu";
 import { AllCheckbox, BulkSelect, RowCheckbox } from "./bulk-select";
 
@@ -97,7 +98,7 @@ export function PublicationList({
                       {m?.needsRepublish && (
                         <Badge
                           variant="outline"
-                          title="A password it was encrypted with was reset. Republish this page from Roam to make it readable everywhere again."
+                          title={NEEDS_REPUBLISH}
                           className="mt-px shrink-0 cursor-help border-amber-500/60 text-amber-700 dark:text-amber-400"
                         >
                           Needs republish

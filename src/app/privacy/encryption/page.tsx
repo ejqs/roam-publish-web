@@ -51,12 +51,15 @@ const outline = [
         "When you republish from Roam, the new text is locked to the same passwords right away. Nothing to type.",
       ),
     ]),
-    block("**Adding it somewhere new does**", [
+    block("**Adding it somewhere new**", [
       block(
-        "To add an encrypted page to another collection, that collection needs a password, and you enter one of the passwords that opens the page now. roam.pub needs it to unlock the page and lock it again for the new place. The page uses Password there.",
+        `To add an encrypted page to another collection, that collection needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. The page uses Password there.`,
       ),
       block(
-        "That's why the Roam extension can't add encrypted pages to collections: Roam has no safe place to type a password. Add them on roam.pub instead.",
+        "It opens there once you republish it from Roam, which locks it for every place's password at once. Adding it from the Roam extension republishes it for you, so it opens right away.",
+      ),
+      block(
+        "Added on roam.pub, it shows Needs republish until then. To open it there right away instead, enter a password that opens it now when you add it, or unlock it in your browser first.",
       ),
       block(
         "Taking it out of its last collection puts it back in your graph, unlisted, behind the graph's password. If your graph has no password, roam.pub refuses: set one, unpublish the page, or turn encryption off first.",
