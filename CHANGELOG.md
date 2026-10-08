@@ -5,6 +5,20 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.17.0 (2026-10-08)
+
+### Dashboard
+- Improved: **One "Who can see it" choice for every page.** Wherever a page is published, it's Discover, Public,
+  Unlisted, Password or Members, the same five steps in the page menu, Manage, bulk changes, the filters and the
+  bar under each graph. "Listed" is now called Public. Password and Members pages have one checkbox to show their
+  title on the front page.
+- Improved: **The Sharing tab is only about who can see your pages.** Bylines, view counts, breadcrumbs, the RSS
+  feed and where new pages go moved to a Display section on the graph's Settings tab.
+
+### Publishing
+- New: **The Roam extension knows when it's too old for roam.pub.** From extension 0.2.0, it asks you to update in
+  Roam Depot when roam.pub has changed in a way it no longer works with, instead of failing.
+
 ## 0.16.3 (2026-10-08)
 
 ### Security
