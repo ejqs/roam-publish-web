@@ -16,6 +16,8 @@ export type Upcoming = {
   version: string;
   /** It happens once every Roam Publish extension in use is this version or newer. */
   extension: string;
+  /** And every one of them is somewhere Roam can encrypt pages (EXT_NEEDS_SEAL). */
+  needsSeal?: boolean;
   /** When it was announced (YYYY-MM-DD). */
   announced: string;
 };
@@ -30,10 +32,12 @@ export const UPCOMING: Upcoming[] = [
       "stop accepting that, so every Password page is end-to-end encrypted.",
     action:
       "Update Roam Publish to 0.2.0 or newer in Roam: Settings → Roam Depot → Installed extensions. Anyone else " +
-      "who publishes to your graphs needs to update too. After the change, an older extension asks to be " +
-      "updated instead of publishing.",
+      "who publishes to your graphs needs to update too. Roam itself has to support encryption: if you use " +
+      "Roam's desktop app, keep it up to date. After the change, an older extension asks to be updated " +
+      "instead of publishing.",
     version: "1.0.0",
     extension: "0.2.0",
+    needsSeal: true,
     announced: "2026-10-08",
   },
 ];

@@ -20,7 +20,7 @@ import { findElements, textOf } from "../helpers/render";
 import { request, resetRequest } from "../helpers/request";
 
 /**
- * Publishing a page encrypted in Roam (extension 1.0.0 and later): roam.pub gets a cipher and sealed
+ * Publishing a page encrypted in Roam (extension 0.2.0 and later): roam.pub gets a cipher and sealed
  * keys, never the text, and readers open it in their browser as before. The extension's encryption is
  * done here with the server's own functions, which use the same format.
  */
@@ -54,7 +54,7 @@ beforeEach(async () => {
 const plan = async (rootUid: string) =>
   (await (await SEAL(extRequest(`/api/ext/publications/${rootUid}/seal`, key), { params: Promise.resolve({ rootUid }) } as never)).json()) as SealPlan;
 
-/** What extension 1.0.0 does: asks for the plan, encrypts the tree and seals its key in Roam. */
+/** What extension 0.2.0 does: asks for the plan, encrypts the tree and seals its key in Roam. */
 async function publishSealed(t: Node, hash: string, p?: SealPlan) {
   p ??= await plan(t.uid);
   if (!p.encrypt) throw new Error("not encrypted");

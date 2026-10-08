@@ -6,7 +6,7 @@ import { defaultCollectionsFor } from "./places";
 import { encryptBlocker, type LockRef, locksOf, lockKeyOf, type Spot, spotsOf, wantsEncryption } from "./encryption";
 
 /**
- * Publishing encrypted in Roam (extension 1.0.0 and later). Before sending a page, the extension asks
+ * Publishing encrypted in Roam (extension 0.2.0 and later). Before sending a page, the extension asks
  * `sealPlan` whether it's encrypted and which passwords' public keys to seal its content key to; it
  * encrypts the tree there and sends only the cipher and the sealed keys, so roam.pub never sees the
  * text. Older extensions still send the plain tree, which the server encrypts itself

@@ -6,6 +6,12 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.18.1 (2026-10-08)
+
+### Site
+- Improved: **Upcoming changes** counts an extension as ready for end-to-end encryption only where Roam can
+  encrypt pages, and tells you when one of your graphs can't (update Roam's desktop app there).
+
 ## 0.18.0 (2026-10-08)
 
 ### Security

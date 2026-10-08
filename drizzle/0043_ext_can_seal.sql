@@ -1,0 +1,1 @@
+ALTER TABLE "ext_client" ADD COLUMN "can_seal" boolean;

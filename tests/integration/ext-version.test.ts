@@ -3,15 +3,16 @@ import { eq } from "drizzle-orm";
 import { GET, OPTIONS } from "@/app/api/ext/publications/route";
 import { db } from "@/db";
 import { extClient, user } from "@/db/schema";
-import { EXT_MIN_VERSION, EXT_MIN_VERSION_HEADER, EXT_VERSION_HEADER } from "@/lib/ext-compat";
-import { everyoneAtLeast, extVersionUse, leftBehind, readyFor, runExtVersionCheck } from "@/lib/ext-version";
+import { EXT_CAN_SEAL_HEADER, EXT_MIN_VERSION, EXT_MIN_VERSION_HEADER, EXT_VERSION_HEADER } from "@/lib/ext-compat";
+import { cantSeal, everyoneAtLeast, extVersionUse, leftBehind, readyFor, runExtVersionCheck } from "@/lib/ext-version";
 import { resetDb } from "../helpers/db";
 import { extRequest, keyFor, makeGraph, makeUser } from "../helpers/factories";
 import { request, resetRequest, runAfter } from "../helpers/request";
 
-const call = (key: string, version?: string) => {
+const call = (key: string, version?: string, canSeal?: "0" | "1") => {
   const req = extRequest("/api/ext/publications", key);
   if (version !== undefined) req.headers.set(EXT_VERSION_HEADER, version);
+  if (canSeal !== undefined) req.headers.set(EXT_CAN_SEAL_HEADER, canSeal);
   return GET(req);
 };
 
@@ -71,12 +72,38 @@ describe("which extension versions are in use", () => {
   });
 });
 
+describe("where Roam can encrypt pages", () => {
+  test("version alone isn't enough: an install on 0.2.0 where Roam can't encrypt isn't ready", async () => {
+    const other = await makeUser();
+    const g2 = await makeGraph(other.id);
+    await call(key, "0.2.0", "1");
+    await call(await keyFor(other.id, g2), "0.2.0", "0");
+    await runAfter();
+    expect(await readyFor("0.2.0")).toEqual({ ready: 2, total: 2 });
+    expect(await readyFor("0.2.0", { seal: true })).toEqual({ ready: 1, total: 2 });
+    expect((await extVersionUse()).map((r) => [r.version, r.installs, r.cantSeal])).toEqual([["0.2.0", 2, 1]]);
+    // What a release with EXT_NEEDS_SEAL would leave behind (scripts/ext-gate.ts).
+    expect((await cantSeal()).map((r) => [r.version, r.people])).toEqual([["0.2.0", 1]]);
+    // Once Roam is updated there, the next call says so.
+    await call(await keyFor(other.id, g2), "0.2.0", "1");
+    await runAfter();
+    expect(await cantSeal()).toEqual([]);
+  });
+
+  test("older extensions don't say, so they can't", async () => {
+    await call(key);
+    await runAfter();
+    expect((await cantSeal()).map((r) => r.version)).toEqual([null]);
+  });
+});
+
 describe("what roam.pub tells the extension", () => {
   test("every answer names the oldest extension this website works with, and Roam may read it", async () => {
     expect((await call(key)).headers.get(EXT_MIN_VERSION_HEADER)).toBe(EXT_MIN_VERSION);
     expect((await call("rp_nope")).headers.get(EXT_MIN_VERSION_HEADER)).toBe(EXT_MIN_VERSION);
     const pre = await OPTIONS(extRequest("/api/ext/publications", null, { method: "OPTIONS" }));
     expect(pre.headers.get("access-control-allow-headers")).toContain(EXT_VERSION_HEADER);
+    expect(pre.headers.get("access-control-allow-headers")).toContain(EXT_CAN_SEAL_HEADER);
     expect(pre.headers.get("access-control-expose-headers")).toContain(EXT_MIN_VERSION_HEADER);
   });
 });

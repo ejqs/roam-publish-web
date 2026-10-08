@@ -48,7 +48,7 @@ const Body = z.object({
 });
 
 /**
- * A page encrypted in Roam (extension 1.0.0 and later, lib/e2e-publish.ts): the cipher and its sealed
+ * A page encrypted in Roam (extension 0.2.0 and later, lib/e2e-publish.ts): the cipher and its sealed
  * keys instead of the tree, which blocks start collapsed, and the extension's keyed hash.
  */
 const SealedBody = Body.omit({ tree: true, contentHash: true }).extend({

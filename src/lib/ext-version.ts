@@ -20,7 +20,7 @@ import { liveExtVersion, semver } from "./whats-new";
  * extension shows as it is, rather than a confusing failure.
  */
 export { EXT_MIN_VERSION, EXT_VERSION_HEADER } from "./ext-compat";
-import { EXT_VERSION_HEADER } from "./ext-compat";
+import { EXT_CAN_SEAL_HEADER, EXT_VERSION_HEADER } from "./ext-compat";
 
 /** How recently an install must have called to count as in use. */
 export const ACTIVE_DAYS = 30;
@@ -29,6 +29,12 @@ export const ACTIVE_DAYS = 30;
 export function extVersionOf(req: Request): string | null {
   const v = req.headers.get(EXT_VERSION_HEADER)?.trim() ?? "";
   return semver(v) ? v : null;
+}
+
+/** Whether Roam can encrypt pages where the request came from; null when the extension didn't say. */
+export function canSealOf(req: Request): boolean | null {
+  const v = req.headers.get(EXT_CAN_SEAL_HEADER)?.trim();
+  return v === "1" ? true : v === "0" ? false : null;
 }
 
 /** -1, 0 or 1. Versions that don't parse sort first. */
@@ -46,18 +52,19 @@ export const extAtLeast = (version: string | null, min: string) => version !== n
  * Notes who called with which version. Writes at most once an hour per person and graph, unless the
  * version changed, so busy publishing doesn't mean a write per request.
  */
-export async function recordExtClient(userId: string, graphId: string, version: string | null) {
+export async function recordExtClient(userId: string, graphId: string, version: string | null, canSeal: boolean | null = null) {
   await db
     .insert(extClient)
-    .values({ userId, graphId, version })
+    .values({ userId, graphId, version, canSeal })
     .onConflictDoUpdate({
       target: [extClient.userId, extClient.graphId],
-      set: { version, lastSeenAt: sql`now()` },
-      setWhere: sql`${extClient.version} is distinct from ${version} or ${extClient.lastSeenAt} < now() - interval '1 hour'`,
+      set: { version, canSeal, lastSeenAt: sql`now()` },
+      setWhere: sql`${extClient.version} is distinct from ${version} or ${extClient.canSeal} is distinct from ${canSeal} or ${extClient.lastSeenAt} < now() - interval '1 hour'`,
     });
 }
 
-export type VersionUse = { version: string | null; people: number; graphs: number; installs: number; lastSeenAt: Date };
+/** `cantSeal`: installs where Roam can't encrypt pages (EXT_CAN_SEAL_HEADER said "0"). */
+export type VersionUse = { version: string | null; people: number; graphs: number; installs: number; cantSeal: number; lastSeenAt: Date };
 
 /** Installs seen in the last `days`, per version, newest version first and unknown last. */
 export async function extVersionUse(days = ACTIVE_DAYS, now = new Date()): Promise<VersionUse[]> {
@@ -68,6 +75,7 @@ export async function extVersionUse(days = ACTIVE_DAYS, now = new Date()): Promi
       people: sql<number>`count(distinct ${extClient.userId})::int`,
       graphs: sql<number>`count(distinct ${extClient.graphId})::int`,
       installs: sql<number>`count(*)::int`,
+      cantSeal: sql<number>`(count(*) filter (where ${extClient.canSeal} is false))::int`,
       lastSeenAt: sql<Date>`max(${extClient.lastSeenAt})`,
     })
     .from(extClient)
@@ -86,19 +94,55 @@ export async function everyoneAtLeast(min: string, days = ACTIVE_DAYS, now = new
 /**
  * The extensions in use (seen in the last `days`) older than `min`, which a release needing `min` would
  * leave behind. Production deploys refuse such a release while there are any (scripts/ext-gate.ts).
+ * It runs before migrations, so it reads only columns from 0041.
  */
 export async function leftBehind(min: string, days = ACTIVE_DAYS, now = new Date()) {
+  const since = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({
+      version: extClient.version,
+      people: sql<number>`count(distinct ${extClient.userId})::int`,
+      graphs: sql<number>`count(distinct ${extClient.graphId})::int`,
+    })
+    .from(extClient)
+    .where(gt(extClient.lastSeenAt, since))
+    .groupBy(extClient.version);
   // Extensions that don't say their version are 0.1.x, so a release needing 0.1.0 or less leaves no one behind.
   const unknownOk = compareVersions(min, "0.1.0") <= 0;
-  return (await extVersionUse(days, now)).filter((r) => (r.version === null ? !unknownOk : !extAtLeast(r.version, min)));
+  return rows.filter((r) => (r.version === null ? !unknownOk : !extAtLeast(r.version, min)));
 }
 
-/** How many installs seen in the last `days` are `min` or newer, of how many (for /updates/upcoming). */
-export async function readyFor(min: string, days = ACTIVE_DAYS, now = new Date()) {
-  const use = await extVersionUse(days, now);
+/**
+ * Installs seen in the last `days` where Roam can't encrypt pages, or the extension didn't say (older
+ * than 0.2.0), per version. A release with EXT_NEEDS_SEAL would leave them behind (scripts/ext-gate.ts).
+ */
+export async function cantSeal(days = ACTIVE_DAYS, now = new Date()) {
+  const since = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  return db
+    .select({
+      version: extClient.version,
+      people: sql<number>`count(distinct ${extClient.userId})::int`,
+      graphs: sql<number>`count(distinct ${extClient.graphId})::int`,
+      installs: sql<number>`count(*)::int`,
+    })
+    .from(extClient)
+    .where(and(gt(extClient.lastSeenAt, since), sql`${extClient.canSeal} is not true`))
+    .groupBy(extClient.version);
+}
+
+/**
+ * How many installs seen in the last `days` are `min` or newer, of how many (for /updates/upcoming).
+ * With `seal`, they also have to be somewhere Roam can encrypt pages.
+ */
+export async function readyFor(min: string, { seal = false, days = ACTIVE_DAYS, now = new Date() } = {}) {
+  const since = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ version: extClient.version, canSeal: extClient.canSeal })
+    .from(extClient)
+    .where(gt(extClient.lastSeenAt, since));
   return {
-    ready: use.filter((r) => extAtLeast(r.version, min)).reduce((n, r) => n + r.installs, 0),
-    total: use.reduce((n, r) => n + r.installs, 0),
+    ready: rows.filter((r) => extAtLeast(r.version, min) && (!seal || r.canSeal === true)).length,
+    total: rows.length,
   };
 }
 
@@ -106,7 +150,7 @@ export async function readyFor(min: string, days = ACTIVE_DAYS, now = new Date()
 export async function installsOf(userId: string, days = ACTIVE_DAYS, now = new Date()) {
   const since = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
   return db
-    .select({ graph: graph.name, version: extClient.version })
+    .select({ graph: graph.name, version: extClient.version, canSeal: extClient.canSeal })
     .from(extClient)
     .innerJoin(graph, eq(graph.id, extClient.graphId))
     .where(and(eq(extClient.userId, userId), gt(extClient.lastSeenAt, since)))
