@@ -177,7 +177,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     // A republish that needs its keys again (a password was reset) isn't "unchanged".
     const same = before === hash && !existing.needsRepublish;
     if (same && !authorChanged)
-      return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility, ...listing, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
+      return json(req, { status: "unchanged", url, shortUrl: short, contentHash: hash, visibility, ...listing, encrypted: existing.encrypted, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
     await db.transaction(async (tx) => {
       // An encrypted page stays encrypted: the new content is sealed to its passwords' public keys.
       const content = existing.encrypted
@@ -214,7 +214,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     if (same)
       logChange(page, "publishing", `Byline changed to "${authorName ?? "(none)"}"`, key(`byline:${from}:${existing.authorName ?? ""}>${authorName ?? ""}`));
     else logChange(page, "publishing", "Republished", key(`content:${from}>${hash}`));
-    return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, ...listing, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
+    return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, ...listing, encrypted: existing.encrypted, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
   }
 
   // New pages go where the graph's "New pages go to" setting says, leaving the graph when a
@@ -258,6 +258,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     contentHash: hash,
     visibility: created.visibility,
     ...extListing(g, created),
+    encrypted,
     changeLog: await changeLogStatusOf(ctx.graphId),
     collections: await collectionCount(ctx.userId),
   });

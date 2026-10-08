@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   encryptExistingPagesBlocked,
+  graphListingBlocked,
   hideFromGraphBlocked,
   removeOwnPasswordBlocked,
   saveCollectionBlocked,
@@ -48,6 +49,11 @@ describe("other control rules", () => {
   test("a page can't be hidden from its graph when it's in no collection", () => {
     expect(hideFromGraphBlocked(0)).toMatch(/collection first/);
     expect(hideFromGraphBlocked(1)).toBeUndefined();
+  });
+
+  test("a page only in collections has no graph listing to change", () => {
+    expect(graphListingBlocked(false)).toMatch(/only in collections/);
+    expect(graphListingBlocked(true)).toBeUndefined();
   });
 
   test("an encrypted page's own password needs 10 characters", () => {

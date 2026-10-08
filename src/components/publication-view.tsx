@@ -8,6 +8,7 @@ import { PrivacyBadges } from "@/components/privacy-badges";
 import type { PrivacyNote } from "@/components/privacy-icons";
 import { ReportAbuseButton, type ReportTarget } from "@/components/report-abuse-button";
 import { BlockList } from "@/components/roam/block-tree";
+import { FoldAllRoot, PageThread } from "@/components/roam/collapsible-row";
 import { PageOutlineAside, PageOutlineDetails } from "@/components/roam/page-outline";
 import { blockComponent, type PageLinks, RoamText } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
@@ -37,6 +38,9 @@ const crumbLabel = (n: Node) => {
     "Untitled";
   return t.length > 40 ? `${t.slice(0, 39).trimEnd()}…` : t;
 };
+
+/** Whether any of these blocks can be folded. */
+const foldable = (nodes: Node[]) => nodes.some((n) => !blockComponent(n.string) && n.children.length > 0);
 
 export type Byline = { label: string; href?: string } | null;
 
@@ -95,6 +99,11 @@ export function PublicationView({
   // An outline only helps once there's more than one heading to move between.
   const headings = headingsOf(zoomNode ? zoomNode.children : top);
   const outline = headings.length > 1 ? headings : null;
+  // The page's top-level blocks, with a thread line to fold them all when any can fold.
+  const pageBlocks = (nodes: Node[], viewType: Node["viewType"]) => {
+    const list = <BlockList nodes={nodes} links={links} viewType={viewType} anchors />;
+    return foldable(nodes) ? <PageThread>{list}</PageThread> : list;
+  };
   const tagHref = links.tagHref;
   const tags =
     pub.kind === "page" && tagHref && pub.tags.length > 0 ? (
@@ -109,97 +118,99 @@ export function PublicationView({
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
-          <QuickSearch siteSearch={siteSearch} />
-          <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
-          {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
-          <ReportAbuseButton target={report} />
-          <ThemeToggle size="icon-sm" className="text-muted-foreground" />
-        </div>
-        <article className="relative mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
-          {outline && (
-            <PageOutlineAside headings={outline} className="absolute top-16 right-full bottom-16 hidden w-60 pr-6 xl:block" />
-          )}
-          {zoomed && zoomNode ? (
-            <>
-              {/* One trail: the site's crumbs, the page (leaving the zoom), then the blocks above this one. */}
-              <Breadcrumbs
-                className="mb-3"
-                items={[
-                  ...(crumbs ?? [{ label: plainText(pub.kind === "page" ? pub.title : tree.string) || "Untitled" }]).map((c, i, all) =>
-                    i === all.length - 1 ? { ...c, href: path } : c,
-                  ),
-                  ...zoomed.slice(0, -1).map((n) => ({ label: crumbLabel(n), href: zoomHref(n.uid) })),
-                  { label: crumbLabel(zoomNode) },
-                ]}
-              />
-              {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
-              {zoomNode.embed || blockComponent(zoomNode.string) ? (
-                <BlockList nodes={[{ ...zoomNode, collapsed: undefined }]} links={links} viewType={zoomViewType} anchors />
-              ) : (
-                <>
-                  {/* Like Roam, the block zoomed into reads as the title, with its children below it. */}
-                  <h1 className="mb-6 text-[26px] sm:text-[32px] leading-tight font-semibold break-words whitespace-pre-wrap">
-                    <RoamText text={zoomNode.string} links={links} />
-                    <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
-                  </h1>
-                  <BlockList nodes={zoomNode.children} links={links} viewType={zoomNode.viewType} anchors />
-                </>
-              )}
-            </>
-          ) : pub.kind === "page" ? (
-            <>
-              {crumbs && <Breadcrumbs items={crumbs} />}
-              <h1 className="mb-2 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
-                {pub.title}
-                <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
-              </h1>
-              <BylineLine byline={byline} className={tags ? "mb-2" : "mb-6"} />
-              {tags}
-              {!byline && !tags && <div className="mb-4" />}
-              {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
-              <BlockList nodes={tree.children} links={links} viewType={tree.viewType} anchors />
-            </>
-          ) : (
-            <>
-              {crumbs && <Breadcrumbs items={crumbs} />}
-              <PrivacyBadges notes={privacy} className="mb-3 flex flex-wrap gap-1" />
-              <BylineLine byline={byline} className="mb-4" />
-              {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
-              <BlockList nodes={[tree]} links={links} anchors />
-            </>
-          )}
-          {related.length > 0 && (
-            <section aria-labelledby="related" className="mt-12 border-t pt-4 text-sm">
-              <h2 id="related" className="mb-3 font-semibold">
-                More with {pub.tags.length === 1 ? "this tag" : "these tags"}
-              </h2>
-              <ul className="flex flex-col gap-2">
-                {related.map((r) => (
-                  <li key={r.href}>
-                    <Link href={r.href} className="text-link hover:underline">
-                      {plainText(r.title) || "Untitled"}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          <div className="mt-12 flex items-center justify-between gap-4">
-            <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
-              <span>Last updated {pub.updatedAt.toLocaleDateString("en-US", { dateStyle: "medium" })}</span>
-              {views && (
-                <>
-                  <span aria-hidden>·</span>
-                  <ViewCount v={views} />
-                </>
-              )}
-            </p>
-            {votes !== null && <UpvoteButton publicationId={pub.id} initialCount={votes} />}
+        <FoldAllRoot>
+          <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
+            <QuickSearch siteSearch={siteSearch} />
+            <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
+            {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
+            <ReportAbuseButton target={report} />
+            <ThemeToggle size="icon-sm" className="text-muted-foreground" />
           </div>
-          {views?.passwordWarning && <PasswordViewsWarning v={views} />}
-        </article>
-        {countViews && <ViewBeacon publicationId={pub.id} />}
+          <article className="relative mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
+            {outline && (
+              <PageOutlineAside headings={outline} className="absolute top-16 right-full bottom-16 hidden w-60 pr-6 xl:block" />
+            )}
+            {zoomed && zoomNode ? (
+              <>
+                {/* One trail: the site's crumbs, the page (leaving the zoom), then the blocks above this one. */}
+                <Breadcrumbs
+                  className="mb-3"
+                  items={[
+                    ...(crumbs ?? [{ label: plainText(pub.kind === "page" ? pub.title : tree.string) || "Untitled" }]).map((c, i, all) =>
+                      i === all.length - 1 ? { ...c, href: path } : c,
+                    ),
+                    ...zoomed.slice(0, -1).map((n) => ({ label: crumbLabel(n), href: zoomHref(n.uid) })),
+                    { label: crumbLabel(zoomNode) },
+                  ]}
+                />
+                {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
+                {zoomNode.embed || blockComponent(zoomNode.string) ? (
+                  <BlockList nodes={[{ ...zoomNode, collapsed: undefined }]} links={links} viewType={zoomViewType} anchors />
+                ) : (
+                  <>
+                    {/* Like Roam, the block zoomed into reads as the title, with its children below it. */}
+                    <h1 className="mb-6 text-[26px] sm:text-[32px] leading-tight font-semibold break-words whitespace-pre-wrap">
+                      <RoamText text={zoomNode.string} links={links} />
+                      <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
+                    </h1>
+                    {pageBlocks(zoomNode.children, zoomNode.viewType)}
+                  </>
+                )}
+              </>
+            ) : pub.kind === "page" ? (
+              <>
+                {crumbs && <Breadcrumbs items={crumbs} />}
+                <h1 className="mb-2 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
+                  {pub.title}
+                  <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
+                </h1>
+                <BylineLine byline={byline} className={tags ? "mb-2" : "mb-6"} />
+                {tags}
+                {!byline && !tags && <div className="mb-4" />}
+                {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
+                {pageBlocks(tree.children, tree.viewType)}
+              </>
+            ) : (
+              <>
+                {crumbs && <Breadcrumbs items={crumbs} />}
+                <PrivacyBadges notes={privacy} className="mb-3 flex flex-wrap gap-1" />
+                <BylineLine byline={byline} className="mb-4" />
+                {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
+                <BlockList nodes={[tree]} links={links} anchors />
+              </>
+            )}
+            {related.length > 0 && (
+              <section aria-labelledby="related" className="mt-12 border-t pt-4 text-sm">
+                <h2 id="related" className="mb-3 font-semibold">
+                  More with {pub.tags.length === 1 ? "this tag" : "these tags"}
+                </h2>
+                <ul className="flex flex-col gap-2">
+                  {related.map((r) => (
+                    <li key={r.href}>
+                      <Link href={r.href} className="text-link hover:underline">
+                        {plainText(r.title) || "Untitled"}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            <div className="mt-12 flex items-center justify-between gap-4">
+              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+                <span>Last updated {pub.updatedAt.toLocaleDateString("en-US", { dateStyle: "medium" })}</span>
+                {views && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <ViewCount v={views} />
+                  </>
+                )}
+              </p>
+              {votes !== null && <UpvoteButton publicationId={pub.id} initialCount={votes} />}
+            </div>
+            {views?.passwordWarning && <PasswordViewsWarning v={views} />}
+          </article>
+          {countViews && <ViewBeacon publicationId={pub.id} />}
+        </FoldAllRoot>
       </main>
       <SiteFooter className="bg-card" />
     </>

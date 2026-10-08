@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronRightIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronRightIcon, PanelLeftCloseIcon, TableOfContentsIcon } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { Button } from "@/components/ui/button";
 import type { Heading } from "@/lib/headings";
 import { cn } from "@/lib/utils";
 
@@ -57,14 +58,66 @@ function useActiveHeading(headings: Heading[]) {
   return active;
 }
 
-/** The page's headings beside it on wide screens, following the reader down the page. */
+// Whether the reader hid the outline, remembered in this browser for every page.
+const HIDDEN_KEY = "outline-hidden";
+const listeners = new Set<() => void>();
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => listeners.delete(l);
+};
+const readHidden = () => {
+  try {
+    return localStorage.getItem(HIDDEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+const writeHidden = (hidden: boolean) => {
+  try {
+    if (hidden) localStorage.setItem(HIDDEN_KEY, "1");
+    else localStorage.removeItem(HIDDEN_KEY);
+  } catch {}
+  listeners.forEach((l) => l());
+};
+
+/** The page's headings beside it on wide screens, following the reader down the page. The reader can hide it. */
 export function PageOutlineAside({ headings, className }: { headings: Heading[]; className?: string }) {
   const active = useActiveHeading(headings);
+  const hidden = useSyncExternalStore(subscribe, readHidden, () => false);
   return (
     <nav aria-label="Outline" className={className}>
       <div className="sticky top-16 max-h-[calc(100vh-8rem)] overflow-y-auto">
-        <p className="mb-2 px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">On this page</p>
-        <Links headings={headings} active={active} />
+        {hidden ? (
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground"
+              aria-label="Show the outline"
+              title="Show the outline"
+              onClick={() => writeHidden(false)}
+            >
+              <TableOfContentsIcon />
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="mb-2 flex items-center justify-between gap-2 pl-2">
+              <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">On this page</p>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground"
+                aria-label="Hide the outline"
+                title="Hide the outline"
+                onClick={() => writeHidden(true)}
+              >
+                <PanelLeftCloseIcon />
+              </Button>
+            </div>
+            <Links headings={headings} active={active} />
+          </>
+        )}
       </div>
     </nav>
   );

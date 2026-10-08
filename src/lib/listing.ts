@@ -80,8 +80,8 @@ export function listedNote(g: { frontPage: boolean }, pub: { visibility: string;
 }
 
 /**
- * What the extension shows for a page's listing: where it is, why Discover is off limits, and why
- * Listed doesn't list it anywhere.
+ * What the extension shows for a page's listing: where it is, why Discover is off limits, why
+ * Listed doesn't list it anywhere, and whether it has a graph place to list at all.
  */
 export function extListing(
   g: Parameters<typeof pageDiscoverBlocked>[0],
@@ -91,5 +91,6 @@ export function extListing(
     listing: listingOf(pub),
     discoverBlocked: pageDiscoverBlocked(g, pub) ?? null,
     listedNote: listedNote(g, pub),
+    inGraph: pub.inGraph,
   };
 }

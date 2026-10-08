@@ -228,6 +228,21 @@ describe("listing", () => {
     expect((await byUid("PATCH", ownerKey, p.rootUid, { listing: "listed" })).status).toBe(200);
   });
 
+  test("a page only in collections has no graph listing: it says so and refuses to change it", async () => {
+    const p = payload();
+    await publish(ownerKey, p);
+    expect((await listingOf(p.rootUid)).inGraph).toBe(true);
+    await db.update(publication).set({ inGraph: false }).where(eq(publication.rootUid, p.rootUid));
+    expect((await listingOf(p.rootUid)).inGraph).toBe(false);
+    for (const body of [{ listing: "listed" }, { visibility: "public" }]) {
+      const res = await byUid("PATCH", ownerKey, p.rootUid, body);
+      expect(res.status).toBe(409);
+      expect((await res.json()).error).toContain("only in collections");
+    }
+    const row = await db.query.publication.findFirst({ where: eq(publication.rootUid, p.rootUid) });
+    expect(row?.visibility).toBe("unlisted");
+  });
+
   test("older extensions' visibility body leaves the Discover flag alone", async () => {
     const p = payload();
     await publish(ownerKey, p);

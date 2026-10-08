@@ -6,6 +6,49 @@ import { cn } from "@/lib/utils";
 /** A parent's "fold or unfold all my children" click, passed down to its child rows. */
 type FoldAll = { collapsed: boolean };
 const FoldAllContext = createContext<FoldAll | null>(null);
+const SetPageFoldContext = createContext<((f: FoldAll) => void) | null>(null);
+
+/** Lets {@link PageThread} fold or open the page's top-level blocks. */
+export function FoldAllRoot({ children }: { children: ReactNode }) {
+  const [fold, setFold] = useState<FoldAll | null>(null);
+  return (
+    <SetPageFoldContext.Provider value={setFold}>
+      <FoldAllContext.Provider value={fold}>{children}</FoldAllContext.Provider>
+    </SetPageFoldContext.Provider>
+  );
+}
+
+/**
+ * The page's own thread line, left of its top-level bullets, like the line under any block with children: clicking
+ * it folds every top-level block if any is open, otherwise opens them all.
+ */
+export function PageThread({ children }: { children: ReactNode }) {
+  const setFold = useContext(SetPageFoldContext);
+  const ref = useRef<HTMLDivElement>(null);
+  return (
+    <div
+      ref={ref}
+      className="relative [&:has(>[data-thread]:hover)>:is(ul,ol)]:rounded-sm [&:has(>[data-thread]:hover)>:is(ul,ol)]:bg-muted/60"
+    >
+      <button
+        type="button"
+        data-thread
+        tabIndex={-1}
+        aria-label="Fold or unfold all blocks"
+        title="Fold or unfold all blocks"
+        onClick={() => {
+          const rows = [...(ref.current?.querySelectorAll(":scope > * > li > button[aria-expanded]") ?? [])];
+          setFold?.({ collapsed: rows.some((b) => b.getAttribute("aria-expanded") === "true") });
+        }}
+        // Outside the top-level carets, so only where the page has room beside it.
+        className="group absolute inset-y-0 -left-[1.875em] z-10 hidden w-[0.75em] cursor-pointer md:block"
+      >
+        <span className="absolute inset-y-0 left-1/2 w-px bg-roam-thread group-hover:bg-roam-bullet" />
+      </button>
+      {children}
+    </div>
+  );
+}
 
 /**
  * A block row whose children can be folded away, like Roam's caret. Folded children stay in the page
@@ -30,6 +73,7 @@ export function CollapsibleRow({
   defaultCollapsed?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const [childrenFold, setChildrenFold] = useState<FoldAll | null>(null);
   // Follow the parent's thread-line click (React's "adjust state when a prop changes" pattern).
   const foldAll = useContext(FoldAllContext);
   const [seenFoldAll, setSeenFoldAll] = useState(foldAll);
@@ -37,7 +81,6 @@ export function CollapsibleRow({
     setSeenFoldAll(foldAll);
     if (foldAll) setCollapsed(foldAll.collapsed);
   }
-  const [childrenFold, setChildrenFold] = useState<FoldAll | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -87,6 +130,7 @@ export function CollapsibleRow({
           data-thread
           tabIndex={-1}
           aria-label="Fold or unfold all children"
+          title="Fold or unfold all children"
           onClick={() => {
             // Like Roam: fold the children if any is open, otherwise open them all. When none of them has
             // children to fold, the line folds this block instead, so pressing it always does something.
