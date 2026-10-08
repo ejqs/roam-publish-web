@@ -26,7 +26,7 @@ export default async function GraphSharingPage(props: PageProps<"/dashboard/[gra
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <ResourceHeader
         name={g.name}
-        caption="Who can see this graph's pages. Each page can choose its own, from Manage or the Pages tab."
+        caption="The visibility of this graph's pages. Each page can change its own, from Manage or the Pages tab."
         tabs={resourceTabs(graphPagesPath(g.name), true, true)}
         current={`${graphPagesPath(g.name)}/sharing`}
       />

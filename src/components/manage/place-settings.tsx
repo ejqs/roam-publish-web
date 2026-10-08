@@ -292,7 +292,7 @@ export function AccessFields({
   return (
     <div className="flex flex-col gap-1.5">
       <span id={`${id}-who`} className={cn("font-medium", compact && "text-xs text-muted-foreground")}>
-        Who can see it
+        Visibility
       </span>
       <div role="radiogroup" aria-labelledby={`${id}-who`} className="flex flex-col divide-y overflow-hidden rounded-sm border">
         {RUNGS.map((r) => {

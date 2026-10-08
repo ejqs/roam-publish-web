@@ -61,7 +61,7 @@ export function EntryList({
             <AllCheckbox />
             <HeaderCell label="Title" sort={sort.title} />
           </span>
-          <span>Who can see it</span>
+          <span>Visibility</span>
           <HeaderCell label="Updated" sort={sort.updated} />
           <span />
         </div>
