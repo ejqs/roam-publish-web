@@ -5,7 +5,6 @@ import { db } from "@/db";
 import { extClient, user } from "@/db/schema";
 import { EXT_MIN_VERSION, EXT_MIN_VERSION_HEADER, EXT_VERSION_HEADER } from "@/lib/ext-compat";
 import { everyoneAtLeast, extVersionUse, leftBehind, readyFor, runExtVersionCheck } from "@/lib/ext-version";
-import { SITE_VERSION } from "@/lib/version";
 import { resetDb } from "../helpers/db";
 import { extRequest, keyFor, makeGraph, makeUser } from "../helpers/factories";
 import { request, resetRequest, runAfter } from "../helpers/request";
@@ -70,8 +69,7 @@ describe("which extension versions are in use", () => {
 });
 
 describe("what roam.pub tells the extension", () => {
-  test("every answer names the oldest extension this major works with, and Roam may read it", async () => {
-    expect(EXT_MIN_VERSION).toBe(`${SITE_VERSION.split(".")[0]}.0.0`);
+  test("every answer names the oldest extension this website works with, and Roam may read it", async () => {
     expect((await call(key)).headers.get(EXT_MIN_VERSION_HEADER)).toBe(EXT_MIN_VERSION);
     expect((await call("rp_nope")).headers.get(EXT_MIN_VERSION_HEADER)).toBe(EXT_MIN_VERSION);
     const pre = await OPTIONS(extRequest("/api/ext/publications", null, { method: "OPTIONS" }));
