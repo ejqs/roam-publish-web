@@ -35,7 +35,10 @@ export function privacyNotes({
   access: Access;
   encrypted: boolean;
   unlisted: boolean;
-  /** Listed here, and its owner took it out of roam.pub search. Unlisted already says it can't be found. */
+  /**
+   * Listed here, and its owner took it out of roam.pub search. Unlisted already says it can't be found, and a
+   * password or members-only page is never searchable, so neither shows it.
+   */
   unsearchable?: boolean;
   container: string;
 }): PrivacyNote[] {
@@ -58,7 +61,8 @@ export function privacyNotes({
       // Unlisted pages can hide their graph from readers, so this doesn't name it.
       text: "Only people with the link can find it. It isn't on a front page, in search engines or on Discover.",
     });
-  else if (unsearchable)
+  // A protected page is never in site search, so saying so again only adds noise.
+  else if (unsearchable && access === "open" && !encrypted)
     notes.push({
       kind: "unsearchable",
       label: "Not Searchable",

@@ -5,6 +5,17 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.16.1 (2026-10-08)
+
+### Published pages
+- Improved: **Thread lines thicken when you point at them** instead of shading the blocks they fold, so moving the
+  mouse across a page no longer flickers.
+- Improved: **The page's own thread line stays out of sight** until your pointer is near it.
+- Improved: **A quieter outline.** Its hide button shows only while you point at "On this page", and once hidden,
+  the button to bring it back fades away as you scroll into the page.
+- Improved: Password-protected and members-only pages no longer also say "Not Searchable"; they're never in search
+  anyway.
+
 ## 0.16.0 (2026-10-08)
 
 ### Security

@@ -80,19 +80,27 @@ const writeHidden = (hidden: boolean) => {
   listeners.forEach((l) => l());
 };
 
+const subscribeScroll = (l: () => void) => {
+  window.addEventListener("scroll", l, { passive: true });
+  return () => window.removeEventListener("scroll", l);
+};
+
 /** The page's headings beside it on wide screens, following the reader down the page. The reader can hide it. */
 export function PageOutlineAside({ headings, className }: { headings: Heading[]; className?: string }) {
   const active = useActiveHeading(headings);
   const hidden = useSyncExternalStore(subscribe, readHidden, () => false);
+  const atTop = useSyncExternalStore(subscribeScroll, () => window.scrollY < 80, () => true);
   return (
     <nav aria-label="Outline" className={className}>
-      <div className="sticky top-16 max-h-[calc(100vh-8rem)] overflow-y-auto">
+      <div className="group/outline sticky top-16 max-h-[calc(100vh-8rem)] overflow-y-auto">
         {hidden ? (
-          <div className="flex justify-end">
+          // Only near the top of the page: nobody toggles it back on mid-read, so it shouldn't follow them down.
+          <div className={cn("flex justify-end transition-opacity", !atTop && "pointer-events-none opacity-0")}>
             <Button
               variant="ghost"
               size="icon-sm"
               className="text-muted-foreground"
+              tabIndex={atTop ? undefined : -1}
               aria-label="Show the outline"
               title="Show the outline"
               onClick={() => writeHidden(false)}
@@ -107,7 +115,8 @@ export function PageOutlineAside({ headings, className }: { headings: Heading[];
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="text-muted-foreground"
+                // Shown while the pointer is on the outline.
+                className="text-muted-foreground opacity-0 transition-opacity group-hover/outline:opacity-100 focus-visible:opacity-100"
                 aria-label="Hide the outline"
                 title="Hide the outline"
                 onClick={() => writeHidden(true)}
