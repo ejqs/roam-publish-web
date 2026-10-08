@@ -18,6 +18,7 @@ export function CollapsibleRow({
   children,
   nested,
   foldableChildren,
+  defaultCollapsed = false,
 }: {
   id?: string;
   className: string;
@@ -28,8 +29,10 @@ export function CollapsibleRow({
   nested: ReactNode;
   /** Whether any child has children of its own, so the thread line can fold them all, like Roam. */
   foldableChildren?: boolean;
+  /** Start folded, as the block is in Roam. */
+  defaultCollapsed?: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   // Follow the parent's thread-line click (React's "adjust state when a prop changes" pattern).
   const foldAll = useContext(FoldAllContext);
   const [seenFoldAll, setSeenFoldAll] = useState(foldAll);
@@ -45,7 +48,8 @@ export function CollapsibleRow({
     el?.addEventListener("beforematch", open);
     return () => el?.removeEventListener("beforematch", open);
   }, []);
-  // React has no "until-found" value for `hidden` yet, so it's set directly.
+  // React renders `hidden` as plain hidden (so folded blocks arrive folded); after that it becomes
+  // "until-found", which React has no value for yet, so find-in-page can still open them.
   useEffect(() => {
     if (collapsed) ref.current?.setAttribute("hidden", "until-found");
     else ref.current?.removeAttribute("hidden");
@@ -74,6 +78,7 @@ export function CollapsibleRow({
       {children}
       <div
         ref={ref}
+        hidden={collapsed || undefined}
         className={cn(
           "relative",
           // Hovering the thread line marks the children it folds, like Roam.

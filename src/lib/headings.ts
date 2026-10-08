@@ -18,3 +18,13 @@ export function headingsOf(nodes: Node[]): Heading[] {
     return [...own, ...(blockComponent(n.string) ? [] : headingsOf(n.children))];
   });
 }
+
+/** The block with this uid and the blocks above it, top first; null when it isn't on the page. Embeds aren't searched. */
+export function zoomPath(nodes: Node[], uid: string): Node[] | null {
+  for (const n of nodes) {
+    if (n.uid === uid) return [n];
+    const below = zoomPath(n.children, uid);
+    if (below) return [n, ...below];
+  }
+  return null;
+}

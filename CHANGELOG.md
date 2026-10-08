@@ -5,6 +5,14 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.13.0 (2026-10-08)
+
+### Published pages
+- New: **Zoom into any block, like in Roam.** Click a block's bullet to see just that block and what's under it,
+  with a trail above it to step back out. The address includes the block, so you can share a link to it.
+- New: **Blocks collapsed in Roam can start collapsed on the published page**, when the page is published that way
+  from the extension. Readers can open and close them as usual.
+
 ## 0.12.0 (2026-10-08)
 
 ### Published pages

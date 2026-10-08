@@ -35,3 +35,10 @@ export function collectionUrl(slug: string) {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   return base + collectionPath(slug);
 }
+
+/** Where a bullet leads: the same page, zoomed into that block (`?block=`), like Roam. */
+export const zoomHref = (uid: string) => `?block=${encodeURIComponent(uid)}`;
+
+/** The block a published page is zoomed into, from its search params. */
+export const zoomParam = (search?: Record<string, string | string[] | undefined>) =>
+  typeof search?.block === "string" ? search.block : undefined;

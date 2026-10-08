@@ -1,3 +1,4 @@
+import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { plainText } from "@/lib/slug";
 import { Breadcrumbs, type Crumb } from "@/components/breadcrumbs";
@@ -9,14 +10,15 @@ import type { PrivacyNote } from "@/components/privacy-icons";
 import { ReportAbuseButton, type ReportTarget } from "@/components/report-abuse-button";
 import { BlockList } from "@/components/roam/block-tree";
 import { PageOutlineAside, PageOutlineDetails } from "@/components/roam/page-outline";
-import type { PageLinks } from "@/components/roam/markup";
+import { blockComponent, type PageLinks, RoamText } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UpvoteButton } from "@/components/upvote-button";
 import { ViewBeacon } from "@/components/view-beacon";
 import { PasswordViewsWarning, ViewCount } from "@/components/view-count";
 import type { publication } from "@/db/schema";
-import { headingsOf } from "@/lib/headings";
+import { headingsOf, zoomPath } from "@/lib/headings";
+import { zoomHref } from "@/lib/publications";
 import type { ManageData } from "@/lib/manage-data";
 import type { ViewFooter } from "@/lib/views-data";
 
@@ -28,6 +30,8 @@ export type Byline = { label: string; href?: string } | null;
  */
 export function PublicationView({
   pub,
+  path,
+  zoom,
   crumbs,
   links,
   related = [],
@@ -42,6 +46,10 @@ export function PublicationView({
   privacy = [],
 }: {
   pub: typeof publication.$inferSelect;
+  /** This page's own address, for leaving a zoomed-in view. */
+  path: string;
+  /** The block the reader zoomed into (`?block=`), if any. */
+  zoom?: string;
   crumbs: Crumb[] | null;
   links: PageLinks;
   /** Whether the viewer may search the whole site. */
@@ -63,8 +71,13 @@ export function PublicationView({
   privacy?: PrivacyNote[];
 }) {
   const tree = pub.tree;
+  const top = pub.kind === "page" ? tree.children : [tree];
+  // Zoomed into a block below the top, like Roam: that block alone, under a trail back up the page.
+  const zoomed = zoom && zoom !== tree.uid ? zoomPath(top, zoom) : null;
+  const zoomNode = zoomed?.at(-1);
+  const zoomViewType = zoomed && zoomed.length > 1 ? zoomed.at(-2)!.viewType : pub.kind === "page" ? tree.viewType : undefined;
   // An outline only helps once there's more than one heading to move between.
-  const headings = headingsOf(pub.kind === "page" ? tree.children : [tree]);
+  const headings = headingsOf(zoomNode ? zoomNode.children : top);
   const outline = headings.length > 1 ? headings : null;
   const tagHref = links.tagHref;
   const tags =
@@ -92,7 +105,36 @@ export function PublicationView({
             <PageOutlineAside headings={outline} className="absolute top-16 right-full bottom-16 hidden w-60 pr-6 xl:block" />
           )}
           {crumbs && <Breadcrumbs items={crumbs} />}
-          {pub.kind === "page" ? (
+          {zoomed && zoomNode ? (
+            <>
+              <nav aria-label="Zoomed in from" className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
+                {[
+                  { label: pub.kind === "page" ? pub.title : tree.string, href: path },
+                  ...zoomed.slice(0, -1).map((n) => ({ label: n.string, href: zoomHref(n.uid) })),
+                ].map((c, i) => (
+                  <span key={c.href} className="flex min-w-0 items-center gap-1.5">
+                    {i > 0 && <ChevronRightIcon aria-hidden className="size-3.5 shrink-0" />}
+                    <Link href={c.href} className="max-w-56 truncate hover:text-foreground hover:underline">
+                      {plainText(c.label) || "Untitled"}
+                    </Link>
+                  </span>
+                ))}
+                <PrivacyBadges notes={privacy} className="ml-1 inline-flex flex-wrap gap-1" />
+              </nav>
+              {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
+              {zoomNode.embed || blockComponent(zoomNode.string) ? (
+                <BlockList nodes={[{ ...zoomNode, collapsed: undefined }]} links={links} viewType={zoomViewType} anchors />
+              ) : (
+                <>
+                  {/* Like Roam, the block zoomed into reads as the title, with its children below it. */}
+                  <h1 className="mb-6 text-[26px] sm:text-[32px] leading-tight font-semibold break-words whitespace-pre-wrap">
+                    <RoamText text={zoomNode.string} links={links} />
+                  </h1>
+                  <BlockList nodes={zoomNode.children} links={links} viewType={zoomNode.viewType} anchors />
+                </>
+              )}
+            </>
+          ) : pub.kind === "page" ? (
             <>
               <h1 className="mb-2 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
                 {pub.title}

@@ -153,6 +153,8 @@ export type Node = {
   viewType?: "bullet" | "numbered" | "document";
   /** Omitted for left. */
   align?: "left" | "center" | "right" | "justify";
+  /** Set when the block is collapsed in Roam (and has children); the website starts it folded. */
+  collapsed?: true;
   /** The block or page this block embeds with `{{embed: …}}`. */
   embed?: Node;
   /** Further embeds in the same block, in order; omitted when it has at most one. */

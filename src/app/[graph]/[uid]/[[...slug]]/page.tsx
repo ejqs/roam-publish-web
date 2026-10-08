@@ -29,7 +29,7 @@ import { manageDataFor } from "@/lib/manage-data";
 import { cardFor, pageCardPath } from "@/lib/og/card";
 import { livePublication } from "@/lib/moderation";
 import { publicProfile } from "@/lib/profiles";
-import { publicationPath } from "@/lib/publications";
+import { publicationPath, zoomParam } from "@/lib/publications";
 import { plainText, slugify } from "@/lib/slug";
 import { graphTagPath, RELATED_LIMIT } from "@/lib/tag-paths";
 import { bylineFor, viewerId } from "@/lib/viewer";
@@ -187,6 +187,8 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
   return (
     <PublicationView
       pub={{ ...pub, tree }}
+      path={path}
+      zoom={zoomParam(await props.searchParams)}
       crumbs={
         showBreadcrumbs
           ? [

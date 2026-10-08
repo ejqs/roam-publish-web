@@ -12,6 +12,7 @@ type Node = {
   heading?: 1 | 2 | 3;
   viewType?: "bullet" | "numbered" | "document"; // how this block's children are shown
   align?: "left" | "center" | "right" | "justify";
+  collapsed?: true; // collapsed in Roam (`:block/open` false); only on blocks with children
   embed?: Node; // what `{{embed: …}}` in this block's string embeds
   title?: string; // only on an embedded page's root
   children: Node[];
@@ -28,7 +29,7 @@ type PublishPayload = {
 ```
 
 - `children` ordered by `:block/order` ascending.
-- `heading` omitted when absent/0. `viewType` omitted for bullets and `align` for left, so older trees hash the same.
+- `heading` omitted when absent/0. `viewType` omitted for bullets, `align` for left and `collapsed` for open blocks, so older trees hash the same.
 - `{{embed: ((uid))}}`, `{{embed: [[Page]]}}`, `{{embed-path: …}}` and `{{embed-children: …}}` (with or without `[[ ]]` around the name) keep their text unchanged; the embedded tree goes in `embed` (max embed depth 2, cycles skipped). A block embed is that block; a page embed is `{ uid, string: "", title, children }`; an `embed-children` embed has `string: ""`.
 - For a **page**, the root node is `{ uid: pageUid, string: "", children: [top-level blocks] }`.
 - For a **block**, the root node is the block itself (with its string) and its children.

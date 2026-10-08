@@ -23,6 +23,7 @@ const NodeSchema: z.ZodType<Node> = z.lazy(() =>
     heading: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
     viewType: z.enum(["bullet", "numbered", "document"]).optional(),
     align: z.enum(["left", "center", "right", "justify"]).optional(),
+    collapsed: z.literal(true).optional(),
     embed: NodeSchema.optional(),
     moreEmbeds: z.array(NodeSchema).max(50).optional(),
     title: z.string().max(1000).optional(),
