@@ -13,8 +13,6 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 - New: **Hide the "On this page" outline.** Click the button beside it to tuck it away; it stays hidden on every
   page until you bring it back.
 
-## 0.14.1 (2026-10-08)
-
 ### Publishing
 - Fixed: **Make listed** from the Roam extension no longer appears to work on a page that's only in collections. It
   has no graph listing to change, so roam.pub now says each of its collections sets how it's listed.
