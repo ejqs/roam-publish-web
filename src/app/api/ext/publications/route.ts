@@ -222,6 +222,8 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
       const content = sealed
         ? {
             cipher: sealed.cipher,
+            encryptionVersion: 2,
+            encryptedBy: ctx.extVersion,
             needsRepublish: await storeSealedKeys(tx, plan as typeof plan & { encrypt: true }, sealed),
             tree,
             searchText: "",
@@ -231,6 +233,8 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
         : existing.encrypted
         ? {
             ...(await sealNewContent(tx, existing.id, tree)),
+            encryptionVersion: 1,
+            encryptedBy: null,
             tree: emptyTree(existing.rootUid),
             searchText: "",
             tags: [],
@@ -275,7 +279,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   const [created] = await db
     .insert(publication)
     .values({
-      ...(sealed && { id: sealed.publicationId, encrypted: true, cipher: sealed.cipher }),
+      ...(sealed && { id: sealed.publicationId, encrypted: true, cipher: sealed.cipher, encryptionVersion: 2, encryptedBy: ctx.extVersion }),
       graphId: ctx.graphId,
       rootUid: p.rootUid,
       kind: p.kind,

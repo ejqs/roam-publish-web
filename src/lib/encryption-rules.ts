@@ -1,5 +1,17 @@
 /** Shared by server and client (so not in lib/encryption.ts, which needs node:crypto and the database). */
 
+/**
+ * How a page was encrypted, newest last. A page keeps its version until it's encrypted again
+ * (republished, or encrypted on the website).
+ */
+export const ENCRYPTION_VERSIONS = {
+  1: "encrypted by roam.pub when it was published, so roam.pub saw its text then",
+  2: "encrypted in Roam before it was published, so roam.pub never saw its text (end-to-end)",
+} as const;
+export type EncryptionVersion = keyof typeof ENCRYPTION_VERSIONS;
+/** The extension version that first encrypts in Roam. */
+export const E2E_EXTENSION = "0.2.0";
+
 /** Passwords that protect encrypted pages need at least this many characters. */
 export const ENCRYPT_PASSWORD_MIN = 10;
 

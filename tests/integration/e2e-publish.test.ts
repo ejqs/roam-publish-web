@@ -111,7 +111,7 @@ describe("publishing encrypted in Roam", () => {
     const res = await publishSealed(t, keyed(1));
     expect(res.body).toMatchObject({ status: "created", encrypted: true, contentHash: keyed(1) });
     const r = (await row("pg1"))!;
-    expect(r).toMatchObject({ encrypted: true, searchText: "", tags: [], needsRepublish: false, folded: ["pg1c"], contentHash: keyed(1) });
+    expect(r).toMatchObject({ encrypted: true, searchText: "", tags: [], needsRepublish: false, folded: ["pg1c"], contentHash: keyed(1), encryptionVersion: 2 });
     expect(JSON.stringify(r)).not.toContain(SECRET);
     expect(await db.select().from(publicationKey).where(eq(publicationKey.publicationId, r.id))).toHaveLength(1);
     expect(textOf((await readerSees("pg1"))!)).toContain(SECRET);
@@ -134,6 +134,8 @@ describe("publishing encrypted in Roam", () => {
     const body = { rootUid: "pg1", kind: "page", title: "Plans", tree: t, contentHash: contentHash({ kind: "page", title: "Plans", tree: t }) };
     expect((await (await POST(extRequest("/api/ext/publications", key, { body }))).json()).status).toBe("updated");
     expect(textOf((await readerSees("pg1"))!)).toContain("plain again");
+    // roam.pub saw the text this time: back to encryption 1.
+    expect(await row("pg1")).toMatchObject({ encryptionVersion: 1, encryptedBy: null });
   });
 
   test("asks to reseal when the passwords changed since the plan", async () => {

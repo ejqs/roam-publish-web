@@ -43,6 +43,9 @@ export type ManageData = {
   title: string;
   /** Encrypted with its passwords (lib/encryption.ts). */
   encrypted: boolean;
+  /** How it was encrypted (ENCRYPTION_VERSIONS), and by which extension version when in Roam. */
+  encryptionVersion: number | null;
+  encryptedBy: string | null;
   /** A password it was encrypted with was reset: some place can't open it until it's republished. */
   needsRepublish: boolean;
   /** Can change the page itself: its graph place, collections, unpublish. */
@@ -150,6 +153,8 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
       publicationId: pub.id,
       title: pub.title,
       encrypted: pub.encrypted,
+      encryptionVersion: pub.encryptionVersion,
+      encryptedBy: pub.encryptedBy,
       needsRepublish: pub.needsRepublish,
       canManagePage,
       searchable: pub.searchable,

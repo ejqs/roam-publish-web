@@ -70,7 +70,7 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function storeReadable(tx: Tx, pub: typeof publication.$inferSelect, tree: Node) {
   await tx
     .update(publication)
-    .set({ tree, ...indexFields(tree, pub), contentHash: plainHash(pub), encrypted: false, cipher: null, needsRepublish: false })
+    .set({ tree, ...indexFields(tree, pub), contentHash: plainHash(pub), encrypted: false, cipher: null, encryptionVersion: null, encryptedBy: null, needsRepublish: false })
     .where(eq(publication.id, pub.id));
   await tx.delete(publicationKey).where(eq(publicationKey.publicationId, pub.id));
 }

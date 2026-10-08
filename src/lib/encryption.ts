@@ -648,6 +648,8 @@ export async function encryptPage(tx: Tx, pub: typeof publication.$inferSelect) 
     .set({
       encrypted: true,
       cipher,
+      encryptionVersion: 1,
+      encryptedBy: null,
       needsRepublish,
       tree: emptyTree(pub.rootUid),
       searchText: "",

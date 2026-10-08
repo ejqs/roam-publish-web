@@ -245,6 +245,13 @@ export const publication = pgTable(
      */
     encrypted: boolean("encrypted").notNull().default(false),
     cipher: text("cipher"),
+    /**
+     * How it was encrypted (lib/encryption-rules.ts ENCRYPTION_VERSIONS): 1 by roam.pub as it arrived,
+     * 2 in Roam before it was sent (end-to-end). Null while it isn't encrypted.
+     */
+    encryptionVersion: integer("encryption_version"),
+    /** The extension version that encrypted it in Roam (encryption 2). */
+    encryptedBy: text("encrypted_by"),
     /** A password it was encrypted with was reset, so some place can't open it until it's republished. */
     needsRepublish: boolean("needs_republish").notNull().default(false),
     /** Plain text of the tree for full-text search (lib/tags.ts). Set on every write of `tree`. */

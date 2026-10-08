@@ -131,6 +131,7 @@ describe("turning encryption on", () => {
     const pub = await encrypted();
     const r = (await row(pub.id))!;
     expect(r.encrypted).toBe(true);
+    expect(r.encryptionVersion).toBe(1);
     expect(JSON.stringify(r)).not.toContain(SECRET);
     expect(r.tags).toEqual([]);
     expect(r.searchText).toBe("");
@@ -234,6 +235,7 @@ describe("changing an encrypted page", () => {
     expect((await setEncryption(pub.id, { on: false, currentPassword: GRAPH_PW })).ok).toBe(true);
     const r = (await row(pub.id))!;
     expect(r.encrypted).toBe(false);
+    expect(r.encryptionVersion).toBeNull();
     expect(r.searchText).toContain(SECRET);
     expect(r.tags).toEqual(["plans"]);
     expect(r.contentHash).toBe(pub.contentHash);

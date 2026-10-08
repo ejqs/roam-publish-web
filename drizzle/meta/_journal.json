@@ -295,6 +295,13 @@
       "when": 1791460606433,
       "tag": "0041_ext_client",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791469919542,
+      "tag": "0042_encryption_version",
+      "breakpoints": true
     }
   ]
 }
