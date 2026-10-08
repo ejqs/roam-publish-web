@@ -10,7 +10,7 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 
 ### Security
 - New: Password pages can be encrypted in Roam before they're published, so roam.pub never sees their text, not
-  even while publishing. This needs the extension's next release; earlier versions keep publishing as before.
+  even while publishing. This needs extension 0.2.0; earlier versions keep publishing as before.
 
 ### Site
 - New: **Upcoming changes** lists changes that will need you to do something, before they happen: what changes,

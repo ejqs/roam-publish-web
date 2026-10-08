@@ -25,15 +25,15 @@ export const UPCOMING: Upcoming[] = [
     id: "password-pages-encrypted-in-roam",
     title: "Password pages must be encrypted in Roam",
     text:
-      "From extension 0.3.0, Password pages are encrypted in Roam before they're published, so roam.pub never sees " +
+      "From extension 0.2.0, Password pages are encrypted in Roam before they're published, so roam.pub never sees " +
       "their text. Older extensions still send the text, and roam.pub encrypts it when it arrives. roam.pub will " +
       "stop accepting that, so every Password page is end-to-end encrypted.",
     action:
-      "Update Roam Publish to 0.3.0 or newer in Roam: Settings → Roam Depot → Installed extensions. Anyone else " +
+      "Update Roam Publish to 0.2.0 or newer in Roam: Settings → Roam Depot → Installed extensions. Anyone else " +
       "who publishes to your graphs needs to update too. After the change, an older extension asks to be " +
       "updated instead of publishing.",
     version: "1.0.0",
-    extension: "0.3.0",
+    extension: "0.2.0",
     announced: "2026-10-08",
   },
 ];
