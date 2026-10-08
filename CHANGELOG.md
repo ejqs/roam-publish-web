@@ -5,6 +5,17 @@ it landed on `main`. The site shows this file, with the extension's, at `/update
 for the people who use the site. Add a bullet with each pull request that changes something they'd notice; leave out
 tests, refactors and internal tooling. Start each bullet with its kind: **New:**, **Improved:** or **Fixed:**.
 
+## 0.12.0 (2026-10-08)
+
+### Published pages
+- New: **Fold blocks away on published pages, like in Roam.** Hover a block that has children and click the arrow
+  beside its bullet to collapse it; a folded block's bullet gets a ring, and clicking again opens it. Click the line
+  to the left of a block's children to fold or open all of them at once. Find in page still searches folded blocks
+  and opens them.
+- New: **Pages with headings get an outline.** On wide screens it sits to the left of the page, follows you as you
+  scroll and highlights the section you're reading; on phones it's folded above the page. Click a heading to jump
+  to it.
+
 ## 0.11.0 (2026-10-07)
 
 ### Discover

@@ -8,6 +8,7 @@ import { PrivacyBadges } from "@/components/privacy-badges";
 import type { PrivacyNote } from "@/components/privacy-icons";
 import { ReportAbuseButton, type ReportTarget } from "@/components/report-abuse-button";
 import { BlockList } from "@/components/roam/block-tree";
+import { PageOutlineAside, PageOutlineDetails } from "@/components/roam/page-outline";
 import type { PageLinks } from "@/components/roam/markup";
 import { SiteFooter } from "@/components/site-footer";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -15,6 +16,7 @@ import { UpvoteButton } from "@/components/upvote-button";
 import { ViewBeacon } from "@/components/view-beacon";
 import { PasswordViewsWarning, ViewCount } from "@/components/view-count";
 import type { publication } from "@/db/schema";
+import { headingsOf } from "@/lib/headings";
 import type { ManageData } from "@/lib/manage-data";
 import type { ViewFooter } from "@/lib/views-data";
 
@@ -61,6 +63,9 @@ export function PublicationView({
   privacy?: PrivacyNote[];
 }) {
   const tree = pub.tree;
+  // An outline only helps once there's more than one heading to move between.
+  const headings = headingsOf(pub.kind === "page" ? tree.children : [tree]);
+  const outline = headings.length > 1 ? headings : null;
   const tagHref = links.tagHref;
   const tags =
     pub.kind === "page" && tagHref && pub.tags.length > 0 ? (
@@ -82,7 +87,10 @@ export function PublicationView({
           <ReportAbuseButton target={report} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
         </div>
-        <article className="mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
+        <article className="relative mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
+          {outline && (
+            <PageOutlineAside headings={outline} className="absolute top-16 right-full bottom-16 hidden w-60 pr-6 xl:block" />
+          )}
           {crumbs && <Breadcrumbs items={crumbs} />}
           {pub.kind === "page" ? (
             <>
@@ -93,13 +101,15 @@ export function PublicationView({
               <BylineLine byline={byline} className={tags ? "mb-2" : "mb-6"} />
               {tags}
               {!byline && !tags && <div className="mb-4" />}
-              <BlockList nodes={tree.children} links={links} viewType={tree.viewType} />
+              {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
+              <BlockList nodes={tree.children} links={links} viewType={tree.viewType} anchors />
             </>
           ) : (
             <>
               <PrivacyBadges notes={privacy} className="mb-3 flex flex-wrap gap-1" />
               <BylineLine byline={byline} className="mb-4" />
-              <BlockList nodes={[tree]} links={links} />
+              {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
+              <BlockList nodes={[tree]} links={links} anchors />
             </>
           )}
           {related.length > 0 && (

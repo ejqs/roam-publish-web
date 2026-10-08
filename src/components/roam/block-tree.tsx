@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import type { Node } from "@/db/app-schema";
+import { headingId } from "@/lib/headings";
 import { cn } from "@/lib/utils";
+import { CollapsibleRow } from "./collapsible-row";
 import { blockComponent, isOnlyComponent, isOnlyComponents, type PageLinks, RoamText } from "./markup";
 import { bulletClass, childrenClass, rowClass } from "./outline";
 
@@ -42,6 +44,8 @@ function Marker({ node, viewType, n }: { node: Node; viewType: ViewType; n: numb
       aria-hidden
       className={cn(
         bulletClass,
+        // Like Roam, a folded block's bullet gets a halo.
+        "[li[data-collapsed]>&]:ring-[3px] [li[data-collapsed]>&]:ring-roam-thread",
         node.heading === 1
           ? "top-[15.5px]"
           : node.heading === 2
@@ -53,6 +57,13 @@ function Marker({ node, viewType, n }: { node: Node; viewType: ViewType; n: numb
     />
   );
 }
+
+/** The caret's top for headings, centred on the same line as the bullet (see Marker). */
+const caretTop = {
+  1: "top-[calc(18.5px_-_0.625em)]",
+  2: "top-[calc(15.5px_-_0.625em)]",
+  3: "top-[calc(13.5px_-_0.625em)]",
+} as const;
 
 type Cell = { node: Node; rowSpan: number };
 
@@ -140,6 +151,7 @@ function Block({
   n,
   aside,
   asides,
+  anchors,
 }: {
   node: Node;
   links: PageLinks;
@@ -147,6 +159,7 @@ function Block({
   n: number;
   aside?: ReactNode;
   asides?: Record<string, ReactNode>;
+  anchors?: boolean;
 }) {
   const kind = blockComponent(node.string);
   // Tables and kanban boards are drawn from the block's children; a diagram's children are its source.
@@ -163,11 +176,16 @@ function Block({
     (isOnlyComponent(node.string) && (special || embed)) ||
     (embeds.length > 1 && isOnlyComponents(node.string))
   );
-  return (
-    <li className={rowClass}>
+  const nested = !kind && node.children.length > 0 && (
+    <BlockList nodes={node.children} links={links} viewType={node.viewType ?? viewType} asides={asides} anchors={anchors} nested />
+  );
+  // Headings are linked from the page outline (lib/headings.ts).
+  const id = anchors && node.heading ? headingId(node.uid) : undefined;
+  const row = (
+    <>
       <Marker node={node} viewType={viewType} n={n} />
       {showText && (
-        <div className={cn("py-0.5 leading-[1.6]", textClass(node))}>
+        <div data-line className={cn("py-0.5 leading-[1.6]", textClass(node))}>
           {/* Like Roam, an empty or whitespace-only block still takes a full line. */}
           {aside && node.string.includes(ASIDE_MARK) ? (
             <>
@@ -184,9 +202,18 @@ function Block({
       )}
       {embed}
       {special}
-      {!kind && node.children.length > 0 && (
-        <BlockList nodes={node.children} links={links} viewType={node.viewType ?? viewType} asides={asides} nested />
-      )}
+    </>
+  );
+  return nested ? (
+    <CollapsibleRow id={id} className={cn(rowClass, id && "scroll-mt-6")} caretClassName={node.heading && caretTop[node.heading]}
+      nested={nested}
+      foldableChildren={node.children.some((c) => c.children.length > 0 && !blockComponent(c.string))}
+    >
+      {row}
+    </CollapsibleRow>
+  ) : (
+    <li id={id} className={cn(rowClass, id && "scroll-mt-6")}>
+      {row}
     </li>
   );
 }
@@ -197,6 +224,7 @@ export function BlockList({
   nested,
   viewType,
   asides,
+  anchors,
 }: {
   nodes: Node[];
   links: PageLinks;
@@ -204,6 +232,8 @@ export function BlockList({
   viewType?: ViewType;
   /** Inline content for blocks containing {@link ASIDE_MARK}, keyed by block uid. */
   asides?: Record<string, ReactNode>;
+  /** Give heading blocks ids for the page outline; off inside embeds, which can repeat blocks. */
+  anchors?: boolean;
 }) {
   const List = viewType === "numbered" ? "ol" : "ul";
   return (
@@ -211,7 +241,7 @@ export function BlockList({
       className={cn("flex flex-col", nested && childrenClass, nested && viewType === "document" && "border-transparent")}
     >
       {nodes.map((n, i) => (
-        <Block key={n.uid} node={n} links={links} viewType={viewType} n={i + 1} aside={asides?.[n.uid]} asides={asides} />
+        <Block key={n.uid} node={n} links={links} viewType={viewType} n={i + 1} aside={asides?.[n.uid]} asides={asides} anchors={anchors} />
       ))}
     </List>
   );
