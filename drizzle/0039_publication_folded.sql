@@ -1,0 +1,1 @@
+ALTER TABLE "publication" ADD COLUMN "folded" text[] DEFAULT '{}'::text[] NOT NULL;

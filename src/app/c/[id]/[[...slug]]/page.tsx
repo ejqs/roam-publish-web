@@ -36,7 +36,7 @@ import { cardVersion, previewMetadata } from "@/lib/link-preview";
 import { manageDataFor } from "@/lib/manage-data";
 import { cardFor, entryCardPath } from "@/lib/og/card";
 import { liveGraph } from "@/lib/moderation";
-import { collectionPath, entryPath } from "@/lib/publications";
+import { collectionPath, entryPath, zoomParam } from "@/lib/publications";
 import { collectionTagPath, RELATED_LIMIT } from "@/lib/tag-paths";
 import { plainText, slugify } from "@/lib/slug";
 import { bylineFor, viewerId } from "@/lib/viewer";
@@ -118,7 +118,7 @@ export default async function CollectionRoute(props: PageProps<"/c/[id]/[[...slu
   return route.kind === "collection" ? (
     <CollectionIndex c={route.r.c} search={await props.searchParams} />
   ) : (
-    <EntryPage r={route.r} rest={route.rest} />
+    <EntryPage r={route.r} rest={route.rest} zoom={zoomParam(await props.searchParams)} />
   );
 }
 
@@ -289,7 +289,7 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
   );
 }
 
-async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
+async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: string }) {
   const { c, entry, pub } = r;
   if (r.graphTakenDown) return <RemovedNotice what="graph" />;
   if (pub.removedAt) return <RemovedNotice what="page" />;
@@ -377,6 +377,8 @@ async function EntryPage({ r, rest }: { r: Entry; rest: string[] }) {
   return (
     <PublicationView
       pub={{ ...pub, tree }}
+      path={path}
+      zoom={zoom}
       crumbs={[{ label: c.name, href: collectionPath(c.slug) }, { label: plainText(pub.title) }]}
       links={links}
       related={related}

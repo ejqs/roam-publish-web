@@ -1,6 +1,8 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Node } from "@/db/app-schema";
 import { headingId } from "@/lib/headings";
+import { zoomHref } from "@/lib/publications";
 import { cn } from "@/lib/utils";
 import { CollapsibleRow } from "./collapsible-row";
 import { blockComponent, isOnlyComponent, isOnlyComponents, type PageLinks, RoamText } from "./markup";
@@ -24,7 +26,7 @@ const alignClass = {
 const textClass = (node: Node) =>
   cn("break-words whitespace-pre-wrap", node.heading && headingClass[node.heading], node.align && alignClass[node.align]);
 
-function Marker({ node, viewType, n }: { node: Node; viewType: ViewType; n: number }) {
+function Marker({ node, viewType, n, zoom }: { node: Node; viewType: ViewType; n: number; zoom?: boolean }) {
   if (viewType === "document") return null;
   if (viewType === "numbered") {
     return (
@@ -39,20 +41,27 @@ function Marker({ node, viewType, n }: { node: Node; viewType: ViewType; n: numb
       </span>
     );
   }
+  const className = cn(
+    bulletClass,
+    // Like Roam, a folded block's bullet gets a halo.
+    "[li[data-collapsed]>&]:ring-[3px] [li[data-collapsed]>&]:ring-roam-thread",
+    node.heading === 1
+      ? "top-[15.5px]"
+      : node.heading === 2
+        ? "top-[12.5px]"
+        : node.heading === 3
+          ? "top-[10.5px]"
+          : undefined,
+  );
+  if (!zoom) return <span aria-hidden className={className} />;
+  // Like Roam, clicking a bullet zooms into its block; the hit area is bigger than the dot.
   return (
-    <span
-      aria-hidden
+    <Link
+      href={zoomHref(node.uid)}
+      aria-label="Zoom into this block"
       className={cn(
-        bulletClass,
-        // Like Roam, a folded block's bullet gets a halo.
-        "[li[data-collapsed]>&]:ring-[3px] [li[data-collapsed]>&]:ring-roam-thread",
-        node.heading === 1
-          ? "top-[15.5px]"
-          : node.heading === 2
-            ? "top-[12.5px]"
-            : node.heading === 3
-              ? "top-[10.5px]"
-              : undefined,
+        className,
+        "before:absolute before:-inset-[0.375em] before:content-[''] hover:ring-[3px] hover:ring-roam-thread focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
       )}
     />
   );
@@ -183,7 +192,7 @@ function Block({
   const id = anchors && node.heading ? headingId(node.uid) : undefined;
   const row = (
     <>
-      <Marker node={node} viewType={viewType} n={n} />
+      <Marker node={node} viewType={viewType} n={n} zoom={anchors} />
       {showText && (
         <div data-line className={cn("py-0.5 leading-[1.6]", textClass(node))}>
           {/* Like Roam, an empty or whitespace-only block still takes a full line. */}
@@ -207,6 +216,7 @@ function Block({
   return nested ? (
     <CollapsibleRow id={id} className={cn(rowClass, id && "scroll-mt-6")} caretClassName={node.heading && caretTop[node.heading]}
       nested={nested}
+      defaultCollapsed={node.collapsed}
       foldableChildren={node.children.some((c) => c.children.length > 0 && !blockComponent(c.string))}
     >
       {row}
@@ -232,7 +242,10 @@ export function BlockList({
   viewType?: ViewType;
   /** Inline content for blocks containing {@link ASIDE_MARK}, keyed by block uid. */
   asides?: Record<string, ReactNode>;
-  /** Give heading blocks ids for the page outline; off inside embeds, which can repeat blocks. */
+  /**
+   * The page's own blocks: headings get ids for the outline and bullets zoom into their block. Off on
+   * site pages and inside embeds, which can repeat blocks.
+   */
   anchors?: boolean;
 }) {
   const List = viewType === "numbered" ? "ol" : "ul";

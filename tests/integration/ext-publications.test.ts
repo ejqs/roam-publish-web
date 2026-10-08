@@ -28,6 +28,26 @@ beforeEach(async () => {
   ownerKey = await keyFor(owner.id, g);
 });
 
+describe("collapsed blocks", () => {
+  test("a block collapsed in Roam is kept, and counts toward the hash", async () => {
+    const tree = {
+      uid: "rootcoll1",
+      string: "",
+      children: [{ uid: "b1", string: "folded", collapsed: true as const, children: [{ uid: "b2", string: "child", children: [] }] }],
+    };
+    const p = payload({ rootUid: "rootcoll1", tree });
+    expect((await publish(ownerKey, p)).status).toBe(200);
+    const [row] = await db.select().from(publication).where(eq(publication.rootUid, "rootcoll1"));
+    expect(row.tree.children[0].collapsed).toBe(true);
+    expect(row.folded).toEqual(["b1"]);
+    // Every computer's extension gets them back with the list.
+    const list = await (await GET(extRequest("/api/ext/publications", ownerKey))).json();
+    expect(list.publications.find((x: { rootUid: string }) => x.rootUid === "rootcoll1").folded).toEqual(["b1"]);
+    // The server hashes what it keeps; dropping the field would make this a mismatch.
+    expect(p.contentHash).not.toBe(payload({ rootUid: "rootcoll1", tree: { ...tree, children: [{ ...tree.children[0], collapsed: undefined }] } }).contentHash);
+  });
+});
+
 describe("API key", () => {
   test("missing or wrong key is 401", async () => {
     expect((await publish(null, payload())).status).toBe(401);
