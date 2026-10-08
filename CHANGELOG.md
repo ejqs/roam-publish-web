@@ -10,7 +10,8 @@ tests, refactors and internal tooling. Start each bullet with its kind: **New:**
 ### Published pages
 - New: **Mermaid diagrams are drawn.** A `{{mermaid}}` block, or a code block set to Mermaid, now shows the diagram
   instead of "Diagram not shown", with a button to see its source.
-- New: **Copy code in one click.** Every code block has a copy button, and its header names the language.
+- New: **Copy code in one click.** Every code block has a copy button, and its header names the language. Click
+  inline code to copy it.
 
 ## 0.13.2 (2026-10-08)
 

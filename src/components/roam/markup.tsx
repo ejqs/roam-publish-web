@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BARE_TAG, pageRef, type RefMatch } from "@/lib/roam-refs";
 import { CodeBlock } from "./code-block";
+import { InlineCode } from "./inline-code";
 
 /**
  * Published pages in the same graph or collection: lowercase title → href. `tagHref` is where a
@@ -243,7 +244,7 @@ const rules: Rule[] = [
   { find: re(/\$\$([\s\S]+?)\$\$/), render: (g) => <TeX tex={g[1]} /> },
   {
     find: re(/`([^`]+)`/),
-    render: (g) => <code className="rounded-sm bg-muted px-1 font-mono text-[0.9em]">{g[1]}</code>,
+    render: (g) => <InlineCode code={g[1]} />,
   },
   {
     find: re(/\{\{(?:\[\[)?(TODO|DONE)(?:\]\])?\}\}\s?/),
