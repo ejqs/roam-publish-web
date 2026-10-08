@@ -124,8 +124,10 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           eq(publication.graphId, g.id),
           eq(publication.kind, "page"),
           eq(publication.inGraph, true),
-          // [[links]] never lead to unlisted pages: a link would hand their address to every reader.
-          eq(publication.visibility, "public"),
+          // A listed page never links to unlisted ones: that would hand their address to every reader.
+          // An unlisted page's readers already hold an address the publisher handed out, so it links
+          // to both.
+          pub.visibility === "public" ? eq(publication.visibility, "public") : undefined,
           livePublication,
         ),
       ),

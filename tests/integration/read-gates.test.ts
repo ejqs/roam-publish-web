@@ -287,6 +287,19 @@ describe("[[links]] between published pages", () => {
     expect(links.has("draft idea")).toBe(false);
   });
 
+  test("lead to unlisted pages too from an unlisted page, in a graph", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    const tree = linkTree("linkfrom3");
+    await makePublication(g.id, owner.id, { rootUid: tree.uid, title: "Home", tree, visibility: "unlisted" });
+    await makePublication(g.id, owner.id, { rootUid: "listed003", title: "Listed Notes", visibility: "public" });
+    await makePublication(g.id, owner.id, { rootUid: "draft0003", title: "Draft Idea", visibility: "unlisted" });
+    actAs(null);
+    const links = linksOf(await GraphPage({ params: Promise.resolve({ graph: g.name, uid: tree.uid }) } as never));
+    expect(links.has("listed notes")).toBe(true);
+    expect(links.has("draft idea")).toBe(true);
+  });
+
   test("lead to listed entries, never to unlisted ones, in a collection", async () => {
     const owner = await makeUser();
     const g = await makeGraph(owner.id);
@@ -309,5 +322,29 @@ describe("[[links]] between published pages", () => {
     const links = linksOf(await renderNested(out, "EntryPage"));
     expect(links.has("listed notes")).toBe(true);
     expect(links.has("draft idea")).toBe(false);
+  });
+
+  test("lead to unlisted entries too from an unlisted entry, in a collection", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    const c = await makeCollection(owner.id);
+    const tree = linkTree("linkfrom4");
+    const pages = [
+      { rootUid: tree.uid, title: "Home", tree, listing: "unlisted" as const },
+      { rootUid: "listed004", title: "Listed Notes", listing: "listed" as const },
+      { rootUid: "draft0004", title: "Draft Idea", listing: "unlisted" as const },
+    ];
+    const entryUids: string[] = [];
+    for (const { listing, ...p } of pages) {
+      const pub = await makePublication(g.id, owner.id, { ...p, visibility: "public" });
+      const entry = (await addEntry(c.id, pub.id, owner.id))!;
+      await db.update(collectionEntry).set({ listing }).where(eq(collectionEntry.id, entry.id));
+      entryUids.push(entry.entryUid);
+    }
+    actAs(null);
+    const out = await CPage({ params: Promise.resolve({ id: c.slug, slug: [entryUids[0], "home"] }) } as never);
+    const links = linksOf(await renderNested(out, "EntryPage"));
+    expect(links.has("listed notes")).toBe(true);
+    expect(links.has("draft idea")).toBe(true);
   });
 });

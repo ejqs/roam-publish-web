@@ -360,11 +360,11 @@ async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: s
           }),
         ),
   ]);
-  // [[links]] resolve to other pages in this collection, never to unlisted ones: a link would hand
-  // their address to every reader.
+  // [[links]] resolve to other pages in this collection. A listed entry never links to unlisted ones:
+  // that would hand their address to every reader. An unlisted entry links to both.
   const links = new PageLinks(
     siblings
-      .filter(({ entry: e, pub: p }) => p.kind === "page" && e.listing !== "unlisted")
+      .filter(({ entry: e, pub: p }) => p.kind === "page" && (entry.listing === "unlisted" || e.listing !== "unlisted"))
       .map(({ entry: e, pub: p }) => [p.title.toLowerCase(), entryPath(c.slug, e.entryUid, p.title)]),
     (t) => collectionTagPath(c.slug, t),
   );
