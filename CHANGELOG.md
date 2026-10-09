@@ -6,6 +6,13 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.22.1 (2026-10-09)
+
+### Publishing
+- Fixed: Publishing from Roam into a collection that encrypts its pages no longer also puts the page, unencrypted,
+  in your graph when the graph's pages are open. The page now goes only to the collection and is end-to-end
+  encrypted there. Pages published this way before stay where they are; take them out of the graph in Manage.
+
 ## 0.22.0 (2026-10-09)
 
 ### Published pages

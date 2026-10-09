@@ -393,6 +393,27 @@ describe("Encrypt new password pages", () => {
       ...extra,
     });
 
+  /** Saves a collection's settings as its form does: new pages start as Password and are encrypted. */
+  const saveCollection = (c: { id: string; name: string }, extra: Record<string, unknown> = {}) =>
+    updateCollection(c.id, {
+      name: c.name,
+      description: "",
+      indexAccess: "open",
+      defaultAccess: "password",
+      showAuthors: true,
+      views: "show",
+      showViewCountries: true,
+      indexable: true,
+      searchListed: true,
+      featured: false,
+      encryptNewPages: true,
+      discoverable: false,
+      rss: false,
+      password: "",
+      clearPassword: false,
+      ...extra,
+    });
+
   async function publishNew() {
     const t = tree(`n${Math.random().toString(36).slice(2, 8)}`);
     const body = { rootUid: t.uid, kind: "page", title: "Plans", tree: t, contentHash: contentHash({ kind: "page", title: "Plans", tree: t }) };
@@ -440,25 +461,7 @@ describe("Encrypt new password pages", () => {
 
   test("a collection's setting encrypts pages added to it", async () => {
     const c = await makeCollection(owner.id);
-    const save = (extra: Record<string, unknown>) =>
-      updateCollection(c.id, {
-        name: c.name,
-        description: "",
-        indexAccess: "open",
-        defaultAccess: "password",
-        showAuthors: true,
-        views: "show",
-        showViewCountries: true,
-        indexable: true,
-        searchListed: true,
-        featured: false,
-        encryptNewPages: true,
-        discoverable: false,
-        rss: false,
-        password: "",
-        clearPassword: false,
-        ...extra,
-      });
+    const save = (extra: Record<string, unknown>) => saveCollection(c, extra);
     expect((await save({ password: "short1" })).ok).toBe(false);
     expect(await save({ password: LONG_PW })).toMatchObject({ ok: true });
     expect((await db.query.collection.findFirst({ where: eq(collection.id, c.id) }))!.encryptNewPages).toBe(true);
@@ -466,5 +469,22 @@ describe("Encrypt new password pages", () => {
     await db.update(graph).set({ newPagesInGraph: false, defaultAccess: "open" }).where(eq(graph.id, g.id));
     await db.insert(graphDefaultCollection).values({ graphId: g.id, collectionId: c.id });
     expect((await publishNew()).encrypted).toBe(true);
+  });
+
+  test("a collection that encrypts its pages keeps them out of an open graph, so they're encrypted", async () => {
+    const c = await makeCollection(owner.id);
+    expect((await saveCollection(c, { password: LONG_PW })).ok).toBe(true);
+    // New pages also go to the graph, which is open: shown there, they couldn't be encrypted.
+    await db.update(graph).set({ newPagesInGraph: true, defaultAccess: "open", encryptNewPages: false }).where(eq(graph.id, g.id));
+    await db.insert(graphDefaultCollection).values({ graphId: g.id, collectionId: c.id });
+    expect(await publishNew()).toMatchObject({ encrypted: true, inGraph: false });
+  });
+
+  test("a graph that can hold it encrypted keeps it, encrypted for both", async () => {
+    expect((await access(LONG_PW, { encryptNewPages: false }))?.ok).toBe(true);
+    const c = await makeCollection(owner.id);
+    expect((await saveCollection(c, { password: LONG_PW })).ok).toBe(true);
+    await db.insert(graphDefaultCollection).values({ graphId: g.id, collectionId: c.id });
+    expect(await publishNew()).toMatchObject({ encrypted: true, inGraph: true });
   });
 });

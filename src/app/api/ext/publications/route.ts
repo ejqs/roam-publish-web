@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { collectionEntry, graph, LOCK_SCOPES, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
-import { type SealedContent, sealPlan, sealsMatch, storeSealedKeys } from "@/lib/e2e-publish";
+import { newPagePlacement, type SealedContent, sealPlan, sealsMatch, storeSealedKeys } from "@/lib/e2e-publish";
 import { foldedUids } from "@/lib/folds";
 import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, hiddenTitle, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
@@ -13,7 +13,7 @@ import { changeLogStatusOf, logChange, validTimeZone } from "@/lib/changelog";
 import { addEntry, collectionsOf } from "@/lib/collections";
 import { notYoursResponse, removedResponse, requireExtKey } from "@/lib/ext-auth";
 import { extListing } from "@/lib/listing";
-import { defaultCollectionsFor, primaryUrls } from "@/lib/places";
+import { primaryUrls } from "@/lib/places";
 import { ensureShortlink, setAnchor, shortlinkSet, shortUrl, withoutShortlinks } from "@/lib/shortlinks";
 import { plainText } from "@/lib/slug";
 import { withRoute } from "@/lib/telemetry";
@@ -277,12 +277,8 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, ...listing, encrypted: existing.encrypted, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
   }
 
-  // New pages go where the graph's "New pages go to" setting says, leaving the graph when a
-  // collection they join takes its pages out of it. If that leaves them nowhere (no graph place and
-  // no collection the publisher belongs to), they stay in the graph.
-  const joining = await defaultCollectionsFor(ctx.graphId, ctx.userId);
-  const collections = joining.map((c) => c.id);
-  const inGraph = (g.newPagesInGraph && !joining.some((c) => c.leavesGraph)) || collections.length === 0;
+  // New pages go where the graph's "New pages go to" setting says (lib/e2e-publish.ts).
+  const { inGraph, collections } = await newPagePlacement(ctx.graphId, ctx.userId);
 
   const [created] = await db
     .insert(publication)

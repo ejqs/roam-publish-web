@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { updateGraphAccess } from "@/server/actions/dashboard";
+import { updateCollection } from "@/server/actions/collections";
 import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
 import GraphFrontPage from "@/app/[graph]/page";
 import { FrontPage } from "@/components/front-page";
@@ -14,10 +15,10 @@ import { encryptTitle, encryptTree, sealContentKey } from "@/lib/encryption";
 import type { SealPlan } from "@/lib/e2e-publish";
 import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";
-import { graph, type Node, publication, publicationKey } from "@/db/schema";
+import { graph, graphDefaultCollection, type Node, publication, publicationKey } from "@/db/schema";
 import { hashPassword } from "@/lib/gates";
 import { resetDb } from "../helpers/db";
-import { actAs, extRequest, keyFor, makeGraph, makeUser, type TestUser } from "../helpers/factories";
+import { actAs, extRequest, keyFor, makeCollection, makeGraph, makeUser, type TestUser } from "../helpers/factories";
 import { findElements, textOf } from "../helpers/render";
 import { request, resetRequest } from "../helpers/request";
 
@@ -57,6 +58,23 @@ const plan = async (rootUid: string) =>
   (await (await SEAL(extRequest(`/api/ext/publications/${rootUid}/seal`, key), { params: Promise.resolve({ rootUid }) } as never)).json()) as SealPlan;
 
 const TITLE = "Plans for zanzibar";
+
+/** A collection's settings form: new pages start as Password and are encrypted. */
+const COLLECTION_FORM = {
+  description: "",
+  indexAccess: "open",
+  defaultAccess: "password",
+  showAuthors: true,
+  views: "show",
+  showViewCountries: true,
+  indexable: true,
+  searchListed: true,
+  featured: false,
+  encryptNewPages: true,
+  discoverable: false,
+  rss: false,
+  clearPassword: false,
+} as const;
 
 /**
  * What extension 0.2.0 does: asks for the plan, encrypts the tree and title and seals their key in
@@ -111,6 +129,17 @@ describe("the seal plan", () => {
   test("a new page that won't be: nothing to seal", async () => {
     await db.update(graph).set({ encryptNewPages: false }).where(eq(graph.id, g.id));
     expect(await plan("new1")).toEqual({ encrypt: false });
+  });
+
+  test("a collection that encrypts its pages, with an open graph: sealed to the collection, and kept out of the graph", async () => {
+    const c = await makeCollection(owner.id);
+    expect((await updateCollection(c.id, { ...COLLECTION_FORM, name: c.name, password: "collection-pw-1" })).ok).toBe(true);
+    await db.update(graph).set({ defaultAccess: "open", encryptNewPages: false }).where(eq(graph.id, g.id));
+    await db.insert(graphDefaultCollection).values({ graphId: g.id, collectionId: c.id });
+    const p = await plan("new1");
+    expect(p).toMatchObject({ encrypt: true, locks: [{ scope: "collection", id: c.id }] });
+    expect((await publishSealed(tree("new1"), keyed(1), p)).status).toBe(200);
+    expect(await row("new1")).toMatchObject({ encrypted: true, inGraph: false });
   });
 });
 
