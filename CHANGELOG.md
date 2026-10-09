@@ -6,6 +6,14 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.21.0 (2026-10-09)
+
+### Site
+- New: Links to roam.pub's own pages (the front page, Discover, profiles, What's new) show a preview card with the
+  Roam Publish logo in chat apps and social posts, instead of no image.
+- Improved: Preview cards for published pages show the Roam Publish logo, the globe and memo from the site's header,
+  instead of an "RP" square.
+
 ## 0.20.0 (2026-10-09)
 
 ### Dashboard
