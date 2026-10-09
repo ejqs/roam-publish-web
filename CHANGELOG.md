@@ -6,6 +6,17 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.23.0 (2026-10-09)
+
+### Publishing
+- New: **Publish with encryption.** From Roam Publish 0.2.0, a page that isn't published yet can be published
+  straight to your graph as a Password page, end-to-end encrypted with your graph password, whatever new pages
+  usually start as. If your graph has no password that can encrypt yet, nothing is published and the extension
+  says how to set one.
+- Fixed: Publishing from Roam into a collection that encrypts its pages no longer also puts the page, unencrypted,
+  in your graph when the graph's pages are open. The page now goes only to the collection and is end-to-end
+  encrypted there. Pages published this way before stay where they are; take them out of the graph in Manage.
+
 ## 0.22.0 (2026-10-09)
 
 ### Published pages

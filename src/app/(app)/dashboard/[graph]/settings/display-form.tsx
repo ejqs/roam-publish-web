@@ -118,7 +118,8 @@ export function GraphDisplayForm({
             <FieldLegend variant="label">New pages go to</FieldLegend>
             <FieldDescription>
               Where a page lands when it&apos;s first published from Roam. Collections only apply when the publisher
-              belongs to them; a page that would land nowhere stays in the graph.
+              belongs to them; a page that would land nowhere stays in the graph. A collection that encrypts its pages
+              keeps them out of the graph unless the graph uses a password too.
             </FieldDescription>
             <Field orientation="horizontal">
               <Checkbox id="newPagesInGraph" checked={s.newPagesInGraph} onCheckedChange={(v) => set("newPagesInGraph")(!!v)} />

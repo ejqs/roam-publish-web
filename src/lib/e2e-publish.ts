@@ -17,10 +17,23 @@ import { encryptBlocker, type LockRef, locksOf, lockKeyOf, type Spot, spotsOf, w
 /** A password to seal to, with its public key (SPKI DER, base64url); null when it has no key pair. */
 export type SealTarget = LockRef & { publicKey: string | null };
 
-export type SealPlan =
+export type SealPlan = (
   | { encrypt: false }
   /** `publicationId` is the page's id, which the tree's encryption is bound to; a new page gets it on publish. */
-  | { encrypt: true; publicationId: string; locks: SealTarget[] };
+  | { encrypt: true; publicationId: string; locks: SealTarget[] }
+) & {
+  /**
+   * Asked for "Publish with encryption" (`encrypt: true`): why a new page can't be, in words, or null
+   * when it can. Present only when asked, so the extension can tell a roam.pub that knows the option.
+   */
+  encryptBlocked?: string | null;
+};
+
+/** Why "Publish with encryption" can't put a new page in its graph as a Password page. */
+export const NO_GRAPH_PASSWORD =
+  "To publish with encryption, first set a graph password in your graph's Sharing settings on roam.pub. Encrypted pages open with it.";
+export const GRAPH_PASSWORD_CANT_ENCRYPT =
+  "Your graph password can't encrypt pages yet: it was set before encryption existed, or is shorter than 10 characters. Type it again (or a new one) in your graph's Sharing settings on roam.pub, then publish with encryption.";
 
 /** What the extension sends instead of a tree. */
 export type SealedContent = {
@@ -38,50 +51,93 @@ async function targetsOf(spots: Spot[]): Promise<SealTarget[]> {
 }
 
 /**
- * Where a page about to be published for the first time would be shown, as `spotsOf` would see it
- * after the POST creates it, and whether it would be encrypted (`encryptNewPageIfWanted`).
+ * Where a page about to be published for the first time goes, as `spotsOf` would see it after the
+ * POST creates it, and whether it's encrypted (`encryptNewPageIfWanted`). It goes where the graph's
+ * "New pages go to" setting says, leaving the graph when a collection it joins takes its pages out of
+ * it; if that leaves it nowhere, it stays in the graph. A collection that encrypts its pages also
+ * keeps them out of a graph place that can't be encrypted (open, members only, or a password without
+ * a key pair): shown there too, the page couldn't be encrypted at all, so anyone with its graph link
+ * could read what the collection was set to keep end-to-end encrypted.
  */
-async function newPageSpots(graphId: string, userId: string) {
+export async function newPagePlacement(graphId: string, userId: string, { encrypt = false } = {}) {
   const g = (await db.query.graph.findFirst({ where: eq(graph.id, graphId) }))!;
+  if (encrypt) {
+    // "Publish with encryption": only in the graph, as a Password page, whatever new pages usually do.
+    const spots: Spot[] = [
+      {
+        kind: "graph",
+        label: g.name,
+        access: "password",
+        lock: g.passwordHash ? { scope: "graph", id: g.id, version: g.passwordVersion } : null,
+        shown: true,
+        path: "",
+      },
+    ];
+    const blocked = !g.passwordHash ? NO_GRAPH_PASSWORD : (await encryptBlocker(db, spots)) ? GRAPH_PASSWORD_CANT_ENCRYPT : null;
+    return { graph: g, collections: [] as string[], inGraph: true, access: "password" as const, spots, encrypt: !blocked, blocked };
+  }
   const joining = await defaultCollectionsFor(graphId, userId);
-  const inGraph = (g.newPagesInGraph && !joining.some((c) => c.leavesGraph)) || joining.length === 0;
   const cs = joining.length
     ? await db.query.collection.findMany({ where: inArray(collection.id, joining.map((c) => c.id)), orderBy: collection.name })
     : [];
-  const spots: Spot[] = [
-    {
-      kind: "graph",
-      label: g.name,
-      access: g.defaultAccess,
-      lock: g.passwordHash ? { scope: "graph", id: g.id, version: g.passwordVersion } : null,
-      shown: inGraph,
-      path: "",
-    },
-    ...cs.map((c): Spot => ({
-      kind: "entry",
-      label: c.name,
-      access: c.defaultAccess,
-      lock: c.passwordHash ? { scope: "collection", id: c.id, version: c.passwordVersion } : null,
-      shown: true,
-      path: "",
-    })),
-  ];
-  const wanted = wantsEncryption(inGraph && g.encryptNewPages, cs.some((c) => c.encryptNewPages));
-  return { spots, encrypt: wanted && !(await encryptBlocker(db, spots)) };
+  const graphSpot = (shown: boolean): Spot => ({
+    kind: "graph",
+    label: g.name,
+    access: g.defaultAccess,
+    lock: g.passwordHash ? { scope: "graph", id: g.id, version: g.passwordVersion } : null,
+    shown,
+    path: "",
+  });
+  const entries = cs.map((c): Spot => ({
+    kind: "entry",
+    label: c.name,
+    access: c.defaultAccess,
+    lock: c.passwordHash ? { scope: "collection", id: c.id, version: c.passwordVersion } : null,
+    shown: true,
+    path: "",
+  }));
+  const encryptsHere = cs.some((c) => c.encryptNewPages);
+  let inGraph = (g.newPagesInGraph && !joining.some((c) => c.leavesGraph)) || joining.length === 0;
+  if (inGraph && encryptsHere && joining.length) {
+    const blocked = await encryptBlocker(db, [graphSpot(true), ...entries]);
+    if (blocked?.spot.kind === "graph" && !(await encryptBlocker(db, [graphSpot(false), ...entries]))) inGraph = false;
+  }
+  const spots = [graphSpot(inGraph), ...entries];
+  const wanted = wantsEncryption(inGraph && g.encryptNewPages, encryptsHere);
+  return {
+    graph: g,
+    collections: cs.map((c) => c.id),
+    inGraph,
+    access: g.defaultAccess,
+    spots,
+    encrypt: wanted && !(await encryptBlocker(db, spots)),
+    blocked: null,
+  };
 }
 
-/** Whether the page at `rootUid` is (or, new, will be) encrypted, and what to seal it to. */
-export async function sealPlan(graphId: string, userId: string, rootUid: string, newId = crypto.randomUUID()): Promise<SealPlan> {
+/**
+ * Whether the page at `rootUid` is (or, new, will be) encrypted, and what to seal it to. `encrypt`:
+ * the extension's "Publish with encryption", which only changes where a new page goes.
+ */
+export async function sealPlan(
+  graphId: string,
+  userId: string,
+  rootUid: string,
+  newId = crypto.randomUUID(),
+  { encrypt = false } = {},
+): Promise<SealPlan> {
   const existing = await db.query.publication.findFirst({
     where: and(eq(publication.graphId, graphId), eq(publication.rootUid, rootUid)),
     columns: { id: true, encrypted: true },
   });
+  const asked = encrypt ? { encryptBlocked: null } : {};
   if (existing) {
-    if (!existing.encrypted) return { encrypt: false };
-    return { encrypt: true, publicationId: existing.id, locks: await targetsOf(await spotsOf(db, existing.id)) };
+    if (!existing.encrypted) return { encrypt: false, ...asked };
+    return { encrypt: true, publicationId: existing.id, locks: await targetsOf(await spotsOf(db, existing.id)), ...asked };
   }
-  const { spots, encrypt } = await newPageSpots(graphId, userId);
-  return encrypt ? { encrypt: true, publicationId: newId, locks: await targetsOf(spots) } : { encrypt: false };
+  const { spots, encrypt: will, blocked } = await newPagePlacement(graphId, userId, { encrypt });
+  if (encrypt && blocked) return { encrypt: false, encryptBlocked: blocked };
+  return will ? { encrypt: true, publicationId: newId, locks: await targetsOf(spots), ...asked } : { encrypt: false, ...asked };
 }
 
 const lockName = (l: LockRef) => `${l.scope}:${l.id}`;
