@@ -57,7 +57,8 @@ const LABEL_W = 180;
 export const CARD_CACHE = "public, max-age=86400";
 
 export async function renderCard(card: PreviewCard, cacheControl: string) {
-  return new ImageResponse(card.locked ? <LockedCard card={card} /> : <OpenCard card={card} />, {
+  const logo = await loadLogo();
+  return new ImageResponse(card.locked ? <LockedCard card={card} logo={logo} /> : <OpenCard card={card} logo={logo} />, {
     width: 1200,
     height: 630,
     fonts: await loadFonts(),
@@ -67,7 +68,7 @@ export async function renderCard(card: PreviewCard, cacheControl: string) {
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ width: "100%", height: "100%", display: "flex", background: "#ffffff", color: INK, fontFamily: "Noto Sans" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", background: "#ffffff", color: INK, fontFamily: "Noto Sans" }}>
       {children}
     </div>
   );
@@ -83,26 +84,34 @@ function ContainerLine({ name }: { name: string }) {
   );
 }
 
-function Brand() {
+/** The site's logo, the globe and memo from the header, as data URLs the image renderer can draw. */
+let logo: Promise<string[]> | null = null;
+function loadLogo() {
+  logo ??= Promise.all(
+    ["earth", "memo"].map(async (name) => {
+      const svg = await readFile(join(process.cwd(), "public/emoji", `${name}.svg`));
+      return `data:image/svg+xml;base64,${svg.toString("base64")}`;
+    }),
+  );
+  return logo;
+}
+
+function Logo({ srcs, size }: { srcs: string[]; size: number }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: Math.round(size / 4.5) }}>
+      {srcs.map((src) => (
+        // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+        <img key={src} src={src} width={size} height={size} />
+      ))}
+    </div>
+  );
+}
+
+function Brand({ logo }: { logo: string[] }) {
   return (
     <div style={{ position: "absolute", right: 28, bottom: 28, display: "flex", alignItems: "center", gap: 10 }}>
-      <div
-        style={{
-          width: 30,
-          height: 30,
-          background: PRIMARY,
-          borderRadius: 2,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#ffffff",
-          fontSize: 13,
-          fontWeight: 700,
-        }}
-      >
-        RP
-      </div>
-      <div style={{ display: "flex", fontSize: 20, fontWeight: 700 }}>roam.pub</div>
+      <Logo srcs={logo} size={28} />
+      <div style={{ display: "flex", fontSize: 20, fontWeight: 700 }}>Roam Publish</div>
     </div>
   );
 }
@@ -116,7 +125,7 @@ function Attribute({ name, value, link }: { name: string; value: string; link?: 
   );
 }
 
-function OpenCard({ card }: { card: Extract<PreviewCard, { locked: false }> }) {
+function OpenCard({ card, logo }: { card: Extract<PreviewCard, { locked: false }>; logo: string[] }) {
   // No links: draw its tags around it instead.
   const nodes = card.links.length ? card.links : card.tags.map((t) => `#${t}`);
   const slots = SLOTS.slice(0, nodes.length);
@@ -178,13 +187,13 @@ function OpenCard({ card }: { card: Extract<PreviewCard, { locked: false }> }) {
             <span style={{ overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{nodes[i]}</span>
           </div>
         ))}
-        <Brand />
+        <Brand logo={logo} />
       </div>
     </Frame>
   );
 }
 
-function LockedCard({ card }: { card: Extract<PreviewCard, { locked: true }> }) {
+function LockedCard({ card, logo }: { card: Extract<PreviewCard, { locked: true }>; logo: string[] }) {
   return (
     <Frame>
       <div style={{ width: 760, display: "flex", flexDirection: "column", padding: "64px 56px 56px 72px" }}>
@@ -222,8 +231,49 @@ function LockedCard({ card }: { card: Extract<PreviewCard, { locked: true }> }) 
             <path d="M7 10V7a5 5 0 0 1 10 0v3" />
           </svg>
         </div>
-        <Brand />
+        <Brand logo={logo} />
       </div>
     </Frame>
+  );
+}
+
+/**
+ * The preview for every other link to roam.pub (the front page, Discover, profiles…): the logo,
+ * the name and what it does.
+ */
+export async function renderSiteCard() {
+  const logo = await loadLogo();
+  return new ImageResponse(
+    (
+      <Frame>
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 96px", width: "100%" }}>
+          <Logo srcs={logo} size={96} />
+          <div style={{ display: "flex", marginTop: 44, fontSize: 76, fontWeight: 700, letterSpacing: "-0.015em" }}>Roam Publish</div>
+          <div style={{ display: "flex", marginTop: 18, fontSize: 34, lineHeight: 1.4, color: MUTED }}>
+            Publish Roam Research pages and blocks to the web.
+          </div>
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 72,
+            display: "flex",
+            alignItems: "center",
+            padding: "0 96px",
+            background: PANEL,
+            borderTop: `2px solid ${RULE}`,
+            fontSize: 24,
+            fontWeight: 700,
+            color: LINK,
+          }}
+        >
+          roam.pub
+        </div>
+      </Frame>
+    ),
+    { width: 1200, height: 630, fonts: await loadFonts() },
   );
 }

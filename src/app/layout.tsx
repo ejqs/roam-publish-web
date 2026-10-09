@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   title: "Roam Publish",
   description: "Publish Roam Research pages and blocks to the web.",
   appleWebApp: { title: "Roam Publish" },
+  openGraph: { type: "website", siteName: "Roam Publish" },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
