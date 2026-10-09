@@ -1,7 +1,7 @@
 "use server";
 
 import "server-only";
-import { and, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -41,6 +41,8 @@ import { manageablePublications } from "@/lib/graph-access";
 import { SEARCHABLE_FOR } from "@/lib/listing";
 import { collectionUrl, entryUrl } from "@/lib/publications";
 import { rateLimit } from "@/lib/rate-limit";
+import { narrowsAccess, placeChangeBlocked, pinBlocked, placeLink } from "@/lib/pin-rules";
+import { entryPins, pagePins, pinnedPages, pinOf } from "@/lib/pins";
 import { withAction } from "@/lib/telemetry";
 
 /**
@@ -176,6 +178,17 @@ export async function updateGraphPlace(
     if (effective === "password" && !ownPassword && !g.passwordHash)
       return { ok: false, message: NEEDS_PASSWORD("graph") };
 
+    if (pub.inGraph) {
+      const before = pub.access === "inherit" ? g.defaultAccess : pub.access;
+      const pinned = placeChangeBlocked(g.name, await pinOf({ kind: "page", publicationId: pub.id }), {
+        removing: input.inGraph === false,
+        from: before,
+        to: effective,
+        passwordChanges: before === "password" && effective === "password" && !!(input.password || input.clearPassword),
+      });
+      if (pinned) return { ok: false, message: pinned };
+    }
+
     if (input.inGraph === false) {
       const inCollections = await db.query.collectionEntry.findFirst({
         where: eq(collectionEntry.publicationId, pub.id),
@@ -247,6 +260,13 @@ export async function updateEntry(
     const effective = access === "inherit" ? c.defaultAccess : access;
     if (effective === "password" && !ownPassword && !c.passwordHash)
       return { ok: false, message: NEEDS_PASSWORD("collection") };
+    const before = entry.access === "inherit" ? c.defaultAccess : entry.access;
+    const pinned = placeChangeBlocked(c.name, await pinOf({ kind: "entry", entryId: entry.id }), {
+      from: before,
+      to: effective,
+      passwordChanges: before === "password" && effective === "password" && !!(input.password || input.clearPassword),
+    });
+    if (pinned) return { ok: false, message: pinned };
     const listing = input.listing ?? entry.listing;
     if (listing === "discover") {
       if (effective !== "open")
@@ -313,14 +333,20 @@ export async function addToCollection(
     if (currentPassword !== undefined && (currentPassword.length > 200 || !triesLeft(uid, { currentPassword })))
       return { ok: false, message: "Too many tries. Try again in a few minutes." };
     const [pub] = await db
-      .select({ id: publication.id, encrypted: publication.encrypted })
+      .select({ id: publication.id, encrypted: publication.encrypted, inGraph: publication.inGraph, graphName: graph.name })
       .from(publication)
+      .innerJoin(graph, eq(graph.id, publication.graphId))
       .where(and(eq(publication.id, publicationId), manageablePublications(uid)))
       .limit(1);
     if (!pub) return NOT_ALLOWED;
     if (!(await collectionRole(uid, collectionId))) return { ok: false, message: "Join that collection first." };
     const c = await db.query.collection.findFirst({ where: eq(collection.id, collectionId) });
     if (!c || c.suspendedAt) return { ok: false, message: "That collection isn't available." };
+    // "Take added pages out of their graph" would take its graph link down.
+    if (c.pagesLeaveGraph && pub.inGraph) {
+      const pinned = pinBlocked(placeLink(pub.graphName), await pinOf({ kind: "page", publicationId: pub.id }));
+      if (pinned) return { ok: false, message: `${c.name} takes added pages out of their graph. ${pinned}` };
+    }
     if (pub.encrypted && !c.passwordHash)
       return { ok: false, message: `This page is encrypted. Give ${c.name} a password first, or turn off encryption.` };
     const ck = await preKey(pub, currentPassword);
@@ -378,6 +404,8 @@ export async function removeEntry(entryId: string, currentPassword?: string): Pr
     if (!managed && !canManageEntry(await collectionRole(uid, entry.collectionId), uid, entry)) return NOT_ALLOWED;
     const pub = await db.query.publication.findFirst({ where: eq(publication.id, entry.publicationId) });
     const c = await db.query.collection.findFirst({ where: eq(collection.id, entry.collectionId) });
+    const pinned = placeChangeBlocked(c?.name ?? "this collection", await pinOf({ kind: "entry", entryId: entry.id }), { removing: true });
+    if (pinned) return { ok: false, message: pinned };
     let backInGraph = false;
     const ck = pub ? await preKey(pub, currentPassword) : null;
     const removed = await withKeys(async () => {
@@ -461,13 +489,19 @@ export async function applyAccessToAllPages(
     const before =
       kind === "graph"
         ? await db
-            .select({ id: publication.id, access: publication.access })
+            .select({ id: publication.id, place: publication.id, access: publication.access })
             .from(publication)
             .where(eq(publication.graphId, c.id))
         : await db
-            .select({ id: collectionEntry.publicationId, access: collectionEntry.access })
+            .select({ id: collectionEntry.publicationId, place: collectionEntry.id, access: collectionEntry.access })
             .from(collectionEntry)
             .where(eq(collectionEntry.collectionId, c.id));
+    // Pinned links keep who can read them when this would ask their readers for something new.
+    const pins = kind === "graph" ? await pagePins(before.map((p) => p.place)) : await entryPins(before.map((p) => p.place));
+    const held = before
+      .filter((p) => pins.has(p.place) && narrowsAccess(p.access === "inherit" ? c.defaultAccess : p.access, access))
+      .map((p) => p.place);
+    const heldSet = new Set(held);
     // Encrypted pages only use Password: they keep it.
     const encryptedIds = new Set(
       access === "password"
@@ -487,7 +521,7 @@ export async function applyAccessToAllPages(
           ).map((p) => p.id),
     );
     const affected = before
-      .filter((p) => !encryptedIds.has(p.id) && (p.access === "inherit" ? c.defaultAccess : p.access) !== access)
+      .filter((p) => !encryptedIds.has(p.id) && !heldSet.has(p.place) && (p.access === "inherit" ? c.defaultAccess : p.access) !== access)
       .map((p) => p.id);
     const notEncrypted =
       kind === "graph"
@@ -499,12 +533,12 @@ export async function applyAccessToAllPages(
         ? await db
             .update(publication)
             .set({ access: value })
-            .where(and(eq(publication.graphId, c.id), encryptedIds.size ? notEncrypted : undefined))
+            .where(and(eq(publication.graphId, c.id), encryptedIds.size ? notEncrypted : undefined, held.length ? notInArray(publication.id, held) : undefined))
             .returning({ id: publication.id })
         : await db
             .update(collectionEntry)
             .set({ access: value })
-            .where(and(eq(collectionEntry.collectionId, c.id), encryptedIds.size ? notEncrypted : undefined))
+            .where(and(eq(collectionEntry.collectionId, c.id), encryptedIds.size ? notEncrypted : undefined, held.length ? notInArray(collectionEntry.id, held) : undefined))
             .returning({ id: collectionEntry.id });
     if (kind === "graph") await clearGatedGraphDiscover(c.id);
     else await clearGatedCollectionDiscover(c.id);
@@ -513,7 +547,8 @@ export async function applyAccessToAllPages(
     revalidateAll();
     const n = updated.length;
     const kept = encryptedIds.size ? ` ${ENCRYPTED_KEPT(encryptedIds.size)}` : "";
-    return { ok: true, message: `Updated ${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}.${kept}` };
+    const pinned = held.length ? ` ${PINNED_KEPT(held.length)}` : "";
+    return { ok: true, message: `Updated ${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}.${kept}${pinned}` };
   });
 }
 
@@ -527,6 +562,8 @@ const BulkInput = z.object({
 export type BulkInput = z.input<typeof BulkInput>;
 
 const plural = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "page" : "pages"}`;
+const PINNED_KEPT = (n: number) =>
+  `${plural(n)} with a pinned link kept who can read ${n === 1 ? "it" : "them"}: unpin ${n === 1 ? "it" : "them"} first.`;
 const ENCRYPTED_KEPT = (n: number) =>
   `${n.toLocaleString("en-US")} encrypted ${n === 1 ? "page" : "pages"} kept Password: turn off ${n === 1 ? "its" : "their"} encryption to change who can read ${n === 1 ? "it" : "them"}.`;
 
@@ -549,17 +586,20 @@ export async function bulkUpdatePublications(raw: BulkInput): Promise<PlaceResul
       .innerJoin(graph, eq(graph.id, publication.graphId))
       .where(and(inArray(publication.id, ids), manageablePublications(uid), isNull(publication.removedAt)));
     if (rows.length === 0) return NOT_ALLOWED;
+    const pins = await pagePins(rows.filter((r) => r.pub.inGraph).map((r) => r.pub.id));
 
     let noPassword = 0;
     let notDiscover = 0;
     let keptEncrypted = 0;
+    let keptPinned = 0;
     let changed = 0;
     const log: Change[] = [];
     for (const { pub, g } of rows) {
       const set: Partial<typeof publication.$inferInsert> = {};
       let access = pub.access === "inherit" ? g.defaultAccess : pub.access;
       if (read) {
-        if (read !== "password" && pub.encrypted) keptEncrypted++;
+        if (pins.has(pub.id) && narrowsAccess(access, read)) keptPinned++;
+        else if (read !== "password" && pub.encrypted) keptEncrypted++;
         else if (read === "password" && !pub.passwordHash && !g.passwordHash) noPassword++;
         else set.access = access = read;
       }
@@ -591,6 +631,7 @@ export async function bulkUpdatePublications(raw: BulkInput): Promise<PlaceResul
       noPassword && `${plural(noPassword)} kept their access: set a graph password, or one per page, to use Password.`,
       notDiscover && `${plural(notDiscover)} can't go on Discover while protected, so they're listed instead.`,
       keptEncrypted && ENCRYPTED_KEPT(keptEncrypted),
+      keptPinned && PINNED_KEPT(keptPinned),
     ].filter(Boolean);
     if (changed === 0) return { ok: false, message: notes.join(" ") || "Nothing changed." };
     return { ok: true, message: [`Updated ${plural(changed)}.`, ...notes].join(" ") };
@@ -607,18 +648,31 @@ export async function bulkUnpublish(raw: { ids: string[] }): Promise<PlaceResult
     if (!uid) return SESSION_EXPIRED;
     const parsed = z.object({ ids: z.array(z.string()).min(1).max(100) }).safeParse(raw);
     if (!parsed.success) return { ok: false, message: "Nothing to unpublish." };
+    // Pages with a pinned link stay, and are named.
+    const pinnedIds = await pinnedPages(parsed.data.ids);
+    const pinned = pinnedIds.size
+      ? await db
+          .select({ title: publication.title })
+          .from(publication)
+          .where(and(inArray(publication.id, [...pinnedIds]), manageablePublications(uid)))
+      : [];
+    const ids = parsed.data.ids.filter((id) => !pinnedIds.has(id));
+    const pinnedNote = pinned.length
+      ? ` Skipped ${pinned.map((p) => `"${p.title}"`).join(", ")}: ${pinned.length === 1 ? "its link is" : "their links are"} pinned. Unpin ${pinned.length === 1 ? "it" : "them"} first.`
+      : "";
+    if (ids.length === 0) return { ok: false, message: pinnedNote.trim() || "Nothing to unpublish." };
     const deleted = await db
       .delete(publication)
-      .where(and(inArray(publication.id, parsed.data.ids), manageablePublications(uid)))
+      .where(and(inArray(publication.id, ids), manageablePublications(uid)))
       .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
-    if (deleted.length === 0) return NOT_ALLOWED;
+    if (deleted.length === 0) return pinned.length ? { ok: false, message: pinnedNote.trim() } : NOT_ALLOWED;
     await dropOrphanLockKeys(db);
     logChanges(deleted.map((p) => ({ ...p, category: "publishing" as const, text: "Unpublished on the website" })));
     revalidateAll();
-    const skipped = parsed.data.ids.length - deleted.length;
+    const skipped = ids.length - deleted.length;
     return {
       ok: true,
-      message: `Unpublished ${plural(deleted.length)}.${skipped ? ` Skipped ${skipped} you can't manage.` : ""}`,
+      message: `Unpublished ${plural(deleted.length)}.${skipped ? ` Skipped ${skipped} you can't manage.` : ""}${pinnedNote}`,
     };
   });
 }
@@ -645,10 +699,12 @@ export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
     for (const id of new Set(rows.map((r) => r.c.id))) roles.set(id, await collectionRole(uid, id));
     const mine = rows.filter(({ entry, c }) => canManageEntry(roles.get(c.id) ?? null, uid, entry));
     if (mine.length === 0) return NOT_ALLOWED;
+    const pins = await entryPins(mine.map((r) => r.entry.id));
 
     let noPassword = 0;
     let notDiscover = 0;
     let keptEncrypted = 0;
+    let keptPinned = 0;
     let changed = 0;
     const log = new Map<string, { category: ChangeCategory; text: string; pubIds: string[] }>();
     const note = (category: ChangeCategory, text: string, pubId: string) => {
@@ -659,7 +715,8 @@ export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
       const set: Partial<typeof collectionEntry.$inferInsert> = {};
       let access = entry.access === "inherit" ? c.defaultAccess : entry.access;
       if (read) {
-        if (read !== "password" && encrypted) keptEncrypted++;
+        if (pins.has(entry.id) && narrowsAccess(access, read)) keptPinned++;
+        else if (read !== "password" && encrypted) keptEncrypted++;
         else if (read === "password" && !entry.passwordHash && !c.passwordHash) noPassword++;
         else set.access = access = read;
       }
@@ -688,6 +745,7 @@ export async function bulkUpdateEntries(raw: BulkInput): Promise<PlaceResult> {
       noPassword && `${plural(noPassword)} kept their access: set a collection password, or one per page, to use Password.`,
       notDiscover && `${plural(notDiscover)} can't go on Discover here, so they're listed instead.`,
       keptEncrypted && ENCRYPTED_KEPT(keptEncrypted),
+      keptPinned && PINNED_KEPT(keptPinned),
     ].filter(Boolean);
     if (changed === 0) return { ok: false, message: notes.join(" ") || "Nothing changed." };
     return { ok: true, message: [`Updated ${plural(changed)}.`, ...notes].join(" ") };

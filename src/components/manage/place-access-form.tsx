@@ -32,6 +32,7 @@ export function PlacePasswordForm({
   hasOwnPassword,
   container,
   encrypted,
+  pinned,
   onSaved,
 }: {
   kind: "graph" | "entry";
@@ -41,6 +42,8 @@ export function PlacePasswordForm({
   container: { label: string; hasPassword: boolean };
   /** The page is encrypted: a new password needs 10+ characters, and the current one to switch. */
   encrypted?: boolean;
+  /** Why its password can't change: the link is pinned, and its readers already have this one. */
+  pinned?: string;
   onSaved?: () => void;
 }) {
   const [password, setPassword] = useState("");
@@ -62,6 +65,13 @@ export function PlacePasswordForm({
       onSaved?.();
     });
   }
+
+  if (pinned)
+    return (
+      <p className="text-xs text-muted-foreground">
+        {hasOwnPassword ? "This page has its own password." : `Uses ${container.label}'s password.`} {pinned}
+      </p>
+    );
 
   return (
     <form

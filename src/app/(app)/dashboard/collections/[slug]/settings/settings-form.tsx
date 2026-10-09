@@ -43,6 +43,7 @@ export function CollectionSettingsForm({
   canEncrypt: initialCanEncrypt,
   pageCount,
   encryptedPages,
+  pinned,
 }: {
   collectionId: string;
   slug: string;
@@ -53,6 +54,8 @@ export function CollectionSettingsForm({
   pageCount: number;
   /** Titles of encrypted pages that open with the collection password. */
   encryptedPages: string[];
+  /** Why the collection's page can't get stricter: its link is pinned. */
+  pinned?: { reason: string; from: Access };
 }) {
   const router = useRouter();
   const [s, setS] = useState(initial);
@@ -128,6 +131,7 @@ export function CollectionSettingsForm({
             hasPassword={hasPassword}
             canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
+            pinned={pinned}
             onChange={setAccess}
           />
           <FieldSeparator />

@@ -1,3 +1,4 @@
+import { PinIcon } from "lucide-react";
 import { AccessIcon } from "@/components/privacy-icon";
 import Link from "next/link";
 import { lockExplanation } from "@/components/access-lock";
@@ -6,6 +7,7 @@ import { ManageDialog } from "@/components/manage/manage-dialog";
 import { Badge } from "@/components/ui/badge";
 import type { collection, collectionEntry, publication } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
+import { pinBlocked, placeLink, sharedAtText } from "@/lib/pin-rules";
 import { entryPath } from "@/lib/publications";
 import { type ListedSealedTitle, SealedTitleText } from "@/components/sealed-title";
 import { AccessMenu } from "../../access-menu";
@@ -97,6 +99,15 @@ export function EntryList({
                           Block
                         </Badge>
                       )}
+                      {place?.pin && (
+                        <Badge
+                          variant="outline"
+                          title={`Pinned: shared at ${sharedAtText(place.pin)}`}
+                          className="mt-px shrink-0 cursor-help gap-1 border-primary/60 text-primary"
+                        >
+                          <PinIcon /> Pinned
+                        </Badge>
+                      )}
                       {m?.needsRepublish && (
                         <Badge
                           variant="outline"
@@ -133,6 +144,7 @@ export function EntryList({
                         access={entry.listing === "listed" ? "public" : entry.listing}
                         discoverBlocked={place.container.discoverBlocked}
                         place={place}
+                        pinned={pinBlocked(placeLink(c.name), place.pin)}
                         searchable={m?.searchable}
                       />
                     ) : (

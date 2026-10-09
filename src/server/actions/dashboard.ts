@@ -19,6 +19,8 @@ import { canEncryptWith, dropLock, dropOrphanLockKeys, KeysError, setLockPasswor
 import { encryptNewPagesBlocked, graphListingBlocked, saveContainerAccessBlocked } from "@/lib/control-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
+import { frontPageLink, narrowsAccess, pinBlocked } from "@/lib/pin-rules";
+import { containerPasswordBlocked, deleteGraphBlocked, pinOf, unpublishBlocked } from "@/lib/pins";
 import { LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
 import { hasVerifiedGraph } from "@/lib/profiles";
 import { rateLimit } from "@/lib/rate-limit";
@@ -29,10 +31,20 @@ async function getSession() {
   return auth.api.getSession({ headers: await headers() });
 }
 
-export async function unpublish(publicationId: string) {
+/** Unpublishes a page everywhere. Refused while any of its links is pinned. */
+export async function unpublish(publicationId: string): Promise<FormState> {
   return withAction("dashboard.unpublish", async () => {
     const session = await getSession();
-    if (!session) return;
+    if (!session) return { ok: false, message: "Your session expired. Please log in again." };
+    const [row] = await db
+      .select({ id: publication.id, graphName: graph.name })
+      .from(publication)
+      .innerJoin(graph, eq(graph.id, publication.graphId))
+      .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)))
+      .limit(1);
+    if (!row) return { ok: false, message: "You can't change this page." };
+    const pinned = await unpublishBlocked(row);
+    if (pinned) return { ok: false, message: pinned };
     const deleted = await db
       .delete(publication)
       // Owners unpublish anything in their graphs, members what they published. Removed pages stay
@@ -44,6 +56,7 @@ export async function unpublish(publicationId: string) {
     revalidatePath("/dashboard", "layout");
     revalidatePath("/c/[id]", "layout");
     updateTag(DISCOVER_TAG);
+    return { ok: true, message: "Unpublished." };
   });
 }
 
@@ -225,10 +238,14 @@ export async function updateGraphSettings(graphId: string, input: Partial<GraphS
     }
     const current = await db.query.graph.findFirst({
       where: and(eq(graph.id, graphId), eq(graph.userId, session.user.id)),
-      columns: { frontPage: true, rss: true },
+      columns: { frontPage: true, rss: true, name: true },
     });
     if (!current) return { ok: false, message: "Graph not found." };
-    const s = { ...current, ...parsed.data };
+    if (current.frontPage && parsed.data.frontPage === false) {
+      const pinned = pinBlocked(frontPageLink(current.name), await pinOf({ kind: "front", graphId }));
+      if (pinned) return { ok: false, message: pinned };
+    }
+    const s = { frontPage: current.frontPage, rss: current.rss, ...parsed.data };
 
     const updated = await db
       .update(graph)
@@ -290,6 +307,16 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
 
     if (!hasPassword && (await pagesNeedingContainerPassword("graph", g.id)))
       return { ok: false, message: "Some pages still use the graph password. Change them first." };
+    const frontPin = await pinOf({ kind: "front", graphId: g.id });
+    if (frontPin && narrowsAccess(g.indexAccess, s.indexAccess))
+      return { ok: false, message: pinBlocked(frontPageLink(g.name), frontPin)! };
+    const passwordChanges = !!s.password || (s.clearPassword && !!g.passwordHash);
+    if (passwordChanges) {
+      if (frontPin && g.indexAccess === "password" && s.indexAccess === "password")
+        return { ok: false, message: pinBlocked(frontPageLink(g.name), frontPin)! };
+      const pagePinned = await containerPasswordBlocked("graph", g.id, g.name);
+      if (pagePinned) return { ok: false, message: pagePinned };
+    }
 
     try {
     await db.transaction(async (tx) => {
@@ -392,6 +419,8 @@ export async function deleteGraph(graphId: string, confirmName: string): Promise
     if (confirmName.trim() !== g.name) return { ok: false, message: "Type the graph's name to confirm." };
     if (await graphUnderModeration(db, g))
       return { ok: false, message: "A moderator acted on this graph, so it can't be deleted. Contact us to delete it." };
+    const pinned = await deleteGraphBlocked(g);
+    if (pinned) return { ok: false, message: pinned };
 
     await db.transaction(async (tx) => {
       await purgeGraph(tx, g);

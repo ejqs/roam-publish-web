@@ -750,6 +750,36 @@ export const backgroundJob = pgTable("background_job", {
 export type JobResult = Record<string, string | number | boolean | null>;
 
 /**
+ * A roam.pub link its owner has shared somewhere (lib/pins.ts): while it's pinned, nothing that would break
+ * it is allowed. Exactly one target: a page in its graph (`publicationId`), a page in a collection
+ * (`entryId`), a graph's front page (`graphId`) or a collection's page (`collectionId`).
+ */
+export const linkPin = pgTable(
+  "link_pin",
+  {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    publicationId: text("publication_id").references(() => publication.id, { onDelete: "cascade" }),
+    entryId: text("entry_id").references(() => collectionEntry.id, { onDelete: "cascade" }),
+    graphId: text("graph_id").references(() => graph.id, { onDelete: "cascade" }),
+    collectionId: text("collection_id").references(() => collection.id, { onDelete: "cascade" }),
+    /** Where the owner says they've shared it, as pasted: http(s) URLs, 1 to 10. */
+    sharedAt: text("shared_at").array().notNull(),
+    pinnedBy: text("pinned_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("link_pin_publication_idx").on(t.publicationId),
+    uniqueIndex("link_pin_entry_idx").on(t.entryId),
+    uniqueIndex("link_pin_graph_idx").on(t.graphId),
+    uniqueIndex("link_pin_collection_idx").on(t.collectionId),
+    check(
+      "link_pin_one_target",
+      sql`num_nonnulls(${t.publicationId}, ${t.entryId}, ${t.graphId}, ${t.collectionId}) = 1`,
+    ),
+  ],
+);
+
+/**
  * Successful password entries, per password: the scope and id of what the password belongs to (a
  * page's own, or its graph's or collection's) and its version, so changing it starts over. An unlock
  * lasts 30 days on a browser, so this is close to the number of people who got in.

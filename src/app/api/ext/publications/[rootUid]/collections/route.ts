@@ -10,6 +10,8 @@ import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { ownPage, requireExtKey } from "@/lib/ext-auth";
 import { primaryUrls } from "@/lib/places";
 import { collectionUrl, entryUrl } from "@/lib/publications";
+import { pinBlocked, placeLink } from "@/lib/pin-rules";
+import { pinOf } from "@/lib/pins";
 import { withRoute } from "@/lib/telemetry";
 
 export const OPTIONS = preflight;
@@ -112,6 +114,9 @@ export const POST = withRoute("POST /api/ext/publications/[rootUid]/collections"
   if (blocked) return json(req, { error: blocked }, 409);
   const g = (await db.query.graph.findFirst({ where: eq(graph.id, ctx.graphId) }))!;
   const moves = movesOutOfGraph(pub, g, c);
+  // Leaving the graph would take its pinned graph link down.
+  const pinned = moves && pinBlocked(placeLink(g.name), await pinOf({ kind: "page", publicationId: pub.id }));
+  if (pinned) return json(req, { error: `Adding it to ${c.name} would take it out of ${g.name}. ${pinned.replace(/Unpin it first\.$/, "Unpin it on roam.pub first.")}` }, 409);
   const entry = await addEntry(c.id, pub.id, ctx.userId);
   if (!entry) return json(req, { error: `It's already in ${c.name}.` }, 409);
   let needsRepublish = false;

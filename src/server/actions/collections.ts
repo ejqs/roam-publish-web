@@ -20,6 +20,8 @@ import { encryptNewPagesBlocked, saveContainerAccessBlocked } from "@/lib/contro
 import { hashPassword, Password } from "@/lib/gates";
 import { canReceiveInvite } from "@/lib/graph-access";
 import { rateLimit } from "@/lib/rate-limit";
+import { collectionPageLink, narrowsAccess, pinBlocked } from "@/lib/pin-rules";
+import { containerPasswordBlocked, deleteCollectionBlocked, pinOf } from "@/lib/pins";
 import { withAction } from "@/lib/telemetry";
 
 export type CollectionResult =
@@ -109,6 +111,15 @@ export async function updateCollection(collectionId: string, input: CollectionSe
       return { ok: false, message: encryptNewPagesBlocked("collection") };
     if (!hasPassword && (await pagesNeedingContainerPassword("collection", c.id)))
       return { ok: false, message: "Some pages still use the collection password. Change them first." };
+    const ownPin = await pinOf({ kind: "collection", collectionId: c.id });
+    if (ownPin && narrowsAccess(c.indexAccess, s.indexAccess))
+      return { ok: false, message: pinBlocked(collectionPageLink(c.name), ownPin)! };
+    if (s.password || (s.clearPassword && c.passwordHash)) {
+      if (ownPin && c.indexAccess === "password" && s.indexAccess === "password")
+        return { ok: false, message: pinBlocked(collectionPageLink(c.name), ownPin)! };
+      const pagePinned = await containerPasswordBlocked("collection", c.id, c.name);
+      if (pagePinned) return { ok: false, message: pagePinned };
+    }
     // Discover only takes open, indexable collections; a gate turns it off (see clearGatedCollectionDiscover).
     const open = s.indexAccess === "open" && s.indexable;
     if ((s.password || s.currentPassword) && !rateLimit(`password:user:${uid}`, 30, 15 * 60 * 1000))
@@ -169,6 +180,8 @@ export async function deleteCollection(collectionId: string): Promise<Collection
     });
     if (!c) return { ok: false, message: "Collection not found." };
     if (c.suspendedAt) return { ok: false, message: "A moderator suspended this collection." };
+    const pinned = await deleteCollectionBlocked(c);
+    if (pinned) return { ok: false, message: pinned };
     const pages = await db
       .select({ id: collectionEntry.publicationId })
       .from(collectionEntry)

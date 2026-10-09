@@ -6,6 +6,15 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.20.0 (2026-10-09)
+
+### Dashboard
+- New: **Pin a link you've shared.** In Manage, open a place and click **Pin link…**, then paste where you've shared
+  it (a post, a doc, a site). While it's pinned, roam.pub won't unpublish the page, take it out of that graph or
+  collection, move it to Password or Members, change its password, or delete the graph or collection, whether you
+  try on the website or from Roam, and the message says where it's shared. Republishing and switching between
+  Discover, Public and Unlisted still work. Front pages and collection pages can be pinned from their settings.
+
 ## 0.19.0 (2026-10-09)
 
 ### Security

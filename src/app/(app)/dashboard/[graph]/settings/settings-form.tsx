@@ -68,12 +68,15 @@ export function GraphListingForm({
   graphName,
   indexOpen,
   initial,
+  pinned,
 }: {
   graphId: string;
   graphName: string;
   /** Anyone can open the front page; feeds only list open graphs. */
   indexOpen: boolean;
   initial: Listing;
+  /** Why the front page can't be turned off: its link is pinned. */
+  pinned?: string;
 }) {
   const [settings, setSettings] = useState(initial);
   const [saved, setSaved] = useState(initial);
@@ -104,7 +107,10 @@ export function GraphListingForm({
           <SettingSwitch
             id="frontPage"
             label="Front page"
-            description={`An index of your Public and Discover pages at roam.pub/${graphName}.`}
+            description={
+              pinned && saved.frontPage ? pinned : `An index of your Public and Discover pages at roam.pub/${graphName}.`
+            }
+            disabled={!!pinned && saved.frontPage}
             checked={settings.frontPage}
             onChange={set("frontPage")}
           />
