@@ -18,6 +18,10 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 ### Published pages
 - Improved: Cards for encrypted pages no longer say "Encrypted. Open it to unlock.": your browser opens them on its
   own once you've entered the password.
+
+## 0.18.2 (2026-10-09)
+
+### Published pages
 - Improved: An encrypted page's badge just says **Encrypted** or **End-to-end encrypted**. Its version is in the
   card that opens from it, with a **Learn more** link.
 
