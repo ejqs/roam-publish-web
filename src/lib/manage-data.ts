@@ -20,6 +20,8 @@ export type ContainerDefaults = {
   showAuthors: boolean;
   views: ViewsMode;
   showViewCountries: boolean;
+  /** Offers Download PDF on pages that don't choose for themselves (lib/pdf.ts). */
+  pdfDownload: boolean;
   /** Why roam.pub search skips every page here, whatever the page chooses, if it does. */
   searchBlocked?: string;
   /** Its Listed pages may show in roam.pub search (Discoverable ones always do). */
@@ -131,6 +133,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           showAuthor: entry.showAuthor,
           views: entry.views,
           showViewCountries: entry.showViewCountries,
+          pdfDownload: entry.pdfDownload,
           listing: entry.listing,
           encrypted: pub.encrypted,
         },
@@ -143,6 +146,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           showAuthors: c.showAuthors,
           views: c.views,
           showViewCountries: c.showViewCountries,
+          pdfDownload: c.pdfDownload,
           searchBlocked: searchBlocked(c.name, c),
           searchListed: c.searchListed,
           discoverBlocked: c.suspendedAt
@@ -182,6 +186,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           showAuthor: pub.showAuthor,
           views: pub.views,
           showViewCountries: pub.showViewCountries,
+          pdfDownload: pub.pdfDownload,
           encrypted: pub.encrypted,
         },
         container: {
@@ -192,6 +197,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
           showAuthors: g.showAuthors,
           views: g.views,
           showViewCountries: g.showViewCountries,
+          pdfDownload: g.pdfDownload,
           searchBlocked: searchBlocked(g.name, g),
           searchListed: g.searchListed,
         },

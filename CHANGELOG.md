@@ -6,6 +6,15 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.22.0 (2026-10-09)
+
+### Published pages
+- New: **Download a page as a PDF.** Turn on PDF download in a graph's or collection's Settings, or for one page in
+  Manage → Display, and readers get a Download PDF button. The PDF is laid out for paper, with the title, author,
+  dates and tags at the top and the page's link and page numbers at the bottom. Readers choose whether folded blocks
+  print open or as shown. You pick the paper, font, text size and what's included; readers can change these for
+  their own copy unless you turn on Enforce this style. Password and Members pages say the copy isn't protected.
+
 ## 0.21.0 (2026-10-09)
 
 ### Site

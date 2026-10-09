@@ -53,7 +53,7 @@ export function PageThread({ children }: { children: ReactNode }) {
         }}
         // Outside the top-level carets, so only where the page has room beside it. The line only shows while the
         // pointer is near it.
-        className="group absolute inset-y-0 -left-[2.25em] z-10 hidden w-[1.25em] cursor-pointer md:block"
+        className="group absolute inset-y-0 -left-[2.25em] z-10 hidden w-[1.25em] cursor-pointer md:block pdf:hidden"
       >
         <ThreadLine className="opacity-0 group-hover:opacity-100" />
       </button>
@@ -120,6 +120,7 @@ export function CollapsibleRow({
           "[li:has(>:is([data-line],a):hover)>&]:opacity-100 [@media(hover:none)]:opacity-60",
           collapsed && "opacity-100 [@media(hover:none)]:opacity-100",
           caretClassName ?? "top-[calc(0.175em_+_2px)]",
+          "pdf:hidden",
         )}
       >
         {/* Roam's caret: a small solid triangle, pointing down while open. */}
@@ -146,7 +147,7 @@ export function CollapsibleRow({
             if (!rows.length) return setCollapsed(true);
             setChildrenFold({ collapsed: rows.some((b) => b.getAttribute("aria-expanded") === "true") });
           }}
-          className="group absolute inset-y-0 -left-[1.625em] z-10 w-[0.75em] cursor-pointer"
+          className="group absolute inset-y-0 -left-[1.625em] z-10 w-[0.75em] cursor-pointer pdf:hidden"
         >
           {/* Drawn over the children's border, which is the line at rest. */}
           <ThreadLine className="opacity-0 group-hover:opacity-100" />

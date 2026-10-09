@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { updateEntry, updateGraphPlace } from "@/server/actions/places";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { EntryListing, PlaceAccess, PlaceViews, ShowAuthor } from "@/db/schema";
+import type { EntryListing, PlaceAccess, PlacePdf, PlaceViews, ShowAuthor } from "@/db/schema";
 import { removeOwnPasswordBlocked, setPlacePasswordBlocked } from "@/lib/control-rules";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { usePasswordPrompt } from "./password-prompt";
@@ -16,6 +16,7 @@ export type PlaceState = {
   showAuthor: ShowAuthor;
   views: PlaceViews;
   showViewCountries: ShowAuthor;
+  pdfDownload: PlacePdf;
   /** Entries only. */
   listing?: EntryListing;
   /** The page is encrypted: it can only use Password here, and password changes need the current one. */

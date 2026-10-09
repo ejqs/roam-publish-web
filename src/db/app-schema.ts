@@ -14,6 +14,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { PdfStyle } from "../lib/pdf";
 import { reportReasons } from "../lib/report-reasons";
 import { user } from "./auth-schema";
 
@@ -34,6 +35,9 @@ export type ViewsMode = (typeof VIEWS_MODE)[number];
 /** A page's own view count setting; "inherit" uses its graph's or collection's. */
 export const PLACE_VIEWS = ["inherit", ...VIEWS_MODE] as const;
 export type PlaceViews = (typeof PLACE_VIEWS)[number];
+/** A page's own PDF download setting; "inherit" uses its graph's or collection's (lib/pdf.ts). */
+export const PLACE_PDF = ["inherit", "on", "off"] as const;
+export type PlacePdf = (typeof PLACE_PDF)[number];
 /**
  * How a graph's or collection's front page lays out its pages: folder tiles above page cards
  * ("shelves"), a folder tree beside them ("explorer"), or the plain table ("list").
@@ -78,6 +82,10 @@ export const graph = pgTable("graph", {
   views: text("views", { enum: VIEWS_MODE }).notNull().default("show"),
   /** Flags of the countries readers come from, next to a shown view count. */
   showViewCountries: boolean("show_view_countries").notNull().default(true),
+  /** Readers get a Download PDF button on this graph's pages, unless a page overrides it (lib/pdf.ts). */
+  pdfDownload: boolean("pdf_download").notNull().default(false),
+  /** How downloaded PDFs of its pages look; null uses the defaults (lib/pdf.ts PDF_STYLE_DEFAULTS). */
+  pdfStyle: jsonb("pdf_style").$type<PdfStyle>(),
   /** New pages from the extension are shown in the graph; off means they only join default collections. */
   newPagesInGraph: boolean("new_pages_in_graph").notNull().default(true),
   /** New pages that end up password-protected here are encrypted when published (lib/encryption.ts). */
@@ -229,6 +237,7 @@ export const publication = pgTable(
     showAuthor: text("show_author", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
     views: text("views", { enum: PLACE_VIEWS }).notNull().default("inherit"),
     showViewCountries: text("show_view_countries", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
+    pdfDownload: text("pdf_download", { enum: PLACE_PDF }).notNull().default("inherit"),
     /**
      * The page's tags: `#tags` and `Tags::` values from the tree, plus `tagsAdded`, minus `tagsHidden`
      * (lib/tags.ts). Recomputed on every write of `tree` or of those two.
@@ -458,6 +467,10 @@ export const collection = pgTable("collection", {
   showAuthors: boolean("show_authors").notNull().default(true),
   views: text("views", { enum: VIEWS_MODE }).notNull().default("show"),
   showViewCountries: boolean("show_view_countries").notNull().default(true),
+  /** Readers get a Download PDF button on pages here, unless a page overrides it (lib/pdf.ts). */
+  pdfDownload: boolean("pdf_download").notNull().default(false),
+  /** How downloaded PDFs of its pages look; null uses the defaults (lib/pdf.ts PDF_STYLE_DEFAULTS). */
+  pdfStyle: jsonb("pdf_style").$type<PdfStyle>(),
   /** Lets search engines index the front page and its open, listed pages. */
   indexable: boolean("indexable").notNull().default(true),
   /** Listed pages show up in roam.pub site search; pages on Discover always do. */
@@ -542,6 +555,7 @@ export const collectionEntry = pgTable(
     showAuthor: text("show_author", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
     views: text("views", { enum: PLACE_VIEWS }).notNull().default("inherit"),
     showViewCountries: text("show_view_countries", { enum: SHOW_AUTHOR }).notNull().default("inherit"),
+    pdfDownload: text("pdf_download", { enum: PLACE_PDF }).notNull().default("inherit"),
     addedBy: text("added_by").references(() => user.id, { onDelete: "set null" }),
     position: integer("position").notNull().default(0),
     /** Its folder on the collection's front page; null shows it loose. */

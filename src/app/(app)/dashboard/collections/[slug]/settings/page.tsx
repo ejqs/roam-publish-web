@@ -1,3 +1,4 @@
+import { pdfStyleOf } from "@/lib/pdf";
 import { count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -60,6 +61,8 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
             showAuthors: c.showAuthors,
             views: c.views,
             showViewCountries: c.showViewCountries,
+            pdfDownload: c.pdfDownload,
+            pdfStyle: pdfStyleOf(c.pdfStyle),
             indexable: c.indexable,
             searchListed: c.searchListed,
             featured: c.featured,

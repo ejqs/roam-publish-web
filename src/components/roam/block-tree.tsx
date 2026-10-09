@@ -61,11 +61,12 @@ function Marker({ node, viewType, n, zoom }: { node: Node; viewType: ViewType; n
           ? "top-[10.5px]"
           : undefined,
   );
-  if (!zoom) return <span aria-hidden className={className} />;
+  if (!zoom) return <span aria-hidden data-bullet className={className} />;
   // Like Roam, clicking a bullet zooms into its block; the hit area is bigger than the dot.
   return (
     <Link
       href={zoomHref(node.uid)}
+      data-bullet
       aria-label="Zoom into this block"
       className={cn(
         className,
@@ -119,7 +120,7 @@ function Table({ rows, links }: { rows: Node[]; links: PageLinks }) {
 
 function Kanban({ columns, links }: { columns: Node[]; links: PageLinks }) {
   return (
-    <div className="my-1 flex gap-3 overflow-x-auto pb-1">
+    <div data-kanban className="my-1 flex gap-3 overflow-x-auto pb-1">
       {columns.map((col) => (
         <div key={col.uid} className="w-60 shrink-0 rounded-sm bg-muted p-2">
           <div className="mb-2 px-1 font-semibold break-words whitespace-pre-wrap">
@@ -204,7 +205,7 @@ function Block({
     <>
       <Marker node={node} viewType={viewType} n={n} zoom={anchors} />
       {showText && (
-        <div data-line className={cn("py-0.5 leading-[1.6]", textClass(node))}>
+        <div data-line data-heading={node.heading} className={cn("py-0.5 leading-[1.6]", textClass(node))}>
           {/* Like Roam, an empty or whitespace-only block still takes a full line. */}
           {aside && node.string.includes(ASIDE_MARK) ? (
             <>

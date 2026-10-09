@@ -1,3 +1,4 @@
+import { pdfStyleOf } from "@/lib/pdf";
 import { and, count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -49,6 +50,8 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
             showAuthors: g.showAuthors,
             views: g.views,
             showViewCountries: g.showViewCountries,
+            pdfDownload: g.pdfDownload,
+            pdfStyle: pdfStyleOf(g.pdfStyle),
             showOwner: g.showOwner,
             hideUnlistedBreadcrumbs: g.hideUnlistedBreadcrumbs,
             rss: g.rss,

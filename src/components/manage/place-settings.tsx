@@ -21,8 +21,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { type Segment, SegmentedControl } from "@/components/ui/segmented-control";
-import type { PlaceViews, Access as ReadAccess, ShowAuthor } from "@/db/schema";
+import type { PlacePdf, PlaceViews, Access as ReadAccess, ShowAuthor } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
+import { offersPdf } from "@/lib/pdf";
 import { showsViewCountries, viewsMode } from "@/lib/views";
 import { cn } from "cn";
 import { narrowsAccess } from "@/lib/pin-rules";
@@ -59,7 +60,13 @@ export type PlaceSettingsProps = {
   pinned?: string;
 };
 
-type PlaceInput = { access?: ReadAccess; showAuthor?: ShowAuthor; views?: PlaceViews; showViewCountries?: ShowAuthor };
+type PlaceInput = {
+  access?: ReadAccess;
+  showAuthor?: ShowAuthor;
+  views?: PlaceViews;
+  showViewCountries?: ShowAuthor;
+  pdfDownload?: PlacePdf;
+};
 
 const NOT_ON_DISCOVER = "Discover is only for pages anyone can read.";
 export const ENCRYPTED_ONLY_PASSWORD = "Encrypted pages can only use Password. Turn off encryption first.";
@@ -88,6 +95,7 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
     showAuthor: place.state.showAuthor,
     views: place.state.views,
     showViewCountries: place.state.showViewCountries,
+    pdfDownload: place.state.pdfDownload,
   });
   const [pending, start] = useTransition();
   const passwordPrompt = usePasswordPrompt();
@@ -106,6 +114,7 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
   const views = viewsMode(container, { views: optimistic.views }, listed);
   const countries = showsViewCountries(container, { showViewCountries: optimistic.showViewCountries });
   const byline = optimistic.showAuthor === "inherit" ? container.showAuthors : optimistic.showAuthor === "show";
+  const pdf = offersPdf(container, { pdfDownload: optimistic.pdfDownload });
 
   function done(res: { ok: boolean; message: string } | null | undefined) {
     if (res && !res.ok) toast.error(res.message);
@@ -135,6 +144,7 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
         ...(next.showAuthor && { showAuthor: next.showAuthor }),
         ...(next.views && { views: next.views }),
         ...(next.showViewCountries && { showViewCountries: next.showViewCountries }),
+        ...(next.pdfDownload && { pdfDownload: next.pdfDownload }),
       }));
       const res = await passwordPrompt.run((currentPassword) =>
         target.kind === "graph"
@@ -231,6 +241,7 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
     views,
     countries,
     byline,
+    pdf,
     optimistic,
     encrypted,
     passwordPrompt: passwordPrompt.element,
@@ -245,12 +256,13 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
 
 export type PlaceSettings = ReturnType<typeof usePlaceSettings>;
 
-/** "Byline hidden · View count: everyone · Countries shown", for the collapsed Display row. */
+/** "Byline hidden · View count: everyone · Countries shown · PDF off", for the collapsed Display row. */
 export function displaySummary(s: PlaceSettings) {
   return [
     `Byline ${s.byline ? "shown" : "hidden"}`,
     s.read !== "members" && `View count: ${VIEWS_LABELS[s.views].toLowerCase()}`,
     s.read !== "members" && s.views === "show" && `Countries ${s.countries ? "shown" : "hidden"}`,
+    `PDF ${s.pdf ? "on" : "off"}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -442,7 +454,7 @@ function SetPasswordForm({
   );
 }
 
-/** Byline, view count and reader countries, each following the graph or collection unless set here. */
+/** Byline, view count, reader countries and PDF download, each following the graph or collection unless set here. */
 export function DisplayFields({ s }: { s: PlaceSettings }) {
   const id = useId();
   const { container, optimistic } = s;
@@ -459,6 +471,11 @@ export function DisplayFields({ s }: { s: PlaceSettings }) {
     { value: "inherit", label: inheritLabel(container.showViewCountries), description: uses },
     { value: "show", label: "Show", description: "Flags of the top countries next to the count." },
     { value: "hide", label: "Hide", description: "Only the count shows." },
+  ];
+  const pdfOptions: (Segment<PlacePdf> & { description: string })[] = [
+    { value: "inherit", label: `Inherit (${container.pdfDownload ? "On" : "Off"})`, description: uses },
+    { value: "on", label: "On", description: "Readers can download this page as a PDF." },
+    { value: "off", label: "Off", description: "No Download PDF button on this page." },
   ];
   const describe = <T extends string>(opts: { value: T; description?: string }[], v: T) =>
     opts.find((o) => o.value === v)?.description;
@@ -510,6 +527,15 @@ export function DisplayFields({ s }: { s: PlaceSettings }) {
           )}
         </>
       )}
+      <Setting id={`${id}-pdf`} label="PDF download" description={describe(pdfOptions, optimistic.pdfDownload)}>
+        <SegmentedControl
+          aria-labelledby={`${id}-pdf`}
+          value={optimistic.pdfDownload}
+          options={pdfOptions}
+          onChange={(v) => s.save({ pdfDownload: v })}
+          disabled={s.pending}
+        />
+      </Setting>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   ENTRY_LISTING,
   graph,
   PLACE_ACCESS,
+  PLACE_PDF,
   PLACE_VIEWS,
   publication,
   SHOW_AUTHOR,
@@ -76,6 +77,7 @@ const PlaceInput = z.object({
   showAuthor: z.enum(SHOW_AUTHOR).optional(),
   views: z.enum(PLACE_VIEWS).optional(),
   showViewCountries: z.enum(SHOW_AUTHOR).optional(),
+  pdfDownload: z.enum(PLACE_PDF).optional(),
   /** A new password for this page only. */
   password: Password.optional(),
   /** Drop this page's own password, so password access falls back to its graph's or collection's. */
@@ -208,6 +210,7 @@ export async function updateGraphPlace(
             ...(input.showAuthor && { showAuthor: input.showAuthor }),
             ...(input.views && { views: input.views }),
             ...(input.showViewCountries && { showViewCountries: input.showViewCountries }),
+            ...(input.pdfDownload && { pdfDownload: input.pdfDownload }),
             ...(input.inGraph !== undefined && { inGraph: input.inGraph }),
             ...passwordUpdate(input, pub),
           })
@@ -290,6 +293,7 @@ export async function updateEntry(
             ...(input.showAuthor && { showAuthor: input.showAuthor }),
             ...(input.views && { views: input.views }),
             ...(input.showViewCountries && { showViewCountries: input.showViewCountries }),
+            ...(input.pdfDownload && { pdfDownload: input.pdfDownload }),
             ...(input.listing && { listing: input.listing }),
             ...passwordUpdate(input, entry),
           })

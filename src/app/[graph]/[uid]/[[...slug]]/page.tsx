@@ -28,6 +28,7 @@ import { cardVersion, previewMetadata } from "@/lib/link-preview";
 import { manageDataFor } from "@/lib/manage-data";
 import { cardFor, pageCardPath } from "@/lib/og/card";
 import { livePublication } from "@/lib/moderation";
+import { pdfOffer } from "@/lib/pdf";
 import { publicProfile } from "@/lib/profiles";
 import { publicationPath, zoomParam } from "@/lib/publications";
 import { plainText, slugify } from "@/lib/slug";
@@ -214,6 +215,7 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
       views={views}
       manage={manage}
       afterUnpublish="/dashboard"
+      pdf={pdfOffer(g, pub, { path, source: g.name, access, updatedAt: pub.updatedAt, author: byline?.label })}
     />
   );
 }

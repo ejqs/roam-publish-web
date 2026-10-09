@@ -39,6 +39,7 @@ import { liveGraph } from "@/lib/moderation";
 import { collectionPath, entryPath, zoomParam } from "@/lib/publications";
 import { collectionTagPath, RELATED_LIMIT } from "@/lib/tag-paths";
 import { plainText, slugify } from "@/lib/slug";
+import { pdfOffer } from "@/lib/pdf";
 import { bylineFor, viewerId } from "@/lib/viewer";
 import { loadViewFooter } from "@/lib/views-data";
 import { formatDate, ListStatus, ListToolbar, PageList } from "@/components/page-list";
@@ -399,6 +400,7 @@ async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: s
       views={views}
       manage={manage}
       afterUnpublish={collectionPath(c.slug)}
+      pdf={pdfOffer(c, entry, { path, source: c.name, access, updatedAt: pub.updatedAt, author: byline?.label })}
     />
   );
 }
