@@ -9,6 +9,10 @@ import { collectionPagesPath } from "@/lib/dashboard-filters";
 import { lockKeyOf, sealedPageTitles } from "@/lib/encryption";
 import { CollectionSettingsForm } from "./settings-form";
 import { ResourceHeader, resourceTabs } from "../../../section-tabs";
+import { PinCard } from "@/components/manage/pin-card";
+import { collectionPageLink, pinBlocked } from "@/lib/pin-rules";
+import { pinOf } from "@/lib/pins";
+import { collectionUrl } from "@/lib/publications";
 
 export const metadata: Metadata = { title: "Collection settings · Roam Publish" };
 
@@ -23,6 +27,8 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
     .select({ n: count() })
     .from(collectionEntry)
     .where(eq(collectionEntry.collectionId, c.id));
+  const pin = await pinOf({ kind: "collection", collectionId: c.id });
+  const pinned = pinBlocked(collectionPageLink(c.name), pin);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
@@ -33,7 +39,15 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
         current={`${path}/settings`}
       />
       <div className="flex w-full max-w-2xl flex-col gap-6">
+        <PinCard
+          title="Collection link"
+          path={new URL(collectionUrl(c.slug)).pathname}
+          target={{ kind: "collection", collectionId: c.id }}
+          pin={pin}
+          blocks={`It can't be moved to Password or Members while it's pinned, its password stays as it is, and ${c.name} can't be deleted.`}
+        />
         <CollectionSettingsForm
+          pinned={pinned ? { reason: pinned, from: c.indexAccess } : undefined}
           collectionId={c.id}
           slug={c.slug}
           initial={{

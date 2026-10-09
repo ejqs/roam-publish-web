@@ -5,12 +5,14 @@
  * client, so nothing here touches the database.
  *
  * Related rules live beside their feature: lib/encryption-rules.ts (passwords that encrypt) and
- * lib/discover-rules.ts (what may stay on Discover), lib/folders.ts (Save on Arrange).
+ * lib/discover-rules.ts (what may stay on Discover), lib/folders.ts (Save on Arrange), lib/pin-rules.ts
+ * (what a pinned link refuses).
  */
 import { ENCRYPT_PASSWORD_MIN } from "./encryption-rules";
 
 export { decryptExistingPagesBlocked, encryptExistingPagesBlocked, encryptNewPagesBlocked } from "./encryption-rules";
 export { arrangeBlocked } from "./folders";
+export { pinBlocked, placeChangeBlocked } from "./pin-rules";
 
 type Kind = "graph" | "collection";
 type Access = "open" | "password" | "members";

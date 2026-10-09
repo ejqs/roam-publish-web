@@ -9,6 +9,7 @@ import { graphListingBlocked } from "@/lib/control-rules";
 import { extListing, LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
 import { ownPage, requireExtKey } from "@/lib/ext-auth";
 import { primaryUrls } from "@/lib/places";
+import { unpublishBlocked } from "@/lib/pins";
 import { withRoute } from "@/lib/telemetry";
 
 export const OPTIONS = preflight;
@@ -21,6 +22,9 @@ export const DELETE = withRoute("DELETE /api/ext/publications/[rootUid]", async 
   if (ctx instanceof Response) return ctx;
   const pub = await ownPage(req, ctx, (await params).rootUid);
   if (pub instanceof Response) return pub;
+  // Refused while any of its links is pinned; every extension shows the error as it is.
+  const pinned = await unpublishBlocked({ id: pub.id, graphName: ctx.graphName });
+  if (pinned) return json(req, { error: `Can't unpublish it. ${pinned.replace(/Unpin it first\.$/, "Unpin it on roam.pub first.")}`, pinned: true }, 409);
   await db.delete(publication).where(eq(publication.id, pub.id));
   await dropOrphanLockKeys(db);
   logChange(pub, "publishing", "Unpublished");

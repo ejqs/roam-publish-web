@@ -20,12 +20,15 @@ export function GraphAccessForm({
   pageCount,
   initial,
   encryptedPages,
+  pinned,
 }: {
   graphId: string;
   graphName: string;
   pageCount: number;
   /** Titles of encrypted pages that open with the graph password. */
   encryptedPages: string[];
+  /** Why the front page can't get stricter: its link is pinned. */
+  pinned?: string;
   initial: {
     indexAccess: Access;
     defaultAccess: Access;
@@ -87,6 +90,7 @@ export function GraphAccessForm({
             hasPassword={hasPassword}
             canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
+            pinned={pinned ? { reason: pinned, from: saved.indexAccess } : undefined}
             onChange={setAccess}
           />
         </FieldGroup>

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { decryptExistingPagesBlocked, E2E_EXTENSION, ENCRYPT_PASSWORD_MIN, encryptExistingPagesBlocked } from "@/lib/encryption-rules";
 import type { Access } from "@/db/schema";
+import { narrowsAccess } from "@/lib/pin-rules";
 import { Choice, readOptions } from "./choice";
 
 export type ContainerAccess = {
@@ -60,6 +61,7 @@ export function ContainerAccessFields({
   hasPassword,
   canEncrypt,
   encryptedPages = [],
+  pinned,
   onChange,
 }: {
   kind: "graph" | "collection";
@@ -74,6 +76,11 @@ export function ContainerAccessFields({
   canEncrypt: boolean;
   /** Titles of encrypted pages that open with this password. */
   encryptedPages?: string[];
+  /**
+   * Its page's link is pinned (lib/pin-rules.ts): who can open it can't get stricter than the saved
+   * `from`, and `reason` says why.
+   */
+  pinned?: { reason: string; from: Access };
   onChange: (v: ContainerAccess) => void;
 }) {
   const [resetOpen, setResetOpen] = useState(false);
@@ -94,7 +101,13 @@ export function ContainerAccessFields({
       <FieldSet>
         <FieldLegend variant="label">Front page</FieldLegend>
         <FieldDescription>Who can open this {kind}&apos;s page and see what&apos;s listed on it.</FieldDescription>
-        <Choice id={`${kind}-index`} value={value.indexAccess} options={readOptions(label, "front page")} onChange={(indexAccess) => set({ indexAccess, defaultAccess: indexAccess })} />
+        <Choice
+          id={`${kind}-index`}
+          value={value.indexAccess}
+          options={readOptions(label, "front page").map((o) => ({ ...o, disabled: !!pinned && narrowsAccess(pinned.from, o.value) }))}
+          onChange={(indexAccess) => set({ indexAccess, defaultAccess: indexAccess })}
+        />
+        {pinned && pinned.from !== "members" && <FieldDescription>{pinned.reason}</FieldDescription>}
       </FieldSet>
       <FieldSeparator />
       <FieldSet>

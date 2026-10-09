@@ -1,6 +1,6 @@
 "use client";
 
-import { BookIcon, ChevronDownIcon, ChevronRightIcon, FolderIcon, PlusIcon, RefreshCwIcon, SearchIcon, Settings2Icon, XIcon } from "lucide-react";
+import { BookIcon, ChevronDownIcon, ChevronRightIcon, FolderIcon, PinIcon, PlusIcon, RefreshCwIcon, SearchIcon, Settings2Icon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, useSyncExternalStore, useTransition } from "react";
@@ -26,6 +26,8 @@ import { PlacePasswordForm, type PlaceState } from "./place-access-form";
 import { usePasswordPrompt } from "./password-prompt";
 import { TagsEditor } from "./tags-editor";
 import { NEEDS_REPUBLISH } from "@/lib/encryption-rules";
+import { pinBlocked, placeLink } from "@/lib/pin-rules";
+import { PinControl } from "./pin-control";
 
 const noop = () => () => {};
 
@@ -91,6 +93,12 @@ export function ManageDialog({
     data.entries.some((e) => e.state.listing === "discover" && effective(e.state, e.container.defaultAccess) === "open");
   // Hiding it from the graph would leave it shown nowhere.
   const hideBlocked = g.inGraph ? hideFromGraphBlocked(data.entries.length) : undefined;
+  // Pinned links (lib/pin-rules.ts): what each one refuses, in its own words.
+  const gPinned = pinBlocked(placeLink(data.origin.graphName), g.pin);
+  const entryPinned = (e: ManageData["entries"][number]) => pinBlocked(placeLink(e.collectionName), e.pin);
+  const unpublishPinned = gPinned ?? data.entries.map(entryPinned).find(Boolean);
+  const pinBlocks = (place: string) =>
+    `It can't be removed from ${place}, unpublished, or moved to Password or Members while it's pinned, and its password stays as it is.`;
   const encryptionPanel = data.canManagePage ? <EncryptionSection data={data} onChanged={refresh} compact /> : null;
   // Page-wide, so every place shows the same switch under Public, saying whether
   // search reaches the page through that place.
@@ -168,6 +176,19 @@ export function ManageDialog({
               listing={gListing}
               searchable={data.searchable}
               encrypted={data.encrypted}
+              pinned={!!g.pin}
+              pin={
+                g.inGraph && (
+                  <PinControl
+                    target={{ kind: "page", publicationId: data.publicationId }}
+                    pin={g.pin}
+                    url={absolute(g.path)}
+                    blocks={pinBlocks(data.origin.graphName)}
+                    canChange={data.canManagePage}
+                    onChanged={refresh}
+                  />
+                )
+              }
               open={openPlace === "graph"}
               onToggle={() => toggle("graph")}
               action={
@@ -177,9 +198,11 @@ export function ManageDialog({
                     variant="ghost"
                     size="icon-sm"
                     aria-label={`Remove from ${data.origin.graphName}`}
-                    title={hideBlocked ? `It's only shown in ${data.origin.graphName}. ${hideBlocked}` : `Remove from ${data.origin.graphName}`}
+                    title={
+                      gPinned ?? (hideBlocked ? `It's only shown in ${data.origin.graphName}. ${hideBlocked}` : `Remove from ${data.origin.graphName}`)
+                    }
                     className="text-muted-foreground"
-                    disabled={pending || !!hideBlocked}
+                    disabled={pending || !!hideBlocked || !!gPinned}
                     onClick={() => {
                       if (!confirm(`Remove it from ${data.origin.graphName}? Its link there stops working until you add it back. It stays in its collections.`)) return;
                       run((currentPassword) => updateGraphPlace(data.publicationId, { inGraph: false, currentPassword }));
@@ -210,6 +233,7 @@ export function ManageDialog({
                   access={REACH_OF[gListing]}
                   discoverBlocked={g.discoverBlocked}
                   place={g}
+                  pinned={gPinned}
                   searchable={data.searchable}
                   visibilityPanel={searchPanel(gAccess, gListing, g.container)}
                   passwordPanel={
@@ -220,6 +244,7 @@ export function ManageDialog({
                         hasOwnPassword={g.state.hasOwnPassword}
                         container={g.container}
                         encrypted={data.encrypted}
+                        pinned={gPinned}
                         onSaved={refresh}
                       />
                       {encryptionPanel}
@@ -243,6 +268,17 @@ export function ManageDialog({
                   listing={listing}
                   searchable={data.searchable}
                   encrypted={data.encrypted}
+                  pinned={!!e.pin}
+                  pin={
+                    <PinControl
+                      target={{ kind: "entry", entryId: e.entryId }}
+                      pin={e.pin}
+                      url={absolute(e.path)}
+                      blocks={pinBlocks(e.collectionName)}
+                      canChange={e.canManage || data.canManagePage}
+                      onChanged={refresh}
+                    />
+                  }
                   open={openPlace === e.entryId}
                   onToggle={() => toggle(e.entryId)}
                   action={
@@ -251,9 +287,9 @@ export function ManageDialog({
                         variant="ghost"
                         size="icon-sm"
                         aria-label={`Remove from ${e.collectionName}`}
-                        title={`Remove from ${e.collectionName}`}
+                        title={entryPinned(e) ?? `Remove from ${e.collectionName}`}
                         className="text-muted-foreground"
-                        disabled={pending}
+                        disabled={pending || !!e.pin}
                         onClick={() => {
                           const last = !g.inGraph && data.entries.length === 1;
                           const question = `Remove it from ${e.collectionName}? Its link there stops working, and its settings there are lost.${
@@ -273,6 +309,7 @@ export function ManageDialog({
                       access={REACH_OF[listing]}
                       discoverBlocked={e.container.discoverBlocked}
                       place={e}
+                      pinned={entryPinned(e)}
                       searchable={data.searchable}
                       visibilityPanel={searchPanel(access, listing, e.container)}
                       passwordPanel={
@@ -283,6 +320,7 @@ export function ManageDialog({
                             hasOwnPassword={e.state.hasOwnPassword}
                             container={e.container}
                             encrypted={data.encrypted}
+                            pinned={entryPinned(e)}
                             onSaved={refresh}
                           />
                           {encryptionPanel}
@@ -306,16 +344,18 @@ export function ManageDialog({
         </section>
 
         {data.canManagePage && (
-          <div className="flex justify-end border-t pt-3">
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 border-t pt-3">
+            {unpublishPinned && <span className="text-xs text-muted-foreground">{unpublishPinned}</span>}
             <Button
               variant="ghost"
               size="sm"
               className="text-destructive"
-              disabled={pending}
+              disabled={pending || !!unpublishPinned}
               onClick={() => {
                 if (!confirm("Unpublish this page everywhere? Its links stop working.")) return;
                 start(async () => {
-                  await unpublish(data.publicationId);
+                  const res = await unpublish(data.publicationId);
+                  if (res && !res.ok) return void toast.error(res.message);
                   setOpen(false);
                   if (afterUnpublish) router.push(afterUnpublish);
                   else refresh();
@@ -344,6 +384,8 @@ function PlaceRow({
   listing,
   searchable,
   encrypted,
+  pinned,
+  pin,
   open,
   onToggle,
   action,
@@ -357,6 +399,10 @@ function PlaceRow({
   listing: EntryListing;
   searchable: boolean;
   encrypted?: boolean;
+  /** Its link is pinned: said beside who can see it. */
+  pinned?: boolean;
+  /** The link's pin, under the link. */
+  pin?: React.ReactNode;
   open: boolean;
   onToggle: () => void;
   action?: React.ReactNode;
@@ -379,6 +425,11 @@ function PlaceRow({
             <span className="truncate font-medium">{name}</span>
             <span className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               {path ? <AccessWords access={access} listing={listing} searchable={searchable} encrypted={encrypted} /> : empty}
+              {path && pinned && (
+                <span className="ml-1 inline-flex items-center gap-0.5 text-primary">
+                  <PinIcon aria-hidden className="size-3" /> Pinned
+                </span>
+              )}
             </span>
           </span>
         </button>
@@ -391,6 +442,7 @@ function PlaceRow({
               <Link href={path} className="truncate text-xs text-link hover:underline">
                 {path}
               </Link>
+              {pin}
               {children}
             </>
           ) : (
@@ -569,3 +621,6 @@ function AddToCollection({
     </Popover>
   );
 }
+
+/** A path on this site as the full link people share. */
+const absolute = (path: string) => (typeof window === "undefined" ? path : `${window.location.origin}${path}`);

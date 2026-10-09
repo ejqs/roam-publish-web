@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, PinIcon } from "lucide-react";
 import { AccessIcon } from "@/components/privacy-icon";
 import Link from "next/link";
 import { lockExplanation } from "@/components/access-lock";
@@ -8,6 +8,7 @@ import type { graph, publication } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
 import { publicationPath } from "@/lib/publications";
 import { NEEDS_REPUBLISH } from "@/lib/encryption-rules";
+import { pinBlocked, placeLink, sharedAtText } from "@/lib/pin-rules";
 import { type ListedSealedTitle, SealedTitleText } from "@/components/sealed-title";
 import { AccessMenu } from "./access-menu";
 import { AllCheckbox, BulkSelect, RowCheckbox } from "./bulk-select";
@@ -99,6 +100,15 @@ export function PublicationList({
                           Block
                         </Badge>
                       )}
+                      {(m?.graphPlace.pin || m?.entries.some((e) => e.pin)) && (
+                        <Badge
+                          variant="outline"
+                          title={`Pinned: shared at ${sharedAtText({ sharedAt: [m.graphPlace.pin, ...m.entries.map((e) => e.pin)].flatMap((x) => x?.sharedAt ?? []) })}`}
+                          className="mt-px shrink-0 cursor-help gap-1 border-primary/60 text-primary"
+                        >
+                          <PinIcon /> Pinned
+                        </Badge>
+                      )}
                       {m?.needsRepublish && (
                         <Badge
                           variant="outline"
@@ -141,6 +151,7 @@ export function PublicationList({
                         access={p.visibility === "unlisted" ? "unlisted" : p.discoverable ? "discover" : "public"}
                         discoverBlocked={discoverBlocked}
                         place={m.graphPlace}
+                        pinned={pinBlocked(placeLink(g.name), m.graphPlace.pin)}
                         searchable={m.searchable}
                       />
                     )}

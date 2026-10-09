@@ -25,6 +25,7 @@ import type { PlaceViews, Access as ReadAccess, ShowAuthor } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
 import { showsViewCountries, viewsMode } from "@/lib/views";
 import { cn } from "cn";
+import { narrowsAccess } from "@/lib/pin-rules";
 import { type Access, setAccess } from "@/server/actions/dashboard";
 import { updateEntry, updateGraphPlace } from "@/server/actions/places";
 
@@ -54,6 +55,8 @@ export type PlaceSettingsProps = {
   place: Pick<ManageData["graphPlace"], "state" | "container">;
   /** The page shows up in roam.pub search (a page-wide switch in the Manage dialog). */
   searchable?: boolean;
+  /** Why this place's link can't be made harder to open, when it's pinned (lib/pin-rules.ts). */
+  pinned?: string;
 };
 
 type PlaceInput = { access?: ReadAccess; showAuthor?: ShowAuthor; views?: PlaceViews; showViewCountries?: ShowAuthor };
@@ -76,7 +79,7 @@ function discoverWarning(from: Access, to: Access, protecting = false) {
  * view count. Choosing Password with no password to use asks for one first and changes nothing
  * until it's set. Protecting a Discoverable page lists it instead, since Discover only shows open pages.
  */
-export function usePlaceSettings({ target, access, discoverBlocked, place, searchable = true }: PlaceSettingsProps) {
+export function usePlaceSettings({ target, access, discoverBlocked, place, searchable = true, pinned }: PlaceSettingsProps) {
   const { container } = place;
   const [optimistic, setOptimistic] = useOptimistic({
     access,
@@ -223,6 +226,7 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
     paused,
     hasPassword,
     discoverBlocked,
+    pinned,
     listed,
     views,
     countries,
@@ -283,6 +287,7 @@ export function AccessFields({
 
   const disabledReason = (r: Rung) => {
     if (r === chosen) return undefined;
+    if (s.pinned && narrowsAccess(s.read, r === "password" || r === "members" ? r : "open")) return s.pinned;
     if (s.encrypted && r !== "password" && r !== "members") return ENCRYPTED_ONLY_PASSWORD;
     if (s.encrypted && r === "members") return ENCRYPTED_ONLY_PASSWORD;
     if (r === "discover") return s.read === "open" ? s.blocked : s.discoverBlocked;

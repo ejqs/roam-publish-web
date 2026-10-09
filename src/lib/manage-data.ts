@@ -5,6 +5,8 @@ import { collection, collectionEntry, type EntryListing, graph, publication, typ
 import { discoverBlocked } from "@/lib/dashboard-filters";
 import { canManageEntry, collectionsOf } from "./collections";
 import { canManage, graphsOf } from "./graph-access";
+import { entryPins, pagePins } from "./pins";
+import type { Pin } from "./pin-rules";
 import { entryPath, publicationPath } from "./publications";
 import type { PlaceState } from "@/components/manage/place-access-form";
 
@@ -65,6 +67,8 @@ export type ManageData = {
     discoverBlocked?: string;
     state: PlaceState;
     container: ContainerDefaults;
+    /** Where its owner shared this link, when it's pinned (lib/pins.ts). */
+    pin: Pin | null;
   };
   entries: {
     entryId: string;
@@ -72,6 +76,7 @@ export type ManageData = {
     collectionName: string;
     collectionSlug: string;
     canManage: boolean;
+    pin: Pin | null;
     state: PlaceState;
     container: ContainerDefaults & { discoverBlocked?: string };
   }[];
@@ -105,6 +110,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
       .where(inArray(collectionEntry.publicationId, publicationIds))
       .orderBy(collection.name),
   ]);
+  const [pins, ePins] = await Promise.all([pagePins(publicationIds), entryPins(entryRows.map((e) => e.entry.id))]);
   const roles = new Map(graphs.map((g) => [g.id, g.role]));
   const collectionRoles = new Map(collections.map((c) => [c.id, c.role]));
 
@@ -118,6 +124,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
         collectionName: c.name,
         collectionSlug: c.slug,
         canManage: !pub.removedAt && canManageEntry(collectionRoles.get(c.id) ?? null, userId, entry),
+        pin: ePins.get(entry.id) ?? null,
         state: {
           access: entry.access,
           hasOwnPassword: !!entry.passwordHash,
@@ -168,6 +175,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
         // Search engines only reach a front page anyone can open.
         indexable: g.indexable && g.indexAccess === "open",
         discoverBlocked: discoverBlocked(g),
+        pin: pub.inGraph ? (pins.get(pub.id) ?? null) : null,
         state: {
           access: pub.access,
           hasOwnPassword: !!pub.passwordHash,
