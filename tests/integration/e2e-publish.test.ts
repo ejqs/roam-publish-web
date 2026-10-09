@@ -12,10 +12,11 @@ import { unlockHere as unlock } from "@/lib/reader-unlock";
 import { clearReaderKeys, loadReaderKey } from "@/lib/reader-keys";
 import { openPage, openTitle } from "@/lib/reader-crypto";
 import { encryptTitle, encryptTree, sealContentKey } from "@/lib/encryption";
-import type { SealPlan } from "@/lib/e2e-publish";
+import { GRAPH_PASSWORD_CANT_ENCRYPT, NO_GRAPH_PASSWORD, type SealPlan } from "@/lib/e2e-publish";
+import { contentHash } from "@/lib/content-hash";
 import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";
-import { graph, graphDefaultCollection, type Node, publication, publicationKey } from "@/db/schema";
+import { graph, graphDefaultCollection, lockKey, type Node, publication, publicationKey } from "@/db/schema";
 import { hashPassword } from "@/lib/gates";
 import { resetDb } from "../helpers/db";
 import { actAs, extRequest, keyFor, makeCollection, makeGraph, makeUser, type TestUser } from "../helpers/factories";
@@ -54,8 +55,12 @@ beforeEach(async () => {
   key = await keyFor(owner.id, g);
 });
 
-const plan = async (rootUid: string) =>
-  (await (await SEAL(extRequest(`/api/ext/publications/${rootUid}/seal`, key), { params: Promise.resolve({ rootUid }) } as never)).json()) as SealPlan;
+const plan = async (rootUid: string, { encrypt = false } = {}) =>
+  (await (
+    await SEAL(extRequest(`/api/ext/publications/${rootUid}/seal${encrypt ? "?encrypt=1" : ""}`, key), {
+      params: Promise.resolve({ rootUid }),
+    } as never)
+  ).json()) as SealPlan;
 
 const TITLE = "Plans for zanzibar";
 
@@ -80,8 +85,8 @@ const COLLECTION_FORM = {
  * What extension 0.2.0 does: asks for the plan, encrypts the tree and title and seals their key in
  * Roam. `plainTitle`: as its first builds did, with the title sent readable.
  */
-async function publishSealed(t: Node, hash: string, p?: SealPlan, { plainTitle = false } = {}) {
-  p ??= await plan(t.uid);
+async function publishSealed(t: Node, hash: string, p?: SealPlan, { plainTitle = false, encrypt = false } = {}) {
+  p ??= await plan(t.uid, { encrypt });
   if (!p.encrypt) throw new Error("not encrypted");
   const ck = randomBytes(32);
   const body = {
@@ -90,6 +95,7 @@ async function publishSealed(t: Node, hash: string, p?: SealPlan, { plainTitle =
     ...(plainTitle && { title: TITLE }),
     folded: [`${t.uid}c`],
     contentHash: hash,
+    ...(encrypt && { encrypt: true }),
     sealed: {
       publicationId: p.publicationId,
       cipher: encryptTree(ck, t, p.publicationId),
@@ -233,5 +239,58 @@ describe("publishing encrypted in Roam", () => {
     const id = (await row("pg1"))!.id;
     if (!p.encrypt) throw new Error("not encrypted");
     expect(await publishSealed(tree("pg2"), keyed(2), { ...p, publicationId: id })).toMatchObject({ status: 409 });
+  });
+});
+
+describe("Publish with encryption", () => {
+  // New pages usually go to the graph open and unencrypted; the graph password can encrypt.
+  beforeEach(async () => {
+    await db.update(graph).set({ defaultAccess: "open", encryptNewPages: false }).where(eq(graph.id, g.id));
+  });
+
+  const plainBody = (t: Node) => {
+    const title = "Plans";
+    return { rootUid: t.uid, kind: "page", title, tree: t, contentHash: contentHash({ kind: "page", title, tree: t }), encrypt: true };
+  };
+
+  test("the plan seals a new page to the graph password, whatever new pages usually do", async () => {
+    expect(await plan("new1")).toEqual({ encrypt: false });
+    expect(await plan("new1", { encrypt: true })).toMatchObject({ encrypt: true, encryptBlocked: null, locks: [{ scope: "graph", id: g.id }] });
+  });
+
+  test("goes to the graph as a Password page, encrypted in Roam", async () => {
+    expect((await publishSealed(tree("new1"), keyed(1), undefined, { encrypt: true })).body).toMatchObject({ status: "created", encrypted: true });
+    expect(await row("new1")).toMatchObject({ encrypted: true, inGraph: true, access: "password", encryptionVersion: 2 });
+    expect((await readerSees("new1"))?.text).toContain(SECRET);
+  });
+
+  test("from a Roam that can't encrypt, roam.pub encrypts it", async () => {
+    const res = await POST(extRequest("/api/ext/publications", key, { body: plainBody(tree("new1")) }));
+    expect(await res.json()).toMatchObject({ status: "created", encrypted: true });
+    const r = (await row("new1"))!;
+    expect(r).toMatchObject({ encrypted: true, inGraph: true, access: "password" });
+    expect(JSON.stringify(r.tree)).not.toContain(SECRET);
+  });
+
+  test("without a graph password: says how to set one, and publishes nothing", async () => {
+    await db.update(graph).set({ passwordHash: null }).where(eq(graph.id, g.id));
+    expect(await plan("new1", { encrypt: true })).toEqual({ encrypt: false, encryptBlocked: NO_GRAPH_PASSWORD });
+    const res = await POST(extRequest("/api/ext/publications", key, { body: plainBody(tree("new1")) }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(NO_GRAPH_PASSWORD);
+    expect(await row("new1")).toBeUndefined();
+  });
+
+  test("with a graph password that can't encrypt: says to type it again", async () => {
+    // Set before encryption existed: no key pair.
+    await db.delete(lockKey).where(eq(lockKey.targetId, g.id));
+    expect(await plan("new1", { encrypt: true })).toEqual({ encrypt: false, encryptBlocked: GRAPH_PASSWORD_CANT_ENCRYPT });
+  });
+
+  test("a republish ignores it", async () => {
+    const res = await POST(extRequest("/api/ext/publications", key, { body: { ...plainBody(tree("new1")), encrypt: undefined } }));
+    expect((await res.json()).encrypted).toBe(false);
+    await POST(extRequest("/api/ext/publications", key, { body: plainBody(tree("new1", "changed")) }));
+    expect(await row("new1")).toMatchObject({ encrypted: false, access: "open" });
   });
 });

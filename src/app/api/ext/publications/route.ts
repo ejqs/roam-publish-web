@@ -5,7 +5,7 @@ import { collectionEntry, graph, LOCK_SCOPES, type Node, publication, shortlink 
 import { contentHash } from "@/lib/content-hash";
 import { newPagePlacement, type SealedContent, sealPlan, sealsMatch, storeSealedKeys } from "@/lib/e2e-publish";
 import { foldedUids } from "@/lib/folds";
-import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, hiddenTitle, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
+import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, encryptPage, hiddenTitle, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
 import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
@@ -45,6 +45,11 @@ const Body = z.object({
   anchorUid: z.string().min(1).max(64).optional(),
   /** The publisher's IANA time zone, for dating change log entries. Not hashed. */
   timeZone: z.string().max(64).optional(),
+  /**
+   * "Publish with encryption" (extension 0.2.0 and later): a new page goes only to its graph, as a
+   * Password page, encrypted; refused when the graph password can't encrypt. Ignored on a republish.
+   */
+  encrypt: z.literal(true).optional(),
 });
 
 /**
@@ -203,7 +208,8 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   // encrypted in Roam had them left out there.
   const tree = "tree" in p ? withoutShortlinks(p.tree, await shortlinkSet(ctx.graphId)) : emptyTree(p.rootUid);
   const folded = "folded" in p ? p.folded : foldedUids(tree);
-  const plan = sealed && (await sealPlan(ctx.graphId, ctx.userId, p.rootUid, sealed.publicationId));
+  const encrypt = !existing && !!p.encrypt;
+  const plan = sealed && (await sealPlan(ctx.graphId, ctx.userId, p.rootUid, sealed.publicationId, { encrypt }));
   if (sealed && !(plan && sealsMatch(plan, sealed))) return resealResponse(req);
   if (sealed && !existing && (await db.query.publication.findFirst({ where: eq(publication.id, sealed.publicationId), columns: { id: true } })))
     return resealResponse(req);
@@ -277,8 +283,11 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, ...listing, encrypted: existing.encrypted, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
   }
 
-  // New pages go where the graph's "New pages go to" setting says (lib/e2e-publish.ts).
-  const { inGraph, collections } = await newPagePlacement(ctx.graphId, ctx.userId);
+  // New pages go where the graph's "New pages go to" setting says (lib/e2e-publish.ts), or only to the
+  // graph as a Password page when published with encryption.
+  const { inGraph, collections, access, blocked } = await newPagePlacement(ctx.graphId, ctx.userId, { encrypt });
+  // Never published readable when it was asked to be encrypted.
+  if (blocked) return json(req, { error: blocked }, 400);
 
   const [created] = await db
     .insert(publication)
@@ -303,7 +312,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
       authorName,
       inGraph,
       // Who can read starts as the graph's current default; changing the default later doesn't move it.
-      access: g.defaultAccess,
+      access,
     })
     .returning();
   for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
@@ -313,7 +322,13 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
         if (waits) await tx.update(publication).set({ needsRepublish: true }).where(eq(publication.id, created.id));
         return true;
       })
-    : // The page is published either way; a failure here leaves it readable behind its password.
+    : encrypt
+      ? // Asked for, from a Roam that can't encrypt: encrypted here, as the plan said it could be.
+        await db.transaction(async (tx) => {
+          await encryptPage(tx, created);
+          return true;
+        })
+      : // The page is published either way; a failure here leaves it readable behind its password.
       await encryptNewPageIfWanted(created.id).catch((e) => {
         console.error("Couldn't encrypt a new page", created.id, e);
         return false;
