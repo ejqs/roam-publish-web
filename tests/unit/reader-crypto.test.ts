@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import type { Node } from "@/db/app-schema";
-import { encryptTree, newLockKey, passwordKeyFor, proofHashOf, proofMatches, sealContentKey } from "@/lib/encryption";
-import { b64, openPage, passwordKey, saltOf, unb64, unlockProof, unwrapPrivateKey } from "@/lib/reader-crypto";
+import { encryptTitle, encryptTree, newLockKey, passwordKeyFor, proofHashOf, proofMatches, sealContentKey } from "@/lib/encryption";
+import { b64, openPage, openTitle, passwordKey, saltOf, unb64, unlockProof, unwrapPrivateKey } from "@/lib/reader-crypto";
 
 // The browser has to read exactly what the server wrote, byte for byte.
 const PW = "correct horse battery";
@@ -11,7 +11,15 @@ const tree: Node = { uid: "root", string: "", children: [{ uid: "a", string: "th
 function sealedPage() {
   const lock = newLockKey(PW);
   const ck = randomBytes(32);
-  return { lock, page: { id: "pub-1", cipher: encryptTree(ck, tree, "pub-1"), sealedKey: sealContentKey(lock.publicKey, ck) } };
+  return {
+    lock,
+    page: {
+      id: "pub-1",
+      cipher: encryptTree(ck, tree, "pub-1"),
+      titleCipher: encryptTitle(ck, "Zanzibar plans", "pub-1"),
+      sealedKey: sealContentKey(lock.publicKey, ck),
+    },
+  };
 }
 
 describe("the reader's browser opens what the server sealed", () => {
@@ -36,7 +44,7 @@ describe("the reader's browser opens what the server sealed", () => {
     expect(key).not.toBeNull();
     // Kept non-extractable: page scripts can open pages with it but not read it out.
     expect(key!.extractable).toBe(false);
-    expect(await openPage(page, key!)).toEqual(tree);
+    expect((await openPage(page, key!))?.tree).toEqual(tree);
   });
 
   test("refuses the wrong password, another password's key, and tampered or moved content", async () => {
@@ -54,5 +62,15 @@ describe("the reader's browser opens what the server sealed", () => {
     expect(await openPage({ ...page, cipher: [...parts.slice(0, 3), b64(body)].join(".") }, key)).toBeNull();
     // A page's cipher is bound to its id: copied onto another page, it doesn't open.
     expect(await openPage({ ...page, id: "pub-2" }, key)).toBeNull();
+  });
+
+  test("opens the title with the page, and on its own for a list, bound to the page's id", async () => {
+    const { lock, page } = sealedPage();
+    const key = (await unwrapPrivateKey(lock.wrappedPrivateKey, await passwordKey(PW, saltOf(lock.wrappedPrivateKey))))!;
+    expect((await openPage(page, key))?.title).toBe("Zanzibar plans");
+    expect(await openTitle({ id: page.id, titleCipher: page.titleCipher, sealedKey: page.sealedKey }, key)).toBe("Zanzibar plans");
+    expect(await openTitle({ id: "pub-2", titleCipher: page.titleCipher, sealedKey: page.sealedKey }, key)).toBeNull();
+    // Encrypted before titles were: the page opens, without one.
+    expect((await openPage({ ...page, titleCipher: null }, key))?.title).toBeNull();
   });
 });

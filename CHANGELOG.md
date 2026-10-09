@@ -6,6 +6,19 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.19.0 (2026-10-09)
+
+### Security
+- New: **An encrypted page's title is encrypted too.** roam.pub only knows it as "Encrypted page" (or "Encrypted
+  block"), in its link, lists, emails and previews; readers' browsers that have the password show the real title, on
+  the page and on its graph's or collection's front page. From extension 0.2.0 the title is encrypted in Roam, so
+  roam.pub never sees it. Pages encrypted before this keep a readable title until they're next published from Roam or
+  encrypted again. Links on other pages can't lead to a page whose title is encrypted.
+
+### Published pages
+- Improved: Cards for encrypted pages no longer say "Encrypted. Open it to unlock.": your browser opens them on its
+  own once you've entered the password.
+
 ## 0.18.2 (2026-10-09)
 
 ### Published pages

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ne } from "drizzle-orm";
+import { and, count, desc, eq, isNull, ne } from "drizzle-orm";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
@@ -127,6 +127,8 @@ export default async function PublishedPage(props: PageProps<"/[graph]/[uid]/[[.
           eq(publication.inGraph, true),
           // [[links]] never lead to unlisted pages: a link would hand their address to every reader.
           eq(publication.visibility, "public"),
+          // Nor to pages whose title is encrypted: roam.pub doesn't know it.
+          isNull(publication.titleCipher),
           livePublication,
         ),
       ),

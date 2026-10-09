@@ -113,16 +113,20 @@ describe("decryptExistingPages", () => {
     await db.update(publication).set({ passwordHash: hashPassword("its-own-pw-1") }).where(eq(publication.id, own.id));
     await db.insert(lockKey).values({ scope: "publication", targetId: own.id, ...newLockKey("its-own-pw-1") });
     expect((await encryptExistingPages("graph", g.id)).pages).toEqual(["Own password", "Shared"]);
+    // Their titles are encrypted with them.
+    expect(await row(shared.id)).toMatchObject({ title: "Encrypted page", titleCipher: expect.stringMatching(/^v1\./) });
 
     const preview = await decryptExistingPages("graph", g.id, GRAPH_PW, { preview: true });
-    expect(preview).toMatchObject({ ok: true, pages: ["Shared"], skipped: [{ title: "Own password", reason: "Encrypted with a different password" }] });
+    // A page this password doesn't open keeps its title encrypted, so it's listed without one.
+    expect(preview).toMatchObject({ ok: true, pages: ["Shared"], skipped: [{ title: "Encrypted page", reason: "Encrypted with a different password" }] });
     expect((await row(shared.id))!.encrypted).toBe(true);
 
     expect(await decryptExistingPages("graph", g.id, "wrong-password")).toMatchObject({ ok: false, pages: [] });
     const res = await decryptExistingPages("graph", g.id, GRAPH_PW);
     expect(res).toMatchObject({ ok: true, message: "Decrypted 1 page. 1 still encrypted." });
     const after = (await row(shared.id))!;
-    expect(after).toMatchObject({ encrypted: false, cipher: null });
+    // Its title comes back with it.
+    expect(after).toMatchObject({ encrypted: false, cipher: null, titleCipher: null, title: "Shared" });
     expect(JSON.stringify(after.tree)).toContain("secret of Shared");
     expect((await row(own.id))!.encrypted).toBe(true);
   });

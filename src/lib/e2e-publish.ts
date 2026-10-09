@@ -26,6 +26,8 @@ export type SealPlan =
 export type SealedContent = {
   publicationId: string;
   cipher: string;
+  /** Its title, under the same content key (lib/encryption.ts `encryptTitle`); from extension 0.2.0. */
+  titleCipher?: string;
   keys: (LockRef & { publicKey: string; sealedKey: string })[];
 };
 

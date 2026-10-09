@@ -13,6 +13,7 @@ import { decryptExistingPagesBlocked, encryptExistingPagesBlocked } from "@/lib/
 import { DISCOVER_TAG } from "@/lib/discover";
 import {
   contentKeyFor,
+  decryptTitle,
   decryptTree,
   ENCRYPT_PASSWORD_MIN,
   encryptBlocker,
@@ -66,11 +67,25 @@ async function lockHash(l: VersionedLock) {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/** Stores an encrypted page readable again, with the tree its password opened. */
-async function storeReadable(tx: Tx, pub: typeof publication.$inferSelect, tree: Node) {
+/**
+ * Stores an encrypted page readable again, with the tree and title its password opened. A page
+ * encrypted before titles were keeps the title it has.
+ */
+async function storeReadable(tx: Tx, pub: typeof publication.$inferSelect, tree: Node, title: string | null) {
   await tx
     .update(publication)
-    .set({ tree, ...indexFields(tree, pub), contentHash: plainHash(pub), encrypted: false, cipher: null, encryptionVersion: null, encryptedBy: null, needsRepublish: false })
+    .set({
+      tree,
+      ...indexFields(tree, pub),
+      ...(title !== null && { title }),
+      contentHash: plainHash(pub),
+      encrypted: false,
+      cipher: null,
+      titleCipher: null,
+      encryptionVersion: null,
+      encryptedBy: null,
+      needsRepublish: false,
+    })
     .where(eq(publication.id, pub.id));
   await tx.delete(publicationKey).where(eq(publicationKey.publicationId, pub.id));
 }
@@ -122,7 +137,8 @@ export async function setEncryption(publicationId: string, raw: z.input<typeof I
           message: input.currentPassword ? "That password doesn't open this page." : "Enter the page's password to turn off encryption.",
         };
       }
-      await db.transaction((tx) => storeReadable(tx, pub, tree));
+      const title = ck && pub.titleCipher ? decryptTitle(ck, pub.titleCipher, pub.id) : null;
+      await db.transaction((tx) => storeReadable(tx, pub, tree, title));
       logChange(pub, "access", "Encryption turned off");
       revalidateAll();
       return { ok: true, message: "Encryption turned off." };
@@ -316,26 +332,26 @@ export async function decryptExistingPages(
     if (!pages.length) return { ok: false, message: `No pages in this ${kind} are encrypted.` };
 
     const open = passwordOpener(parsed.data);
-    const decrypt: { pub: typeof publication.$inferSelect; tree: Node }[] = [];
+    const decrypt: { pub: typeof publication.$inferSelect; tree: Node; title: string | null }[] = [];
     const skipped: SkippedPage[] = [];
     for (const { pub, mine } of pages) {
       if (!mine) {
         skipped.push({ title: pub.title, reason: "Published by another member" });
         continue;
       }
-      const tree = await open(db, pub);
-      if (tree) decrypt.push({ pub, tree });
+      const opened = await open(db, pub);
+      if (opened) decrypt.push({ pub, ...opened });
       else
         skipped.push({
           title: pub.title,
           reason: pub.needsRepublish ? "Needs republishing from Roam first" : "Encrypted with a different password",
         });
     }
-    const titles = decrypt.map((d) => d.pub.title);
+    const titles = decrypt.map((d) => d.title ?? d.pub.title);
     if (opts.preview) return { ok: true, message: "", pages: titles, skipped };
     if (!decrypt.length) return { ok: false, message: "That password doesn't open any of these pages.", pages: [], skipped };
 
-    for (const { pub, tree } of decrypt) await db.transaction((tx) => storeReadable(tx, pub, tree));
+    for (const { pub, tree, title } of decrypt) await db.transaction((tx) => storeReadable(tx, pub, tree, title));
     logChanges(decrypt.map(({ pub }) => ({ graphId: pub.graphId, rootUid: pub.rootUid, category: "access" as const, text: "Encryption turned off" })));
     revalidateAll();
     const n = decrypt.length;

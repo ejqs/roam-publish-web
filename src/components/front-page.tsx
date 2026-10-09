@@ -5,6 +5,7 @@ import { LockHint } from "@/components/access-lock";
 import { chipClass, ListStatus, NoMatches, Pagination, type ListRow } from "@/components/page-list";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { ListTitle } from "@/components/sealed-title";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import type { FrontLayout } from "@/db/schema";
 import { folderTree, flatten, type FolderNode } from "@/lib/folders";
@@ -358,7 +359,7 @@ function PageCard({ card, tagHref }: { card: FrontCard; tagHref: (t: string) => 
         )}
         {/* The whole card opens the page; tags stay their own links above it. */}
         <Link href={card.href} className="line-clamp-2 break-words after:absolute after:inset-0 hover:underline">
-          {plainText(card.title) || "Untitled"}
+          <ListTitle title={card.title} sealed={card.sealedTitle} />
         </Link>
         {card.kind === "block" && (
           <Badge variant="secondary" className="mt-0.5 h-[18px] shrink-0 px-1.5">
@@ -380,10 +381,8 @@ function PageCard({ card, tagHref }: { card: FrontCard; tagHref: (t: string) => 
         </p>
       ) : card.excerpt ? (
         <p className="line-clamp-3 text-[13px] leading-relaxed text-muted-foreground">{card.excerpt}</p>
-      ) : card.lock ? (
-        <p className="text-[13px] text-muted-foreground">
-          {card.lock.encrypted ? "Encrypted. Open it to unlock." : card.lock.access === "members" ? "Members only." : "Password protected."}
-        </p>
+      ) : card.lock && !card.lock.encrypted ? (
+        <p className="text-[13px] text-muted-foreground">{card.lock.access === "members" ? "Members only." : "Password protected."}</p>
       ) : null}
       {card.tags.length > 0 && (
         <span className="relative z-10 flex flex-wrap gap-x-2 gap-y-0.5">

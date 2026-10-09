@@ -8,6 +8,7 @@ import type { graph, publication } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
 import { publicationPath } from "@/lib/publications";
 import { NEEDS_REPUBLISH } from "@/lib/encryption-rules";
+import { type ListedSealedTitle, SealedTitleText } from "@/components/sealed-title";
 import { AccessMenu } from "./access-menu";
 import { AllCheckbox, BulkSelect, RowCheckbox } from "./bulk-select";
 
@@ -30,7 +31,10 @@ type Row = Pick<
   | "inGraph"
   | "access"
   | "tags"
->;
+> & {
+  /** An encrypted page's title, for the viewer's browser to open when it keeps the password. */
+  sealedTitle?: ListedSealedTitle;
+};
 
 /** A sortable column header: where clicking it goes, and which way it's sorted now, if at all. */
 export type SortHeader = { href: string; dir: "asc" | "desc" | null };
@@ -88,7 +92,7 @@ export function PublicationList({
                         href={p.inGraph || !firstEntry ? publicationPath(g.name, p.rootUid, p.title) : firstEntry.path}
                         className="line-clamp-2 min-w-0 break-words text-foreground hover:underline sm:line-clamp-1"
                       >
-                        {p.title}
+                        {p.sealedTitle ? <SealedTitleText sealed={p.sealedTitle} fallback={p.title} /> : p.title}
                       </Link>
                       {p.kind === "block" && (
                         <Badge variant="secondary" className="mt-px shrink-0">

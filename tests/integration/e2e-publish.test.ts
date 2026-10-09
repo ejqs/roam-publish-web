@@ -3,12 +3,14 @@ import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { updateGraphAccess } from "@/server/actions/dashboard";
 import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
+import GraphFrontPage from "@/app/[graph]/page";
+import { FrontPage } from "@/components/front-page";
 import { GET, POST } from "@/app/api/ext/publications/route";
 import { GET as SEAL } from "@/app/api/ext/publications/[rootUid]/seal/route";
 import { unlockHere as unlock } from "@/lib/reader-unlock";
 import { clearReaderKeys, loadReaderKey } from "@/lib/reader-keys";
-import { openPage } from "@/lib/reader-crypto";
-import { encryptTree, sealContentKey } from "@/lib/encryption";
+import { openPage, openTitle } from "@/lib/reader-crypto";
+import { encryptTitle, encryptTree, sealContentKey } from "@/lib/encryption";
 import type { SealPlan } from "@/lib/e2e-publish";
 import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";
@@ -54,20 +56,26 @@ beforeEach(async () => {
 const plan = async (rootUid: string) =>
   (await (await SEAL(extRequest(`/api/ext/publications/${rootUid}/seal`, key), { params: Promise.resolve({ rootUid }) } as never)).json()) as SealPlan;
 
-/** What extension 0.2.0 does: asks for the plan, encrypts the tree and seals its key in Roam. */
-async function publishSealed(t: Node, hash: string, p?: SealPlan) {
+const TITLE = "Plans for zanzibar";
+
+/**
+ * What extension 0.2.0 does: asks for the plan, encrypts the tree and title and seals their key in
+ * Roam. `plainTitle`: as its first builds did, with the title sent readable.
+ */
+async function publishSealed(t: Node, hash: string, p?: SealPlan, { plainTitle = false } = {}) {
   p ??= await plan(t.uid);
   if (!p.encrypt) throw new Error("not encrypted");
   const ck = randomBytes(32);
   const body = {
     rootUid: t.uid,
     kind: "page",
-    title: "Plans",
+    ...(plainTitle && { title: TITLE }),
     folded: [`${t.uid}c`],
     contentHash: hash,
     sealed: {
       publicationId: p.publicationId,
       cipher: encryptTree(ck, t, p.publicationId),
+      ...(!plainTitle && { titleCipher: encryptTitle(ck, TITLE, p.publicationId) }),
       keys: p.locks.filter((l) => l.publicKey).map((l) => ({ scope: l.scope, id: l.id, publicKey: l.publicKey!, sealedKey: sealContentKey(l.publicKey!, ck) })),
     },
   };
@@ -89,7 +97,8 @@ async function readerSees(rootUid: string) {
     | undefined;
   if (!sealed) return null;
   const k = await loadReaderKey(sealed.lock, sealed.lock.version);
-  return k && openPage(sealed.page, k);
+  const opened = k && (await openPage(sealed.page, k));
+  return opened ? { ...opened, text: textOf(opened.tree) } : null;
 }
 
 describe("the seal plan", () => {
@@ -114,14 +123,45 @@ describe("publishing encrypted in Roam", () => {
     expect(r).toMatchObject({ encrypted: true, searchText: "", tags: [], needsRepublish: false, folded: ["pg1c"], contentHash: keyed(1), encryptionVersion: 2 });
     expect(JSON.stringify(r)).not.toContain(SECRET);
     expect(await db.select().from(publicationKey).where(eq(publicationKey.publicationId, r.id))).toHaveLength(1);
-    expect(textOf((await readerSees("pg1"))!)).toContain(SECRET);
+    expect(await readerSees("pg1")).toMatchObject({ title: TITLE });
+    expect((await readerSees("pg1"))!.text).toContain(SECRET);
+  });
+
+  test("its title comes encrypted too: roam.pub only has \"Encrypted page\", in its address as well", async () => {
+    const res = await publishSealed(tree("pg1"), keyed(1));
+    const r = (await row("pg1"))!;
+    expect(r.title).toBe("Encrypted page");
+    expect(r.titleCipher).toMatch(/^v1(\.[\w-]+){3}$/);
+    expect(res.body.url).toEndWith("/encrypted-page");
+    const list = await (await GET(extRequest("/api/ext/publications", key))).json();
+    expect(list.publications[0].title).toBe("Encrypted page");
+  });
+
+  test("its card on the graph's front page carries the title sealed, and a reader's browser with the key opens it", async () => {
+    await publishSealed(tree("pg1"), keyed(1));
+    await db.update(publication).set({ visibility: "public" }).where(eq(publication.rootUid, "pg1"));
+    actAs(null);
+    request.cookies.clear();
+    await clearReaderKeys();
+    await unlock({ scope: "graph", id: g.id, password: GRAPH_PW });
+    const out = await GraphFrontPage({ params: Promise.resolve({ graph: g.name }), searchParams: Promise.resolve({}) } as never);
+    const [card] = findElements(out as never, FrontPage)[0].props.cards as { title: string; sealedTitle?: { page: never; lock: { scope: "graph"; id: string; version: number } } }[];
+    expect(card.title).toBe("Encrypted page");
+    const k = await loadReaderKey(card.sealedTitle!.lock, card.sealedTitle!.lock.version);
+    expect(await openTitle(card.sealedTitle!.page, k!)).toBe(TITLE);
+  });
+
+  test("from 0.2.0's first builds, with the title sent readable: kept as it was sent", async () => {
+    await publishSealed(tree("pg1"), keyed(1), undefined, { plainTitle: true });
+    expect(await row("pg1")).toMatchObject({ title: TITLE, titleCipher: null });
+    expect(await readerSees("pg1")).toMatchObject({ title: null });
   });
 
   test("republishing: the same keyed hash is unchanged, a new one replaces the content", async () => {
     await publishSealed(tree("pg1"), keyed(1));
     expect((await publishSealed(tree("pg1"), keyed(1))).body.status).toBe("unchanged");
     expect((await publishSealed(tree("pg1", "now it's 42"), keyed(2))).body.status).toBe("updated");
-    expect(textOf((await readerSees("pg1"))!)).toContain("now it's 42");
+    expect((await readerSees("pg1"))!.text).toContain("now it's 42");
     // The extension compares the keyed hash it sent.
     const list = await (await GET(extRequest("/api/ext/publications", key))).json();
     expect(list.publications[0]).toMatchObject({ contentHash: keyed(2), encrypted: true });
@@ -131,9 +171,12 @@ describe("publishing encrypted in Roam", () => {
     await publishSealed(tree("pg1"), keyed(1));
     const t = tree("pg1", "plain again");
     const { contentHash } = await import("@/lib/content-hash");
-    const body = { rootUid: "pg1", kind: "page", title: "Plans", tree: t, contentHash: contentHash({ kind: "page", title: "Plans", tree: t }) };
+    const body = { rootUid: "pg1", kind: "page", title: TITLE, tree: t, contentHash: contentHash({ kind: "page", title: TITLE, tree: t }) };
     expect((await (await POST(extRequest("/api/ext/publications", key, { body }))).json()).status).toBe("updated");
-    expect(textOf((await readerSees("pg1"))!)).toContain("plain again");
+    expect((await readerSees("pg1"))!.text).toContain("plain again");
+    // Its title is encrypted again, by roam.pub this time.
+    expect(await readerSees("pg1")).toMatchObject({ title: TITLE });
+    expect((await row("pg1"))!.title).toBe("Encrypted page");
     // roam.pub saw the text this time: back to encryption 1.
     expect((await row("pg1"))!.encryptedBy).toMatch(/^roam\.pub \d+\.\d+\.\d+$/);
     expect((await row("pg1"))!.encryptionVersion).toBe(1);

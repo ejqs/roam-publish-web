@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/db";
 import { collectionEntry, publication, user } from "@/db/schema";
 import { collectionRole, loadCollection } from "@/lib/collections";
+import { sealedTitles } from "@/lib/encryption";
+import { containerLock } from "@/lib/gates";
 import { manageDataFor } from "@/lib/manage-data";
 import { collectionPath } from "@/lib/publications";
 import { requireSession } from "@/lib/session";
@@ -52,7 +54,7 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
   ]);
   const pageCount = Math.max(1, Math.ceil(matching / PAGE_SIZE));
   const page = Math.min(state.page, pageCount);
-  const rows = await db
+  const listed = await db
     .select({
       entry: {
         id: collectionEntry.id,
@@ -61,6 +63,8 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
         access: collectionEntry.access,
         originGraphName: collectionEntry.originGraphName,
         addedBy: collectionEntry.addedBy,
+        passwordHash: collectionEntry.passwordHash,
+        passwordVersion: collectionEntry.passwordVersion,
       },
       pub: {
         id: publication.id,
@@ -70,6 +74,8 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
         removedReason: publication.removedReason,
         updatedAt: publication.updatedAt,
         tags: publication.tags,
+        encrypted: publication.encrypted,
+        titleCipher: publication.titleCipher,
       },
       addedByEmail: user.email,
     })
@@ -80,6 +86,16 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
     .orderBy(...entryListOrder(state))
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE);
+  // Encrypted pages' titles, opened in the viewer's browser when it keeps the entry's password.
+  const sealed = await sealedTitles(
+    listed.map(({ entry, pub }) => ({
+      ...pub,
+      lock: entry.passwordHash
+        ? { scope: "entry" as const, id: entry.id, version: entry.passwordVersion }
+        : containerLock({ ...c, kind: "collection" }),
+    })),
+  );
+  const rows = listed.map((r) => ({ ...r, sealedTitle: sealed.get(r.pub.id) }));
   const manage = await manageDataFor(me, rows.map((r) => r.pub.id));
 
   const discoverBlocked = c.suspendedAt

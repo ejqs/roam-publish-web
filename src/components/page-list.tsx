@@ -2,6 +2,7 @@ import { ArrowUpDownIcon, SearchIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { cn } from "cn";
 import { LockHint, type LockInfo } from "@/components/access-lock";
+import { ListTitle, type ListedSealedTitle } from "@/components/sealed-title";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -16,7 +17,6 @@ import {
   toggleTag,
 } from "@/lib/list-params";
 import type { TagCount } from "@/lib/list-query";
-import { plainText } from "@/lib/slug";
 
 /** Search, tag, type and sort controls for a public graph or collection list. All links and a GET form. */
 
@@ -173,6 +173,8 @@ export type ListRow = {
   kind: "page" | "block";
   /** Why it needs a password or membership to read, when it does. */
   lock?: LockInfo;
+  /** An encrypted page's title, for the reader's browser to open; `title` is "Encrypted page" then. */
+  sealedTitle?: ListedSealedTitle;
   author?: string;
   tags: string[];
   /** Text around the search hit, when the hit isn't in the title. */
@@ -236,7 +238,7 @@ export function PageList<S extends string>({
               <span className="flex min-w-0 items-center gap-1.5">
                 {r.lock && <LockHint lock={r.lock} />}
                 <Link href={r.href} className="min-w-0 break-words text-link hover:underline max-sm:line-clamp-2 sm:truncate">
-                  {plainText(r.title) || "Untitled"}
+                  <ListTitle title={r.title} sealed={r.sealedTitle} />
                 </Link>
                 {r.kind === "block" && (
                   <Badge variant="secondary" className="h-[18px] px-1.5">

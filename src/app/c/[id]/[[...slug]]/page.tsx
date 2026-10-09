@@ -18,7 +18,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { db } from "@/db";
 import { collectionEntry, graph, publication, publicationVote, user } from "@/db/schema";
 import { canManageEntry, collectionRole, resolveC } from "@/lib/collections";
-import { readEncrypted } from "@/lib/encryption";
+import { readEncrypted, sealedTitles } from "@/lib/encryption";
 import { collectionFeedPath, hasCollectionFeed } from "@/lib/feeds";
 import {
   type Container,
@@ -188,12 +188,17 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
       ? folderStats(from, sql`${collectionEntry.folderId}`, listed, sql`${collectionEntry.position}, ${collectionEntry.addedAt}`)
       : [],
   ]);
+  // Encrypted pages' titles, for readers' browsers that keep the password to open.
+  const sealed = await sealedTitles(
+    rows.map(({ entry, pub }) => ({ ...pub, lock: pageLock(container, { ...entry, kind: "entry" }) })),
+  );
   const items = await Promise.all(
     rows.map(async ({ entry, pub, snippet: hit, excerpt: start }) => {
       const open = role || effectiveAccess(container, entry) === "open";
       return {
         href: entryPath(c.slug, entry.entryUid, pub.title),
         lock: lockInfo(effectiveAccess(container, entry), "collection", c.name, pub.encrypted),
+        sealedTitle: sealed.get(pub.id),
         author: (await bylineFor(pub, showsAuthor(container, entry)))?.label,
         kind: pub.kind,
         // A protected page's tags come from its text, so only readers who can open it see them.
@@ -362,10 +367,10 @@ async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: s
         ),
   ]);
   // [[links]] resolve to other pages in this collection, never to unlisted ones: a link would hand
-  // their address to every reader.
+  // their address to every reader. Nor to pages whose title is encrypted: roam.pub doesn't know it.
   const links = new PageLinks(
     siblings
-      .filter(({ entry: e, pub: p }) => p.kind === "page" && e.listing !== "unlisted")
+      .filter(({ entry: e, pub: p }) => p.kind === "page" && e.listing !== "unlisted" && !p.titleCipher)
       .map(({ entry: e, pub: p }) => [p.title.toLowerCase(), entryPath(c.slug, e.entryUid, p.title)]),
     (t) => collectionTagPath(c.slug, t),
   );

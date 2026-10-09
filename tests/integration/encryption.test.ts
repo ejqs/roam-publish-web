@@ -88,7 +88,7 @@ async function readerSees(out: unknown) {
   const sealed = view?.props.sealed as Sealed | undefined;
   if (sealed) {
     const key = await loadReaderKey(sealed.lock, sealed.lock.version);
-    const tree = key && (await openPage(sealed.page, key));
+    const tree = key && (await openPage(sealed.page, key))?.tree;
     return { tree: tree ?? undefined, needKey: !tree, gate: gate?.props as Gate };
   }
   return { tree: (view?.props.pub as { tree: Node } | undefined)?.tree, needKey: false, gate: gate?.props as Gate };
@@ -262,7 +262,7 @@ describe("collections", () => {
     newReader();
     await unlock({ scope: "collection", id: c.id, password: "collection-pw-1" });
     const out = await renderNested(
-      await CPage({ params: Promise.resolve({ id: c.slug, slug: [entry.entryUid, "plans"] }) } as never),
+      await CPage({ params: Promise.resolve({ id: c.slug, slug: [entry.entryUid, "encrypted-page"] }) } as never),
       "EntryPage",
     );
     expect(textOf((await readerSees(out)).tree)).toContain(SECRET);
@@ -284,7 +284,7 @@ describe("collections", () => {
       newReader();
       await unlock({ scope: "collection", id: c.id, password: "collection-pw-1" });
       return readerSees(
-        await renderNested(await CPage({ params: Promise.resolve({ id: c.slug, slug: [entry.entryUid, "plans"] }) } as never), "EntryPage"),
+        await renderNested(await CPage({ params: Promise.resolve({ id: c.slug, slug: [entry.entryUid, "encrypted-page"] }) } as never), "EntryPage"),
       );
     };
     expect((await read()).gate.blocker).toEqual({ need: "republish" });
@@ -326,7 +326,7 @@ describe("collections", () => {
     newReader();
     await unlock({ scope: "collection", id: c.id, password: "collection-pw-1" });
     const out = await renderNested(
-      await CPage({ params: Promise.resolve({ id: c.slug, slug: [entry.entryUid, "plans"] }) } as never),
+      await CPage({ params: Promise.resolve({ id: c.slug, slug: [entry.entryUid, "encrypted-page"] }) } as never),
       "EntryPage",
     );
     expect((await readerSees(out)).gate.blocker).toEqual({ need: "republish" });
