@@ -19,6 +19,7 @@ import { db } from "@/db";
 import { publication } from "@/db/schema";
 import { graphFeedPath, hasGraphFeed } from "@/lib/feeds";
 import { containerLock, gate, showsAuthor } from "@/lib/gates";
+import { sealedTitles } from "@/lib/encryption";
 import { canSearchSite, graphRole } from "@/lib/graph-access";
 import { graphPath, loadGraph } from "@/lib/graphs";
 import { GRAPH_LIST, type GraphSort, LIST_PAGE_SIZE, parseListState } from "@/lib/list-params";
@@ -106,6 +107,10 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
         updatedAt: publication.updatedAt,
         access: publication.access,
         encrypted: publication.encrypted,
+        id: publication.id,
+        titleCipher: publication.titleCipher,
+        passwordHash: publication.passwordHash,
+        passwordVersion: publication.passwordVersion,
         showAuthor: publication.showAuthor,
         authorName: publication.authorName,
         publishedBy: publication.publishedBy,
@@ -120,6 +125,13 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
     g.showOwner ? publicProfile(g.userId) : null,
     folders.length ? folderStats(sql`from ${publication}`, sql`${publication.folderId}`, visible, sql`${publication.updatedAt} desc`) : [],
   ]);
+  // Encrypted pages' titles, for readers' browsers that keep the password to open.
+  const sealed = await sealedTitles(
+    rows.map((r) => ({
+      ...r,
+      lock: r.passwordHash ? { scope: "publication" as const, id: r.id, version: r.passwordVersion } : containerLock({ ...g, kind: "graph" }),
+    })),
+  );
   const cards = await Promise.all(
     rows.map(async (r) => {
       const access = r.access === "inherit" ? g.defaultAccess : r.access;
@@ -130,6 +142,7 @@ export default async function GraphFrontPage(props: PageProps<"/[graph]">) {
         tags: role || access === "open" ? r.tags : [],
         snippet: snippetParts(r.snippet),
         lock: lockInfo(access, "graph", g.name, r.encrypted),
+        sealedTitle: sealed.get(r.id),
         author: (await bylineFor(r, showsAuthor({ ...g, kind: "graph" }, r)))?.label,
         dates: [formatDate(r.updatedAt), formatDate(r.createdAt)],
         ...cardPlace(folders, r.folderId, here.current?.id, r.title),

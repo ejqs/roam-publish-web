@@ -78,13 +78,16 @@ const outline = [
     ]),
     block("**Turning it off**", [
       block(
-        "Switch Encrypt with password off, and enter a password that opens the page. Search, tags, related pages and excerpts come back.",
+        "Switch Encrypt with password off, and enter a password that opens the page. Its title, search, tags, related pages and excerpts come back.",
       ),
     ]),
   ]),
   block("**What it protects against**", [
     block(
-      "The page's text is stored encrypted. Its search text, tags and content hash are removed or encrypted too. Without the page's password, a copy of the database shows none of it.",
+      "The page's text and title are stored encrypted. Its search text, tags and content hash are removed or encrypted too. Without the page's password, a copy of the database shows none of it.",
+    ),
+    block(
+      "Everywhere roam.pub shows it without opening it (its link, lists, emails, previews), it's called Encrypted page (or Encrypted block). Readers' browsers that have the password's key show the real title, on the page and in lists. Pages encrypted before titles were keep a readable title until they're next published from Roam or encrypted again.",
     ),
     block(
       "So if the database or a backup of it leaks, or someone gets to look inside it, they can't read encrypted pages. They'd have to guess the password, and each guess is made deliberately slow.",
@@ -104,7 +107,7 @@ const outline = [
       "**Anyone with the password.** Everyone who knows it can read the page, and can pass it on. Members of the graph or collection need it too: encryption doesn't let them in on their own.",
     ),
     block(
-      "**The title.** It stays readable: it's part of the page's link, and listed pages show it on their graph's or collection's front page.",
+      "**What's around the page.** Which graph or collection it's in, its author, its dates and which of its blocks start collapsed stay readable. Page links on other pages can't lead to it, since roam.pub doesn't know its title.",
     ),
     block(
       "**When and how often the page is read.** View counts and the number of people who unlocked it work as they do for any password-protected page.",

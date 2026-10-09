@@ -5,7 +5,7 @@ import { collectionEntry, graph, LOCK_SCOPES, type Node, publication, shortlink 
 import { contentHash } from "@/lib/content-hash";
 import { type SealedContent, sealPlan, sealsMatch, storeSealedKeys } from "@/lib/e2e-publish";
 import { foldedUids } from "@/lib/folds";
-import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
+import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, hiddenTitle, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
 import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
@@ -49,14 +49,17 @@ const Body = z.object({
 
 /**
  * A page encrypted in Roam (extension 0.2.0 and later, lib/e2e-publish.ts): the cipher and its sealed
- * keys instead of the tree, which blocks start collapsed, and the extension's keyed hash.
+ * keys instead of the tree, which blocks start collapsed, and the extension's keyed hash. Its title
+ * comes encrypted too (`titleCipher`), and then no plain `title` is sent.
  */
-const SealedBody = Body.omit({ tree: true, contentHash: true }).extend({
+const SealedBody = Body.omit({ tree: true, contentHash: true, title: true }).extend({
+  title: z.string().max(1000).optional(),
   folded: z.array(z.string().min(1).max(64)).max(100_000),
   contentHash: z.string().regex(/^k1\.[0-9a-f]{64}$/),
   sealed: z.object({
     publicationId: z.uuid(),
     cipher: z.string().regex(/^v1(\.[\w-]+){3}$/),
+    titleCipher: z.string().regex(/^v1(\.[\w-]+){3}$/).max(4000).optional(),
     keys: z
       .array(
         z.object({
@@ -173,8 +176,10 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   const hash = "sealed" in p ? p.contentHash : contentHash(p);
   if (hash !== p.contentHash) return json(req, { error: "Content hash mismatch" }, 400);
 
-  const title =
-    (p.kind === "page" ? p.title : plainText(p.title).slice(0, 80)).trim() || "Untitled";
+  // Its real title, when roam.pub may know it: not for a page whose title came encrypted.
+  const title = sealed?.titleCipher
+    ? hiddenTitle(p.kind)
+    : (p.kind === "page" ? (p.title ?? "") : plainText(p.title ?? "").slice(0, 80)).trim() || "Untitled";
   const authorName = p.author || null;
 
   const existing = await db.query.publication.findFirst({
@@ -208,7 +213,9 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   if (existing) {
     const visibility = existing.visibility;
     const listing = extListing(g, existing);
-    const url = (await primaryUrls(ctx.graphName, [{ ...existing, title }])).get(existing.id);
+    // An encrypted page's title is encrypted with it, wherever it was encrypted.
+    const stored = existing.encrypted && !sealed ? hiddenTitle(p.kind) : title;
+    const url = (await primaryUrls(ctx.graphName, [{ ...existing, title: stored }])).get(existing.id);
     // Older extensions don't send an author; leave the stored one alone then.
     const authorChanged = p.author !== undefined && authorName !== existing.authorName;
     const before = plainHash(existing);
@@ -222,6 +229,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
       const content = sealed
         ? {
             cipher: sealed.cipher,
+            titleCipher: sealed.titleCipher ?? null,
             encryptionVersion: 2,
             encryptedBy: `extension ${ctx.extVersion ?? "0.2.0"}`,
             needsRepublish: await storeSealedKeys(tx, plan as typeof plan & { encrypt: true }, sealed),
@@ -232,7 +240,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
           }
         : existing.encrypted
         ? {
-            ...(await sealNewContent(tx, existing.id, tree)),
+            ...(await sealNewContent(tx, existing.id, tree, title)),
             encryptionVersion: 1,
             encryptedBy: ENCRYPTED_BY_SERVER,
             tree: emptyTree(existing.rootUid),
@@ -247,7 +255,7 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
           same
             ? { authorName }
             : {
-                title,
+                title: stored,
                 // Website tag edits survive republishing.
                 ...content,
                 folded,
@@ -279,7 +287,14 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   const [created] = await db
     .insert(publication)
     .values({
-      ...(sealed && { id: sealed.publicationId, encrypted: true, cipher: sealed.cipher, encryptionVersion: 2, encryptedBy: `extension ${ctx.extVersion ?? "0.2.0"}` }),
+      ...(sealed && {
+        id: sealed.publicationId,
+        encrypted: true,
+        cipher: sealed.cipher,
+        titleCipher: sealed.titleCipher ?? null,
+        encryptionVersion: 2,
+        encryptedBy: `extension ${ctx.extVersion ?? "0.2.0"}`,
+      }),
       graphId: ctx.graphId,
       rootUid: p.rootUid,
       kind: p.kind,
@@ -307,7 +322,8 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
         console.error("Couldn't encrypt a new page", created.id, e);
         return false;
       });
-  const url = (await primaryUrls(ctx.graphName, [created])).get(created.id);
+  // Encrypted on arrival: its title was too.
+  const url = (await primaryUrls(ctx.graphName, [encrypted && !sealed ? { ...created, title: hiddenTitle(created.kind) } : created])).get(created.id);
   logChange(page, "publishing", `Published as ${created.visibility}: ${url}`, `published:${created.id}`);
   if (encrypted) logChange(page, "access", "Encrypted with password", `encrypted:${created.id}`);
   return json(req, {

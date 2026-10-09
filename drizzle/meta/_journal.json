@@ -309,6 +309,13 @@
       "when": 1791472226063,
       "tag": "0043_ext_can_seal",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791510960066,
+      "tag": "0044_encrypted_title",
+      "breakpoints": true
     }
   ]
 }

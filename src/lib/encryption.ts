@@ -17,7 +17,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type Blocker, isUnlocked } from "@/lib/gates";
 import { ENCRYPT_PASSWORD_MIN } from "./encryption-rules";
-import { type SealedPage, UNLOCK_PROOF_INFO } from "./reader-crypto";
+import { type SealedPage, type SealedTitle, UNLOCK_PROOF_INFO } from "./reader-crypto";
 import { entryPath, publicationPath } from "./publications";
 import { SITE_VERSION } from "./version";
 import {
@@ -180,6 +180,23 @@ export function decryptTree(contentKey: Buffer, cipher: string, publicationId: s
   return plain ? (JSON.parse(plain.toString()) as Node) : null;
 }
 
+/** Its title, encrypted under its content key for readers' browsers to show (`publication.titleCipher`). */
+export function encryptTitle(contentKey: Buffer, title: string, publicationId: string) {
+  return ["v1", ...gcmSeal(contentKey, Buffer.from(title), `title:${publicationId}`)].join(".");
+}
+
+export function decryptTitle(contentKey: Buffer, titleCipher: string, publicationId: string): string | null {
+  const [v, ...parts] = titleCipher.split(".");
+  const plain = v === "v1" && parts.length === 3 ? gcmOpen(contentKey, parts, `title:${publicationId}`) : null;
+  return plain ? plain.toString() : null;
+}
+
+/**
+ * What an encrypted page's `title` holds once its real title is encrypted: what everyone sees until
+ * their browser opens it, and what its address, lists and emails use.
+ */
+export const hiddenTitle = (kind: "page" | "block") => (kind === "page" ? "Encrypted page" : "Encrypted block");
+
 /** What an encrypted page's `tree` holds: nothing. */
 export const emptyTree = (rootUid: string): Node => ({ uid: rootUid, string: "", children: [] });
 
@@ -313,7 +330,10 @@ export async function contentKeyFor(tx: Db, pub: { id: string }, creds: Credenti
  */
 export function passwordOpener(password: string) {
   const keys = new Map<string, KeyObject | null>();
-  return async (tx: Db, pub: { id: string; cipher: string | null }): Promise<Node | null> => {
+  return async (
+    tx: Db,
+    pub: { id: string; cipher: string | null; titleCipher: string | null },
+  ): Promise<{ tree: Node; title: string | null } | null> => {
     if (!pub.cipher) return null;
     const sealed = await tx
       .select({ k: publicationKey, lk: lockKey })
@@ -329,7 +349,7 @@ export function passwordOpener(password: string) {
       const key = keys.get(id);
       const ck = key && openContentKey(k.sealedKey, key);
       const tree = ck && decryptTree(ck, pub.cipher, pub.id);
-      if (tree) return tree;
+      if (tree) return { tree, title: pub.titleCipher ? decryptTitle(ck, pub.titleCipher, pub.id) : null };
     }
     return null;
   };
@@ -508,10 +528,11 @@ export async function unlockSaltOf(l: LockRef) {
 /** What `publication.encryptedBy` says for a page this server encrypted (encryption 1). */
 export const ENCRYPTED_BY_SERVER = `roam.pub ${SITE_VERSION}`;
 
-/** Encrypts a tree for a page and seals its new content key to every password that opens it. */
-export async function sealNewContent(tx: Tx, publicationId: string, tree: Node) {
+/** Encrypts a page's tree and title and seals its new content key to every password that opens it. */
+export async function sealNewContent(tx: Tx, publicationId: string, tree: Node, title: string) {
   const ck = randomBytes(32);
   const cipher = encryptTree(ck, tree, publicationId);
+  const titleCipher = encryptTitle(ck, title, publicationId);
   const want = locksOf(await spotsOf(tx, publicationId));
   await tx.delete(publicationKey).where(eq(publicationKey.publicationId, publicationId));
   let sealedAll = true;
@@ -525,13 +546,13 @@ export async function sealNewContent(tx: Tx, publicationId: string, tree: Node) 
       .insert(publicationKey)
       .values({ publicationId, scope: l.scope, targetId: l.id, sealedKey: sealContentKey(lk.publicKey, ck) });
   }
-  return { cipher, needsRepublish: !sealedAll };
+  return { cipher, titleCipher, needsRepublish: !sealedAll };
 }
 
 export type { SealedPage } from "./reader-crypto";
 
 /** An encrypted page as sealed to one password, or null when it isn't (it needs a republish). */
-async function sealedFor(pub: { id: string; cipher: string | null }, l: LockRef): Promise<SealedPage | null> {
+async function sealedFor(pub: { id: string; cipher: string | null; titleCipher: string | null }, l: LockRef): Promise<SealedPage | null> {
   if (!pub.cipher) return null;
   const [row] = await db
     .select({ sealedKey: publicationKey.sealedKey })
@@ -539,7 +560,7 @@ async function sealedFor(pub: { id: string; cipher: string | null }, l: LockRef)
     .innerJoin(lockKey, and(eq(lockKey.scope, publicationKey.scope), eq(lockKey.targetId, publicationKey.targetId)))
     .where(and(eq(publicationKey.publicationId, pub.id), eq(publicationKey.scope, l.scope), eq(publicationKey.targetId, l.id)))
     .limit(1);
-  return row ? { id: pub.id, cipher: pub.cipher, sealedKey: row.sealedKey } : null;
+  return row ? { id: pub.id, cipher: pub.cipher, titleCipher: pub.titleCipher, sealedKey: row.sealedKey } : null;
 }
 
 /** Key pairs of pages, entries, graphs and collections that no longer exist. Run after deleting any. */
@@ -585,7 +606,7 @@ export async function afterReturnToGraph(tx: Tx, publicationIds: string[]) {
  * included: the server can't read the page, and only hands it out to readers who proved the password.
  */
 export async function readEncrypted(
-  pub: { id: string; cipher: string | null },
+  pub: { id: string; cipher: string | null; titleCipher: string | null },
   access: "open" | "password" | "members",
   lock: VersionedLock | null,
 ): Promise<{ sealed: SealedPage } | { blocker: NonNullable<Blocker> }> {
@@ -594,6 +615,28 @@ export async function readEncrypted(
   if (!sealed) return { blocker: { need: "republish" } };
   if (!(await isUnlocked(lock))) return { blocker: { need: "password", lock, encrypted: true } };
   return { sealed };
+}
+
+/**
+ * For a list of pages: each encrypted page's title cipher with its content key sealed to the password
+ * it opens with there, for the reader's browser to show its title (components/sealed-title.tsx). Pages
+ * not encrypted, encrypted before titles were, or not sealed to that password are left out.
+ */
+export async function sealedTitles(
+  pages: { id: string; encrypted: boolean; titleCipher: string | null; lock: VersionedLock | null }[],
+): Promise<Map<string, { page: SealedTitle; lock: VersionedLock }>> {
+  const wanted = pages.filter((p): p is typeof p & { titleCipher: string; lock: VersionedLock } => p.encrypted && !!p.titleCipher && !!p.lock);
+  if (!wanted.length) return new Map();
+  const keys = await db
+    .select({ id: publicationKey.publicationId, scope: publicationKey.scope, targetId: publicationKey.targetId, sealedKey: publicationKey.sealedKey })
+    .from(publicationKey)
+    .where(inArray(publicationKey.publicationId, wanted.map((p) => p.id)));
+  const out = new Map<string, { page: SealedTitle; lock: VersionedLock }>();
+  for (const p of wanted) {
+    const k = keys.find((k) => k.id === p.id && k.scope === p.lock.scope && k.targetId === p.lock.id);
+    if (k) out.set(p.id, { page: { id: p.id, titleCipher: p.titleCipher, sealedKey: k.sealedKey }, lock: p.lock });
+  }
+  return out;
 }
 
 /** Titles of the encrypted pages that open with this password, for its settings. */
@@ -646,12 +689,14 @@ export async function encryptBlocker(tx: Db, spots: Spot[]): Promise<{ reason: s
 
 /** Stores a readable page encrypted with every password that opens it. Check `encryptBlocker` first. */
 export async function encryptPage(tx: Tx, pub: typeof publication.$inferSelect) {
-  const { cipher, needsRepublish } = await sealNewContent(tx, pub.id, pub.tree);
+  const { cipher, titleCipher, needsRepublish } = await sealNewContent(tx, pub.id, pub.tree, pub.title);
   await tx
     .update(publication)
     .set({
       encrypted: true,
       cipher,
+      titleCipher,
+      title: hiddenTitle(pub.kind),
       encryptionVersion: 1,
       encryptedBy: ENCRYPTED_BY_SERVER,
       needsRepublish,

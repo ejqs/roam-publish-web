@@ -1,0 +1,1 @@
+ALTER TABLE "publication" ADD COLUMN "title_cipher" text;

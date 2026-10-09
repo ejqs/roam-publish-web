@@ -8,6 +8,7 @@ import type { Node } from "@/db/app-schema";
 import type { Lock } from "@/lib/gates";
 import { openPage, type SealedPage } from "@/lib/reader-crypto";
 import { loadReaderKey, READER_KEY_SAVED } from "@/lib/reader-keys";
+import { plainText } from "@/lib/slug";
 import { collectionTagPath, graphTagPath } from "@/lib/tag-paths";
 
 /** Where a page's #tags lead: its graph's or its collection's front page, filtered to the tag. */
@@ -37,15 +38,15 @@ export function EncryptedBody({
   links: [string, string][];
   tagBase?: TagBase;
 }) {
-  const [state, setState] = useState<{ tree: Node } | "opening" | "needKey">("opening");
+  const [state, setState] = useState<{ tree: Node; title: string | null } | "opening" | "needKey">("opening");
   const { scope, id, version } = lock;
 
   useEffect(() => {
     let live = true;
     const open = async () => {
       const key = await loadReaderKey({ scope, id }, version);
-      const tree = key && (await openPage(page, key).catch(() => null));
-      if (live) setState(tree ? { tree } : "needKey");
+      const opened = key && (await openPage(page, key).catch(() => null));
+      if (live) setState(opened || "needKey");
     };
     open();
     window.addEventListener(READER_KEY_SAVED, open);
@@ -70,5 +71,10 @@ export function EncryptedBody({
         <p className="text-sm text-muted-foreground">Decrypting in your browser…</p>
       </div>
     );
-  return <PublicationBody {...body} tree={state.tree} links={pageLinks} />;
+  // The title was encrypted with the page (on pages encrypted since titles were): the server only had "Encrypted page".
+  if (!state.title) return <PublicationBody {...body} tree={state.tree} links={pageLinks} />;
+  // Its breadcrumbs end with the title the server had, which was "Encrypted page".
+  const hidden = plainText(body.title);
+  const crumbs = body.crumbs?.map((c, i, all) => (i === all.length - 1 && c.label === hidden ? { ...c, label: plainText(state.title!) } : c));
+  return <PublicationBody {...body} title={state.title} crumbs={crumbs ?? body.crumbs} tree={state.tree} links={pageLinks} />;
 }

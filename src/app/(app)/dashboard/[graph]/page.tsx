@@ -7,6 +7,8 @@ import { db } from "@/db";
 import { graph, publication, publicationVote } from "@/db/schema";
 import { graphRole } from "@/lib/graph-access";
 import { graphPath } from "@/lib/graphs";
+import { sealedTitles } from "@/lib/encryption";
+import { containerLock } from "@/lib/gates";
 import { manageDataFor } from "@/lib/manage-data";
 import { requireSession } from "@/lib/session";
 import {
@@ -44,7 +46,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
   ]);
   const pageCount = Math.max(1, Math.ceil(matching / PAGE_SIZE));
   const page = Math.min(state.page, pageCount);
-  const rows = await db
+  const listed = await db
     .select({
       id: publication.id,
       rootUid: publication.rootUid,
@@ -58,12 +60,24 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
       inGraph: publication.inGraph,
       access: publication.access,
       tags: publication.tags,
+      encrypted: publication.encrypted,
+      titleCipher: publication.titleCipher,
+      passwordHash: publication.passwordHash,
+      passwordVersion: publication.passwordVersion,
     })
     .from(publication)
     .where(where)
     .orderBy(...listOrder(state))
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE);
+  // Encrypted pages' titles, opened in the viewer's browser when it keeps the graph place's password.
+  const sealed = await sealedTitles(
+    listed.map((p) => ({
+      ...p,
+      lock: p.passwordHash ? { scope: "publication" as const, id: p.id, version: p.passwordVersion } : containerLock({ ...g, kind: "graph" }),
+    })),
+  );
+  const rows = listed.map((p) => ({ ...p, sealedTitle: sealed.get(p.id) }));
 
   const discoverIds = rows.filter((p) => p.discoverable).map((p) => p.id);
   const voteRows = discoverIds.length

@@ -95,11 +95,35 @@ export async function decryptTree(contentKey: Uint8Array<ArrayBuffer>, cipher: s
   return plain ? (JSON.parse(new TextDecoder().decode(plain)) as Node) : null;
 }
 
-/** What a reader's browser needs to open an encrypted page: its cipher and its content key sealed to one password. */
-export type SealedPage = { id: string; cipher: string; sealedKey: string };
+/** A page's title, encrypted under its content key. Null when the key doesn't open it. */
+export async function decryptTitle(contentKey: Uint8Array<ArrayBuffer>, titleCipher: string, publicationId: string) {
+  const [v, ...parts] = titleCipher.split(".");
+  const plain = v === "v1" && parts.length === 3 ? await gcmOpen(contentKey, parts, `title:${publicationId}`) : null;
+  return plain ? new TextDecoder().decode(plain) : null;
+}
 
-/** Opens a page with a password's private key: its sealed content key, then its tree. */
-export async function openPage(page: SealedPage, privateKey: CryptoKey) {
+/**
+ * What a reader's browser needs to show an encrypted page's title: its title cipher and its content
+ * key sealed to one password. Small enough to send with every card in a list.
+ */
+export type SealedTitle = { id: string; titleCipher: string; sealedKey: string };
+
+/** Opens a page's title with a password's private key. */
+export async function openTitle(page: SealedTitle, privateKey: CryptoKey) {
   const ck = await openContentKey(page.sealedKey, privateKey);
-  return ck && decryptTree(ck, page.cipher, page.id);
+  return ck && decryptTitle(ck, page.titleCipher, page.id);
+}
+
+/**
+ * What a reader's browser needs to open an encrypted page: its cipher and its content key sealed to
+ * one password, and its title cipher, unless it was encrypted before titles were.
+ */
+export type SealedPage = { id: string; cipher: string; titleCipher?: string | null; sealedKey: string };
+
+/** Opens a page with a password's private key: its sealed content key, then its tree and title (null when not encrypted). */
+export async function openPage(page: SealedPage, privateKey: CryptoKey): Promise<{ tree: Node; title: string | null } | null> {
+  const ck = await openContentKey(page.sealedKey, privateKey);
+  const tree = ck && (await decryptTree(ck, page.cipher, page.id));
+  if (!ck || !tree) return null;
+  return { tree, title: page.titleCipher ? await decryptTitle(ck, page.titleCipher, page.id) : null };
 }

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import type { collection, collectionEntry, publication } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
 import { entryPath } from "@/lib/publications";
+import { type ListedSealedTitle, SealedTitleText } from "@/components/sealed-title";
 import { AccessMenu } from "../../access-menu";
 import { AllCheckbox, BulkSelect, RowCheckbox } from "../../bulk-select";
 import { fmtDate, HeaderCell, type SortHeader } from "../../publication-list";
@@ -22,6 +23,8 @@ export type EntryRowData = {
   >;
   pub: Pick<typeof publication.$inferSelect, "id" | "title" | "kind" | "removedAt" | "removedReason" | "updatedAt" | "tags">;
   addedByEmail: string | null;
+  /** An encrypted page's title, for the viewer's browser to open when it keeps the password. */
+  sealedTitle?: ListedSealedTitle;
 };
 
 /**
@@ -87,7 +90,7 @@ export function EntryList({
                         href={entryPath(c.slug, entry.entryUid, pub.title)}
                         className="line-clamp-2 min-w-0 break-words text-foreground hover:underline sm:line-clamp-1"
                       >
-                        {pub.title}
+                        {r.sealedTitle ? <SealedTitleText sealed={r.sealedTitle} fallback={pub.title} /> : pub.title}
                       </Link>
                       {pub.kind === "block" && (
                         <Badge variant="secondary" className="mt-px shrink-0">

@@ -248,6 +248,12 @@ export const publication = pgTable(
     encrypted: boolean("encrypted").notNull().default(false),
     cipher: text("cipher"),
     /**
+     * Its real title, encrypted under the same content key as `cipher` ("v1.{iv}.{tag}.{body}", bound to
+     * the page's id), for readers' browsers to show. While set, `title` is only "Encrypted page" or
+     * "Encrypted block" (lib/encryption.ts `hiddenTitle`). Null on pages encrypted before titles were.
+     */
+    titleCipher: text("title_cipher"),
+    /**
      * How it was encrypted (lib/encryption-rules.ts ENCRYPTION_VERSIONS): 1 by roam.pub as it arrived,
      * 2 in Roam before it was sent (end-to-end). Null while it isn't encrypted.
      */
