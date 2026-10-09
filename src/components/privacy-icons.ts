@@ -22,7 +22,7 @@ export type PrivacyNote = {
   kind: PrivacyKind;
   label: string;
   text: string;
-  /** Shown after the label, smaller: the encryption version ("v2"). */
+  /** Shown after the label in the popover's title, smaller: the encryption version ("v2"). */
   tag?: string;
   href?: string;
   /** The link's words; "How it works" by default. */
@@ -67,7 +67,7 @@ export function privacyNotes({
           ? `Encrypted in Roam${by} before it was published, so roam.pub never saw its text. Your browser decrypts it once you unlock it.`
           : `Encrypted${by || " by roam.pub"} when it was published, so a copy of the database can't be read, but roam.pub saw its text then. Your browser decrypts it once you unlock it.`,
       href: `/privacy/encryption/versions#v${v}`,
-      linkLabel: `Encryption v${v}`,
+      linkLabel: "Learn more",
     });
   }
   else if (access === "password")

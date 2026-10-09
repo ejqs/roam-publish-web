@@ -23,7 +23,6 @@ export function PrivacyBadges({ notes, className }: { notes: PrivacyNote[]; clas
             >
               <Icon className="size-3.5" aria-hidden />
               {n.label}
-              {n.tag && <span className="font-mono text-[10px] opacity-70">{n.tag}</span>}
             </PopoverTrigger>
             <PopoverContent side="bottom" align="start" className="w-72 gap-1 text-xs">
               <p className="font-medium">

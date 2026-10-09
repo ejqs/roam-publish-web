@@ -6,6 +6,12 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.18.2 (2026-10-09)
+
+### Published pages
+- Improved: An encrypted page's badge just says **Encrypted** or **End-to-end encrypted**. Its version is in the
+  card that opens from it, with a **Learn more** link.
+
 ## 0.18.1 (2026-10-08)
 
 ### Site

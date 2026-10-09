@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * Encryption versions, newest first: what an encrypted page's "v…" badge means. Add one whenever how pages
+ * Encryption versions, newest first: what the "v…" in an encrypted page's badge card means. Add one whenever how pages
  * are encrypted changes, with a matching ENCRYPTION_VERSIONS entry.
  */
 const VERSIONS: { v: EncryptionVersion; name: string; since: string; points: string[] }[] = [
@@ -47,7 +47,7 @@ export default function EncryptionVersionsPage() {
           <div className="flex flex-col gap-2">
             <h1 className="text-[32px] leading-tight font-semibold sm:text-[42px]">Encryption versions</h1>
             <p className="text-muted-foreground">
-              An encrypted page shows its version next to its title. Newer versions don&apos;t change pages already
+              An encrypted page shows its version when you open its badge, next to its title. Newer versions don&apos;t change pages already
               encrypted: a page keeps its version until it&apos;s encrypted again. The rules for encrypted pages are in{" "}
               <Link href="/privacy/encryption" className="text-link hover:underline">
                 Encrypted pages
