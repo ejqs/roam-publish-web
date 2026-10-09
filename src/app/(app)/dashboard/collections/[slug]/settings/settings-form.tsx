@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { accessToSave, ContainerAccessFields, type ContainerAccess } from "@/components/manage/container-access-fields";
+import { ContainerPdfFields } from "@/components/manage/pdf-fields";
 import { ContainerViewsFields } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Access, ViewsMode } from "@/db/schema";
 import { saveCollectionBlocked } from "@/lib/control-rules";
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
+import type { PdfStyle } from "@/lib/pdf";
 import { DESCRIPTION_MAX } from "@/lib/descriptions";
 import { changed, useUnsavedChanges } from "@/lib/unsaved-changes";
 import { deleteCollection, updateCollection } from "@/server/actions/collections";
@@ -28,6 +30,8 @@ type Initial = {
   showAuthors: boolean;
   views: ViewsMode;
   showViewCountries: boolean;
+  pdfDownload: boolean;
+  pdfStyle: PdfStyle;
   indexable: boolean;
   searchListed: boolean;
   featured: boolean;
@@ -150,6 +154,13 @@ export function CollectionSettingsForm({
             views={s.views}
             countries={s.showViewCountries}
             onChange={(v) => setS((p) => ({ ...p, views: v.views, showViewCountries: v.countries }))}
+          />
+          <FieldSeparator />
+          <ContainerPdfFields
+            kind="collection"
+            enabled={s.pdfDownload}
+            style={s.pdfStyle}
+            onChange={(v) => setS((p) => ({ ...p, pdfDownload: v.enabled, pdfStyle: v.style }))}
           />
           <FieldSeparator />
           <Toggle

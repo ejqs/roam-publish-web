@@ -3,6 +3,14 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Printing a page that offers Download PDF (lib/pdf.ts): its print layout. Other pages print as before. */
+@custom-variant pdf {
+  @media print {
+    html[data-pdf] & {
+      @slot;
+    }
+  }
+}
 
 @theme inline {
   --color-background: var(--background);
@@ -163,6 +171,159 @@
   background-color: transparent !important;
 }
 
-.dark .roam-code span {
-  color: var(--shiki-dark) !important;
+@media screen {
+  .dark .roam-code span {
+    color: var(--shiki-dark) !important;
+  }
+}
+/* A PDF is always light, so its code keeps Shiki's light colours. */
+@media print {
+  .dark:not([data-pdf]) .roam-code span {
+    color: var(--shiki-dark) !important;
+  }
+}
+
+/*
+ * Download PDF's print layout (components/pdf-download.tsx sets the data-pdf-* choices on <html>).
+ * The page itself is what prints: same blocks, same code, math and diagrams, set for paper.
+ */
+@media print {
+  html[data-pdf],
+  html[data-pdf].dark {
+    --background: #fff;
+    --foreground: #1c2127;
+    --card: #fff;
+    --card-foreground: #1c2127;
+    --muted: #f6f7f9;
+    --muted-foreground: #5f6b7c;
+    --border: #dce0e5;
+    --link: #106ba3;
+    --roam-ref: #106ba3;
+    --roam-bullet: #394b59;
+    --roam-thread: #d3d8de;
+    --roam-highlight: #fff3a3;
+    /* !important: next-themes sets the colour scheme inline. */
+    color-scheme: light !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  html[data-pdf] body {
+    background: #fff;
+    color: var(--foreground);
+  }
+  html[data-pdf][data-pdf-threads="off"] {
+    --roam-thread: transparent;
+  }
+  /* Only the page: no banner, toasts or site footer. */
+  html[data-pdf] body > :not(main, :has(main)) {
+    display: none !important;
+  }
+  html[data-pdf] main {
+    background: #fff;
+  }
+  html[data-pdf] [data-pdf-article] {
+    display: flex;
+    flex-direction: column;
+    max-width: none;
+    padding: 0;
+    font-size: 10.5pt;
+    line-height: 1.5;
+  }
+  html[data-pdf][data-pdf-size="small"] [data-pdf-article] {
+    font-size: 9.5pt;
+  }
+  html[data-pdf][data-pdf-size="large"] [data-pdf-article] {
+    font-size: 12pt;
+  }
+  html[data-pdf][data-pdf-font="serif"] [data-pdf-article] {
+    font-family: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, Cambria, "Times New Roman", serif;
+  }
+  /* The masthead: where it's from, the title, one line of facts, tags, a hairline; then the page. */
+  html[data-pdf] [data-pdf-article] > * {
+    order: 10;
+  }
+  html[data-pdf] [data-pdf-article] > [data-pdf-eyebrow] {
+    order: 1;
+  }
+  html[data-pdf] [data-pdf-article] > h1 {
+    order: 2;
+    margin: 0 0 8pt;
+    font-size: 24pt;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  html[data-pdf] [data-pdf-article] > [data-pdf-meta] {
+    order: 3;
+  }
+  html[data-pdf] [data-pdf-article] > [data-pdf-tags] {
+    order: 4;
+    margin: 0 0 14pt;
+    font-size: 8.5pt;
+  }
+  html[data-pdf] [data-pdf-article] > [data-pdf-rule] {
+    order: 5;
+  }
+  html[data-pdf] [data-pdf-article] > [data-pdf-note] {
+    order: 6;
+  }
+  html[data-pdf][data-pdf-tags="off"] [data-pdf-tags],
+  html[data-pdf][data-pdf-author="off"] [data-pdf-author],
+  html[data-pdf][data-pdf-downloaded="off"] [data-pdf-downloaded] {
+    display: none !important;
+  }
+  /* Roam headings print as headings: no bullet, never the last line on a sheet. */
+  html[data-pdf] [data-heading] {
+    break-after: avoid-page;
+    margin-top: 0.4em;
+  }
+  html[data-pdf] [data-heading="1"] {
+    font-size: 1.55em;
+  }
+  html[data-pdf] [data-heading="2"] {
+    font-size: 1.3em;
+  }
+  html[data-pdf] [data-heading="3"] {
+    font-size: 1.1em;
+  }
+  html[data-pdf] ul > li:has(> [data-heading]) > [data-bullet] {
+    display: none;
+  }
+  html[data-pdf] [data-line] {
+    padding: 0.1em 0;
+    line-height: 1.5;
+  }
+  html[data-pdf] li[data-collapsed] > [data-bullet] {
+    box-shadow: none;
+  }
+  /* "All blocks expanded": folded blocks print open; "As shown" leaves them folded. */
+  html[data-pdf][data-pdf-folds="expanded"] li[data-collapsed] > [hidden] {
+    display: block !important;
+    content-visibility: visible !important;
+  }
+  /* Code wraps instead of scrolling, and a block stays on one sheet when it fits. */
+  html[data-pdf] .roam-code pre,
+  html[data-pdf] .roam-code code {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere;
+    font-size: 0.85em;
+  }
+  html[data-pdf] figure,
+  html[data-pdf] table,
+  html[data-pdf] img,
+  html[data-pdf] .katex-display {
+    break-inside: avoid-page;
+  }
+  html[data-pdf] [data-kanban] {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+  html[data-pdf].dark [data-mermaid] svg {
+    filter: invert(1) hue-rotate(180deg);
+  }
+  html[data-pdf] [data-pdf-article] a[href^="http"]::after {
+    content: " ↗";
+    font-size: 0.75em;
+    color: #738091;
+  }
 }

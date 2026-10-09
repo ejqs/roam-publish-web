@@ -5,6 +5,7 @@ import { DashboardLink } from "@/components/dashboard-link";
 import { EncryptedBody, type TagBase } from "@/components/encrypted-body";
 import { QuickSearch } from "@/components/quick-search";
 import { ManageDialog } from "@/components/manage/manage-dialog";
+import { type PdfOffer, PdfDownloadButton, PdfMasthead } from "@/components/pdf-download";
 import type { PrivacyNote } from "@/components/privacy-icons";
 import { type BodyProps, type Byline, PublicationBody } from "@/components/publication-body";
 import { ReportAbuseButton, type ReportTarget } from "@/components/report-abuse-button";
@@ -45,6 +46,7 @@ export function PublicationView({
   privacy = [],
   sealed,
   tagBase,
+  pdf,
 }: {
   pub: typeof publication.$inferSelect;
   /** This page's own address, for leaving a zoomed-in view. */
@@ -77,27 +79,31 @@ export function PublicationView({
   sealed?: { page: SealedPage; lock: Lock; members?: string };
   /** Where #tags lead, for a body rendered in the browser (links' `tagHref` can't travel there). */
   tagBase?: TagBase;
+  /** Download PDF, when this place offers it (lib/pdf.ts). */
+  pdf?: PdfOffer;
 }) {
   const bodyProps: BodyProps = { kind: pub.kind, title: pub.title, tags: pub.tags, path, zoom, crumbs, byline, privacy };
   return (
     <>
       <main className="relative flex-1 bg-card">
         <FoldAllRoot>
-          <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
+          <div className="absolute top-3 right-4 left-4 z-10 flex items-center justify-end gap-1 pdf:hidden">
             <QuickSearch siteSearch={siteSearch} />
+            {pdf && <PdfDownloadButton offer={pdf} />}
             <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
             {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
             <ReportAbuseButton target={report} />
             <ThemeToggle size="icon-sm" className="text-muted-foreground" />
           </div>
-          <article className="relative mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
+          <article data-pdf-article={pdf ? "" : undefined} className="relative mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
+            {pdf && <PdfMasthead offer={pdf} />}
             {sealed ? (
               <EncryptedBody {...sealed} body={bodyProps} links={[...links]} tagBase={tagBase} />
             ) : (
               <PublicationBody {...bodyProps} tree={pub.tree} links={links} />
             )}
             {related.length > 0 && (
-              <section aria-labelledby="related" className="mt-12 border-t pt-4 text-sm">
+              <section aria-labelledby="related" className="mt-12 border-t pt-4 text-sm pdf:hidden">
                 <h2 id="related" className="mb-3 font-semibold">
                   More with {pub.tags.length === 1 ? "this tag" : "these tags"}
                 </h2>
@@ -112,7 +118,7 @@ export function PublicationView({
                 </ul>
               </section>
             )}
-            <div className="mt-12 flex items-center justify-between gap-4">
+            <div className="mt-12 flex items-center justify-between gap-4 pdf:hidden">
               <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
                 <span>Last updated {pub.updatedAt.toLocaleDateString("en-US", { dateStyle: "medium" })}</span>
                 {views && (
@@ -124,7 +130,11 @@ export function PublicationView({
               </p>
               {votes !== null && <UpvoteButton publicationId={pub.id} initialCount={votes} />}
             </div>
-            {views?.passwordWarning && <PasswordViewsWarning v={views} />}
+            {views?.passwordWarning && (
+              <div className="pdf:hidden">
+                <PasswordViewsWarning v={views} />
+              </div>
+            )}
           </article>
           {countViews && <ViewBeacon publicationId={pub.id} />}
         </FoldAllRoot>

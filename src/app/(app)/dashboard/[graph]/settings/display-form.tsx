@@ -2,19 +2,21 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { ContainerPdfFields } from "@/components/manage/pdf-fields";
 import { ContainerViewsFields } from "@/components/manage/views-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet, Field } from "@/components/ui/field";
 import type { ViewsMode } from "@/db/schema";
+import type { PdfStyle } from "@/lib/pdf";
 import { changed, useUnsavedChanges } from "@/lib/unsaved-changes";
 import { type GraphDisplay, updateGraphDisplay } from "@/server/actions/dashboard";
 import { SettingSwitch } from "./settings-form";
 
 /**
- * How the graph's pages look and where new ones land: bylines, view counts, breadcrumbs, the RSS
- * feed and default collections. Who can see them is on the Sharing tab.
+ * How the graph's pages look and where new ones land: bylines, view counts, PDF download,
+ * breadcrumbs, the RSS feed and default collections. Who can see them is on the Sharing tab.
  */
 export function GraphDisplayForm({
   graphId,
@@ -29,7 +31,7 @@ export function GraphDisplayForm({
   /** The feed lists the front page, so it needs one anyone can open. */
   frontPage: boolean;
   indexOpen: boolean;
-  initial: Omit<GraphDisplay, "views"> & { views: ViewsMode };
+  initial: Omit<GraphDisplay, "views" | "pdfDownload" | "pdfStyle"> & { views: ViewsMode; pdfDownload: boolean; pdfStyle: PdfStyle };
   /** Collections the owner belongs to. */
   collections: { id: string; name: string }[];
 }) {
@@ -55,7 +57,7 @@ export function GraphDisplayForm({
     <Card>
       <CardHeader>
         <CardTitle>Display</CardTitle>
-        <CardDescription>How pages look to readers. Pages can override bylines and view counts.</CardDescription>
+        <CardDescription>How pages look to readers. Pages can override bylines, view counts and PDF download.</CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup>
@@ -72,6 +74,13 @@ export function GraphDisplayForm({
             views={s.views}
             countries={s.showViewCountries}
             onChange={(v) => setS((cur) => ({ ...cur, views: v.views, showViewCountries: v.countries }))}
+          />
+          <FieldSeparator />
+          <ContainerPdfFields
+            kind="graph"
+            enabled={s.pdfDownload}
+            style={s.pdfStyle}
+            onChange={(v) => setS((cur) => ({ ...cur, pdfDownload: v.enabled, pdfStyle: v.style }))}
           />
           <FieldSeparator />
           <SettingSwitch

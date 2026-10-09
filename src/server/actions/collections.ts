@@ -10,6 +10,7 @@ import { ACCESS, collection, collectionEntry, VIEWS_MODE } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { logForPublications, roamInert } from "@/lib/changelog";
 import { CollectionName, CollectionSlug, reservePath } from "@/lib/collections";
+import { PdfStyleInput } from "@/lib/pdf";
 import { Description } from "@/lib/descriptions";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { purgeCollection } from "@/lib/deletion";
@@ -75,6 +76,9 @@ const Settings = z.object({
   showAuthors: z.boolean(),
   views: z.enum(VIEWS_MODE),
   showViewCountries: z.boolean(),
+  /** Download PDF on pages here, unless a page overrides it (lib/pdf.ts). */
+  pdfDownload: z.boolean().optional(),
+  pdfStyle: PdfStyleInput.optional(),
   indexable: z.boolean(),
   searchListed: z.boolean(),
   featured: z.boolean(),
@@ -145,6 +149,8 @@ export async function updateCollection(collectionId: string, input: CollectionSe
         showAuthors: s.showAuthors,
         views: s.views,
         showViewCountries: s.showViewCountries,
+        ...(s.pdfDownload !== undefined && { pdfDownload: s.pdfDownload }),
+        ...(s.pdfStyle && { pdfStyle: s.pdfStyle }),
         indexable: s.indexable,
         encryptNewPages,
         ...(s.pagesLeaveGraph !== undefined && { pagesLeaveGraph: s.pagesLeaveGraph }),

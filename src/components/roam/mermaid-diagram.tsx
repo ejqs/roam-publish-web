@@ -72,6 +72,7 @@ export function MermaidDiagram({ source, code }: { source: string; code: ReactNo
     >
       {drawn && !showCode ? (
         <div
+          data-mermaid
           className="flex justify-center overflow-x-auto bg-card p-3 [&_svg]:h-auto [&_svg]:max-w-full"
           // Mermaid sanitizes its own output under securityLevel "strict".
           dangerouslySetInnerHTML={{ __html: svg }}

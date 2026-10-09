@@ -10,6 +10,7 @@ import type { Node } from "@/db/app-schema";
 import { headingsOf, zoomPath } from "@/lib/headings";
 import { zoomHref } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
+import { cn } from "cn";
 
 const componentName = { table: "Table", kanban: "Kanban board", diagram: "Diagram" } as const;
 
@@ -79,7 +80,7 @@ export function PublicationBody({
   const tagHref = links.tagHref;
   const tagLine =
     kind === "page" && tagHref && tags.length > 0 ? (
-      <p className="mb-6 flex flex-wrap gap-x-2 text-sm">
+      <p data-pdf-tags className="mb-6 flex flex-wrap gap-x-2 text-sm">
         {tags.map((t) => (
           <Link key={t} href={tagHref(t)} className="text-roam-ref hover:underline">
             #{t}
@@ -90,7 +91,7 @@ export function PublicationBody({
   return (
     <>
       {outline && (
-        <PageOutlineAside headings={outline} className="absolute top-16 right-full bottom-16 hidden w-60 pr-6 xl:block" />
+        <PageOutlineAside headings={outline} className="absolute top-16 right-full bottom-16 hidden w-60 pr-6 xl:block pdf:hidden" />
       )}
       {zoomed && zoomNode ? (
         <>
@@ -105,7 +106,7 @@ export function PublicationBody({
               { label: crumbLabel(zoomNode) },
             ]}
           />
-          {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
+          {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden pdf:hidden" />}
           {zoomNode.embed || blockComponent(zoomNode.string) ? (
             <BlockList nodes={[{ ...zoomNode, collapsed: undefined }]} links={links} viewType={zoomViewType} anchors />
           ) : (
@@ -113,7 +114,9 @@ export function PublicationBody({
               {/* Like Roam, the block zoomed into reads as the title, with its children below it. */}
               <h1 className="mb-6 text-[26px] sm:text-[32px] leading-tight font-semibold break-words whitespace-pre-wrap">
                 <RoamText text={zoomNode.string} links={links} />
-                <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
+                <span data-pdf-skip className="pdf:hidden">
+                  <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
+                </span>
               </h1>
               {pageBlocks(zoomNode.children, zoomNode.viewType)}
             </>
@@ -121,23 +124,25 @@ export function PublicationBody({
         </>
       ) : kind === "page" ? (
         <>
-          {crumbs && <Breadcrumbs items={crumbs} />}
+          {crumbs && <Breadcrumbs items={crumbs} className="pdf:hidden" />}
           <h1 className="mb-2 text-[32px] sm:text-[42px] leading-tight font-semibold break-words">
             {title}
-            <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
+            <span data-pdf-skip className="pdf:hidden">
+              <PrivacyBadges notes={privacy} className="ml-2 inline-flex flex-wrap gap-1 align-middle" />
+            </span>
           </h1>
-          <BylineLine byline={byline} className={tagLine ? "mb-2" : "mb-6"} />
+          <BylineLine byline={byline} className={cn(tagLine ? "mb-2" : "mb-6", "pdf:hidden")} />
           {tagLine}
-          {!byline && !tagLine && <div className="mb-4" />}
-          {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
+          {!byline && !tagLine && <div className="mb-4 pdf:hidden" />}
+          {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden pdf:hidden" />}
           {pageBlocks(tree.children, tree.viewType)}
         </>
       ) : (
         <>
-          {crumbs && <Breadcrumbs items={crumbs} />}
-          <PrivacyBadges notes={privacy} className="mb-3 flex flex-wrap gap-1" />
-          <BylineLine byline={byline} className="mb-4" />
-          {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden" />}
+          {crumbs && <Breadcrumbs items={crumbs} className="pdf:hidden" />}
+          <PrivacyBadges notes={privacy} className="mb-3 flex flex-wrap gap-1 pdf:hidden" />
+          <BylineLine byline={byline} className="mb-4 pdf:hidden" />
+          {outline && <PageOutlineDetails headings={outline} className="mb-4 xl:hidden pdf:hidden" />}
           <BlockList nodes={[tree]} links={links} anchors />
         </>
       )}

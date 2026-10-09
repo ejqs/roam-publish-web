@@ -12,6 +12,7 @@ import { logChange, logChanges } from "@/lib/changelog";
 import { DISCOVER_TAG } from "@/lib/discover";
 import { collectionRole } from "@/lib/collections";
 import { Description } from "@/lib/descriptions";
+import { PdfStyleInput } from "@/lib/pdf";
 import { clearGatedGraphDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { graphUnderModeration, purgeGraph } from "@/lib/deletion";
@@ -362,6 +363,9 @@ const GraphDisplay = z.object({
   showAuthors: z.boolean(),
   views: z.enum(VIEWS_MODE),
   showViewCountries: z.boolean(),
+  /** Download PDF on the graph's pages, unless a page overrides it (lib/pdf.ts). */
+  pdfDownload: z.boolean().optional(),
+  pdfStyle: PdfStyleInput.optional(),
   showOwner: z.boolean(),
   hideUnlistedBreadcrumbs: z.boolean(),
   rss: z.boolean(),
@@ -372,8 +376,8 @@ const GraphDisplay = z.object({
 export type GraphDisplay = z.input<typeof GraphDisplay>;
 
 /**
- * How the graph's pages look and where new ones go: bylines, view counts, breadcrumbs, the RSS
- * feed and default collections. None of it changes who can see a page. Owner only.
+ * How the graph's pages look and where new ones go: bylines, view counts, PDF download, breadcrumbs,
+ * the RSS feed and default collections. None of it changes who can see a page. Owner only.
  */
 export async function updateGraphDisplay(graphId: string, input: GraphDisplay): Promise<FormState> {
   return withAction("dashboard.updateGraphDisplay", async () => {
