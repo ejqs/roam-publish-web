@@ -6,6 +6,12 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.23.1 (2026-10-10)
+
+### Published pages
+- Fixed: Download PDF now opens the print options on iPhone and iPad. Its menu also says where to save the PDF:
+  Save as PDF in the print dialog, or Share, then Save to Files on iOS.
+
 ## 0.23.0 (2026-10-09)
 
 ### Publishing
