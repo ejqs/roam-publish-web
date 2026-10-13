@@ -4,6 +4,7 @@ import { GET as PLACES } from "@/app/api/ext/places/route";
 import { POST as PUBLISH } from "@/app/api/ext/publications/route";
 import { GET as SEAL } from "@/app/api/ext/publications/[rootUid]/seal/route";
 import { db } from "@/db";
+import { NO_GRAPH_PASSWORD } from "@/lib/e2e-publish";
 import { collectionEntry, graph, graphDefaultCollection, publication } from "@/db/schema";
 import { updateCollection } from "@/server/actions/collections";
 import { resetDb } from "../helpers/db";
@@ -58,7 +59,7 @@ describe("listing places", () => {
     await makeCollection(owner.id, { name: "Suspended", suspendedAt: new Date() });
 
     const res = await places(key);
-    expect(res.graph).toEqual({ name: g.name, access: g.defaultAccess, encrypted: false });
+    expect(res.graph).toEqual({ name: g.name, access: g.defaultAccess, encrypted: false, encryptBlocked: NO_GRAPH_PASSWORD });
     expect(res.collections.map((c: { name: string }) => c.name).sort()).toEqual(["Joined", "Writing"]);
     expect(res.collections.find((c: { id: string }) => c.id === writing.id)).toMatchObject({ listing: "discover", access: "open", encrypted: false });
     expect(res.collections.find((c: { id: string }) => c.id === joined.id)).toMatchObject({ listing: "listed", access: "password" });

@@ -161,7 +161,13 @@ export async function placesFor(graphId: string, userId: string) {
   // Whether a new page published only there is encrypted, by the same rules as publishing.
   const encrypts = async (to: Destination) => (await newPagePlacement(graphId, userId, { to: [to] })).encrypt;
   return {
-    graph: { name: g.name, access: g.defaultAccess, encrypted: await encrypts(GRAPH) },
+    graph: {
+      name: g.name,
+      access: g.defaultAccess,
+      encrypted: await encrypts(GRAPH),
+      // For "Publish with encryption" as one of the choices: why it can't be, or null.
+      encryptBlocked: (await newPagePlacement(graphId, userId, { encrypt: true })).blocked,
+    },
     collections: await Promise.all(
       collections.map(async (c) => ({
         id: c.id,
