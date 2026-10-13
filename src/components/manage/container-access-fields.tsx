@@ -334,18 +334,16 @@ function EncryptionStatus({
 }) {
   return (
     <div className="flex gap-2.5 rounded-sm border p-3 text-sm">
-      {encrypts ? (
-        <EncryptedIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      ) : (
-        <LockIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      )}
+      <div className="mt-0.5 shrink-0 self-start text-muted-foreground">
+        {encrypts ? <EncryptedIcon className="size-4" /> : <LockIcon className="size-4" />}
+      </div>
       <div className="flex min-w-0 flex-col gap-1">
         <p className="font-medium">{encrypts ? "Locked and encrypted" : "Locked"}</p>
         <p className="text-muted-foreground">
           {encrypts
             ? `New Password pages are end-to-end encrypted with the ${kind} password.`
             : oldPassword
-              ? `Not encrypted. The ${kind} password was set before encryption existed or is under ${ENCRYPT_PASSWORD_MIN} characters. Enter it again, or a new one of at least ${ENCRYPT_PASSWORD_MIN}, to encrypt.`
+              ? `Not encrypted: the ${kind} password is under ${ENCRYPT_PASSWORD_MIN} characters or was set before encryption existed. A password of at least ${ENCRYPT_PASSWORD_MIN} characters, typed below, encrypts.`
               : typed
                 ? `Not encrypted. Passwords of at least ${ENCRYPT_PASSWORD_MIN} characters also encrypt.`
                 : `Passwords of at least ${ENCRYPT_PASSWORD_MIN} characters also encrypt new Password pages.`}
