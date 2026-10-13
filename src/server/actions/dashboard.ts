@@ -17,7 +17,7 @@ import { clearGatedGraphDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { graphUnderModeration, purgeGraph } from "@/lib/deletion";
 import { canEncryptWith, dropLock, dropOrphanLockKeys, KeysError, setLockPassword } from "@/lib/encryption";
-import { encryptNewPagesBlocked, graphListingBlocked, saveContainerAccessBlocked } from "@/lib/control-rules";
+import { graphListingBlocked, saveContainerAccessBlocked } from "@/lib/control-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { frontPageLink, narrowsAccess, pinBlocked } from "@/lib/pin-rules";
@@ -269,7 +269,8 @@ export async function updateGraphSettings(graphId: string, input: Partial<GraphS
 const GraphAccess = z.object({
   indexAccess: z.enum(ACCESS),
   defaultAccess: z.enum(ACCESS),
-  encryptNewPages: z.boolean(),
+  /** Ignored: it follows the password. Kept so older forms still validate. */
+  encryptNewPages: z.boolean().optional(),
   /** A new graph password, or "" to keep the current one. */
   password: z.union([z.literal(""), Password]),
   clearPassword: z.boolean(),
@@ -296,10 +297,10 @@ export async function updateGraphAccess(graphId: string, input: GraphAccess): Pr
     const hasPassword = s.password ? true : s.clearPassword ? false : !!g.passwordHash;
     const blocked = saveContainerAccessBlocked("graph", s, !!g.passwordHash, 0);
     if (blocked) return { ok: false, message: blocked };
-    // Only kept while new pages start as Password: it does nothing otherwise.
-    const encryptNewPages = s.encryptNewPages && s.defaultAccess === "password";
-    if (encryptNewPages && !(await canEncryptWith({ scope: "graph", id: g.id }, s.password)))
-      return { ok: false, message: encryptNewPagesBlocked("graph") };
+    // New Password pages are encrypted whenever the password can encrypt; a shorter one only locks
+    // them. There's no switch: `encryptNewPages` from older forms is ignored.
+    const encryptNewPages =
+      s.defaultAccess === "password" && !s.clearPassword && (await canEncryptWith({ scope: "graph", id: g.id }, s.password));
     if (
       ((!s.clearPassword && s.password) || s.currentPassword) &&
       !rateLimit(`password:user:${session.user.id}`, 30, 15 * 60 * 1000)

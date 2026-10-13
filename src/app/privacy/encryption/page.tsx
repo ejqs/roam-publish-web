@@ -23,7 +23,7 @@ const outline = [
         "A page can be shown in its graph and in any number of collections. To encrypt it, every one of those places has to use Password, with a password to use there: the graph's or collection's password, or one set just for the page in that place.",
       ),
       block(
-        `Those passwords need at least ${ENCRYPT_PASSWORD_MIN} characters. A password set before encryption existed has to be entered again before it can encrypt.`,
+        `Those passwords need at least ${ENCRYPT_PASSWORD_MIN} characters. A graph's or collection's password of that length encrypts its new Password pages; a shorter one locks them without encrypting. A password set before encryption existed has to be entered again before it can encrypt.`,
       ),
       block(
         "While a page is encrypted, it stays Password everywhere: it can't switch to Open or Members only until you turn encryption off.",

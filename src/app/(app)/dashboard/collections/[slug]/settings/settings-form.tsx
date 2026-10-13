@@ -82,7 +82,8 @@ export function CollectionSettingsForm({
     currentPassword: undefined,
     resetEncrypted: undefined,
   });
-  const [saved, setSaved] = useState(() => form(s, access, canEncrypt));
+  // As stored, so a collection whose saved setting differs from what its password does shows it as a change to save.
+  const [saved, setSaved] = useState(() => ({ ...form(s, access, canEncrypt), encryptNewPages: initial.encryptNewPages }));
   const dirty = changed(form(s, access, canEncrypt), saved);
   useUnsavedChanges(dirty);
   const set = <K extends keyof Initial>(k: K) => (v: Initial[K]) => setS((p) => ({ ...p, [k]: v }));
@@ -136,6 +137,7 @@ export function CollectionSettingsForm({
             canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
             pinned={pinned}
+            savedEncrypt={saved.encryptNewPages}
             onChange={setAccess}
           />
           <FieldSeparator />

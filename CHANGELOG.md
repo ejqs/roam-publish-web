@@ -8,6 +8,12 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 
 ## 0.23.1 (2026-10-10)
 
+### Security
+- Improved: **A password's length decides whether it encrypts.** A graph or collection password of at least 10
+  characters encrypts new Password pages end to end; a shorter one, from 4 characters, locks them without
+  encrypting. The "Encrypt new password pages" switch is gone: Sharing and collection Settings say "Locked and
+  encrypted" or "Locked". A graph or collection keeps its current setting until its settings are next saved.
+
 ### Published pages
 - Fixed: Download PDF now opens the print options on iPhone and iPad. Its menu also says where to save the PDF:
   Save as PDF in the print dialog, or Share, then Save to Files on iOS.

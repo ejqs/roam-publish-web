@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLinkIcon, LockOpenIcon, RefreshCwIcon, SearchIcon, TypeIcon, UsersIcon } from "lucide-react";
+import { ExternalLinkIcon, LockIcon, LockOpenIcon, RefreshCwIcon, SearchIcon, TypeIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FieldDescription, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { decryptExistingPagesBlocked, E2E_EXTENSION, ENCRYPT_PASSWORD_MIN, encryptExistingPagesBlocked } from "@/lib/encryption-rules";
 import type { Access } from "@/db/schema";
 import { narrowsAccess } from "@/lib/pin-rules";
@@ -21,7 +20,10 @@ import { Choice, readOptions } from "./choice";
 export type ContainerAccess = {
   indexAccess: Access;
   defaultAccess: Access;
-  /** Pages added from now on that are password-protected are encrypted. */
+  /**
+   * Pages added from now on that are password-protected are encrypted. Not chosen: it follows the
+   * password (`accessToSave`), and is only here to say what's saved.
+   */
   encryptNewPages: boolean;
   /** A new password, or "" to keep the current one. */
   password: string;
@@ -41,10 +43,12 @@ export function encryptablePassword(value: ContainerAccess, canEncrypt: boolean)
   return !value.clearPassword && canEncrypt;
 }
 
-/** The settings to save: "Encrypt new password pages" only stays on while it can work. */
+/**
+ * The settings to save. New Password pages are encrypted whenever the password can encrypt (at
+ * least ENCRYPT_PASSWORD_MIN characters); a shorter one only locks them. There's no switch.
+ */
 export function accessToSave(value: ContainerAccess, canEncrypt: boolean): ContainerAccess {
-  const on = value.encryptNewPages && value.defaultAccess === "password" && encryptablePassword(value, canEncrypt);
-  return { ...value, encryptNewPages: on };
+  return { ...value, encryptNewPages: value.defaultAccess === "password" && encryptablePassword(value, canEncrypt) };
 }
 
 /**
@@ -62,6 +66,7 @@ export function ContainerAccessFields({
   canEncrypt,
   encryptedPages = [],
   pinned,
+  savedEncrypt,
   onChange,
 }: {
   kind: "graph" | "collection";
@@ -81,21 +86,18 @@ export function ContainerAccessFields({
    * `from`, and `reason` says why.
    */
   pinned?: { reason: string; from: Access };
+  /** Whether new Password pages are encrypted as saved now, to say when saving changes that. */
+  savedEncrypt?: boolean;
   onChange: (v: ContainerAccess) => void;
 }) {
   const [resetOpen, setResetOpen] = useState(false);
-  const [confirmEncrypt, setConfirmEncrypt] = useState(false);
-  /** The password typed in the confirmation, when there isn't one to encrypt with yet. */
-  const [encryptPassword, setEncryptPassword] = useState("");
   const encrypted = encryptedPages.length;
   const pagesWord = `${encrypted.toLocaleString("en-US")} encrypted ${encrypted === 1 ? "page" : "pages"}`;
   const set = (patch: Partial<ContainerAccess>) => onChange({ ...value, ...patch });
   const usesPassword = value.indexAccess === "password" || value.defaultAccess === "password";
   const willHavePassword = value.password ? true : value.clearPassword ? false : hasPassword;
   const passwordDefault = value.defaultAccess === "password";
-  const canTurnOnEncrypt = passwordDefault && encryptablePassword(value, canEncrypt);
   const encryptOn = accessToSave(value, canEncrypt).encryptNewPages;
-  const pagesVerb = kind === "graph" ? "published" : "added";
   return (
     <>
       <FieldSet>
@@ -127,89 +129,15 @@ export function ContainerAccessFields({
             hasPassword={hasPassword}
           />
         )}
-        <div className="flex items-start justify-between gap-4 pt-2">
-          <div className="flex flex-col gap-1">
-            <FieldLabel htmlFor={`${kind}-encrypt-new`}>Encrypt new password pages</FieldLabel>
-            <FieldDescription>
-              {passwordDefault
-                ? `Pages ${pagesVerb} from now on are stored encrypted with the ${kind} password, so a copy of the database can't read them. Needs a password of at least ${ENCRYPT_PASSWORD_MIN} characters. Pages already here aren't changed: encrypt them below.`
-                : `Only applies while new pages start as Password.`}
-            </FieldDescription>
-            {passwordDefault && !canTurnOnEncrypt && (
-              <FieldDescription className={value.encryptNewPages ? "text-destructive" : undefined}>
-                {value.password
-                  ? `The new password is too short to encrypt with.`
-                  : hasPassword && !value.clearPassword
-                    ? `The ${kind} password was set before encryption existed or is too short. Turning this on asks for one of at least ${ENCRYPT_PASSWORD_MIN} characters.`
-                    : `Turning it on asks for a ${kind} password of at least ${ENCRYPT_PASSWORD_MIN} characters.`}
-              </FieldDescription>
-            )}
-          </div>
-          <Switch
-            id={`${kind}-encrypt-new`}
-            checked={encryptOn}
-            disabled={!encryptOn && !passwordDefault}
-            onCheckedChange={(on) => {
-              if (!on) return set({ encryptNewPages: false });
-              setEncryptPassword(value.password);
-              setConfirmEncrypt(true);
-            }}
+        {passwordDefault && (
+          <EncryptionStatus
+            kind={kind}
+            encrypts={encryptOn}
+            typed={!!value.password}
+            oldPassword={hasPassword && !value.clearPassword && !value.password && !canEncrypt}
+            changes={savedEncrypt !== undefined && savedEncrypt !== encryptOn}
           />
-        </div>
-        <Dialog open={confirmEncrypt} onOpenChange={setConfirmEncrypt}>
-          <DialogContent className="sm:max-w-md">
-            <form
-              className="flex flex-col gap-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (canTurnOnEncrypt) set({ encryptNewPages: true });
-                else if (encryptPassword.length >= ENCRYPT_PASSWORD_MIN)
-                  set({ encryptNewPages: true, password: encryptPassword, clearPassword: false });
-                else return;
-                setConfirmEncrypt(false);
-              }}
-            >
-              <DialogHeader>
-                <DialogTitle className="break-words">Encrypt new password pages in {label}?</DialogTitle>
-                <DialogDescription>
-                  Pages {pagesVerb} from now on that start as Password are stored encrypted with the {kind} password.
-                  Readers still open them with it. What changes for those pages:
-                </DialogDescription>
-              </DialogHeader>
-              <EncryptConsequences />
-              {!canTurnOnEncrypt && (
-                <div className="flex flex-col gap-1.5">
-                  <label htmlFor={`${kind}-encrypt-password`} className="text-sm font-medium">
-                    Encryption password
-                  </label>
-                  <Input
-                    id={`${kind}-encrypt-password`}
-                    type="password"
-                    autoComplete="new-password"
-                    autoFocus
-                    value={encryptPassword}
-                    aria-invalid={!!encryptPassword && encryptPassword.length < ENCRYPT_PASSWORD_MIN}
-                    onChange={(e) => setEncryptPassword(e.target.value)}
-                  />
-                  <p
-                    className={`text-xs ${encryptPassword && encryptPassword.length < ENCRYPT_PASSWORD_MIN ? "text-destructive" : "text-muted-foreground"}`}
-                  >
-                    At least {ENCRYPT_PASSWORD_MIN} characters. It becomes the {kind} password when you save, so readers use it
-                    too.
-                  </p>
-                </div>
-              )}
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setConfirmEncrypt(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={!canTurnOnEncrypt && encryptPassword.length < ENCRYPT_PASSWORD_MIN}>
-                  <EncryptedIcon /> Encrypt new pages
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        )}
         {pageCount > 0 && (
           <EncryptExistingDialog
             kind={kind}
@@ -384,6 +312,63 @@ function ApplyToPagesDialog({
 }
 
 /** What encrypting changes for a page, for the dialogs that do it. */
+/**
+ * What a Password default does with the password it has: lock and encrypt (at least
+ * ENCRYPT_PASSWORD_MIN characters), or only lock.
+ */
+function EncryptionStatus({
+  kind,
+  encrypts,
+  typed,
+  oldPassword,
+  changes,
+}: {
+  kind: "graph" | "collection";
+  encrypts: boolean;
+  /** A new password is being typed. */
+  typed: boolean;
+  /** The saved password has no key pair: set before encryption existed, or too short. */
+  oldPassword: boolean;
+  /** Saving turns encryption on or off for new pages. */
+  changes: boolean;
+}) {
+  return (
+    <div className="flex gap-2.5 rounded-sm border p-3 text-sm">
+      {encrypts ? (
+        <EncryptedIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      ) : (
+        <LockIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      )}
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="font-medium">{encrypts ? "Locked and encrypted" : "Locked"}</p>
+        <p className="text-muted-foreground">
+          {encrypts
+            ? `New Password pages are end-to-end encrypted with the ${kind} password.`
+            : oldPassword
+              ? `Not encrypted. The ${kind} password was set before encryption existed or is under ${ENCRYPT_PASSWORD_MIN} characters. Enter it again, or a new one of at least ${ENCRYPT_PASSWORD_MIN}, to encrypt.`
+              : typed
+                ? `Not encrypted. Passwords of at least ${ENCRYPT_PASSWORD_MIN} characters also encrypt.`
+                : `Passwords of at least ${ENCRYPT_PASSWORD_MIN} characters also encrypt new Password pages.`}
+        </p>
+        {changes && (
+          <p className="text-amber-700 dark:text-amber-400">
+            {encrypts ? "Saving turns on encryption for new Password pages." : "Saving turns off encryption for new Password pages."}{" "}
+            Pages already here don&apos;t change.
+          </p>
+        )}
+        {encrypts && (
+          <details className="group mt-1">
+            <summary className="cursor-pointer text-link hover:underline">What changes for encrypted pages</summary>
+            <div className="mt-2 flex flex-col gap-3">
+              <EncryptConsequences />
+            </div>
+          </details>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function EncryptConsequences() {
   return (
     <>
