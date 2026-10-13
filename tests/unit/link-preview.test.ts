@@ -71,26 +71,31 @@ describe("previewMetadata", () => {
 });
 
 describe("privacyNotes", () => {
-  const base = { container: "TTC", encrypted: false, unlisted: false };
-  test("nothing for an open, listed page", () => {
-    expect(privacyNotes({ ...base, access: "open" })).toEqual([]);
+  const base = { container: "TTC", encrypted: false, listing: "listed" as const };
+  test("an open page says where it's listed; a protected one doesn't", () => {
+    expect(privacyNotes({ ...base, access: "open" }).map((n) => n.kind)).toEqual(["public"]);
+    expect(privacyNotes({ ...base, access: "open", listing: "discover" }).map((n) => n.kind)).toEqual(["discover"]);
+    expect(privacyNotes({ ...base, access: "password", listing: "discover" }).map((n) => n.kind)).toEqual(["password"]);
+    // The graph or collection can turn the Public and Discover chips off; Unlisted still shows.
+    expect(privacyNotes({ ...base, access: "open", listing: "discover", showListing: false })).toEqual([]);
+    expect(privacyNotes({ ...base, access: "open", listing: "unlisted" as const, showListing: false }).map((n) => n.kind)).toEqual(["unlisted"]);
   });
   test("encrypted replaces password, and unlisted comes last", () => {
-    expect(privacyNotes({ ...base, access: "password", encrypted: true, unlisted: true }).map((n) => n.kind)).toEqual([
+    expect(privacyNotes({ ...base, access: "password", encrypted: true, listing: "unlisted" as const }).map((n) => n.kind)).toEqual([
       "encrypted",
       "unlisted",
     ]);
     expect(privacyNotes({ ...base, access: "members" }).map((n) => n.kind)).toEqual(["members"]);
   });
   test("a listed open page out of search says so; unlisted or protected pages don't repeat it", () => {
-    expect(privacyNotes({ ...base, access: "open", unsearchable: true }).map((n) => n.kind)).toEqual(["unsearchable"]);
+    expect(privacyNotes({ ...base, access: "open", unsearchable: true }).map((n) => n.kind)).toEqual(["public", "unsearchable"]);
     // A password, members-only or encrypted page is never in search anyway.
     expect(privacyNotes({ ...base, access: "password", unsearchable: true }).map((n) => n.kind)).toEqual(["password"]);
     expect(privacyNotes({ ...base, access: "members", unsearchable: true }).map((n) => n.kind)).toEqual(["members"]);
     expect(
       privacyNotes({ ...base, access: "password", encrypted: true, unsearchable: true }).map((n) => n.kind),
     ).toEqual(["encrypted"]);
-    expect(privacyNotes({ ...base, access: "open", unlisted: true, unsearchable: true }).map((n) => n.kind)).toEqual([
+    expect(privacyNotes({ ...base, access: "open", listing: "unlisted" as const, unsearchable: true }).map((n) => n.kind)).toEqual([
       "unlisted",
     ]);
   });

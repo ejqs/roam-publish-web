@@ -74,6 +74,8 @@ const Settings = z.object({
   indexAccess: z.enum(ACCESS),
   defaultAccess: z.enum(ACCESS),
   showAuthors: z.boolean(),
+  /** The Public or Discover chip on open pages here. */
+  showVisibility: z.boolean().optional(),
   views: z.enum(VIEWS_MODE),
   showViewCountries: z.boolean(),
   /** Download PDF on pages here, unless a page overrides it (lib/pdf.ts). */
@@ -147,6 +149,7 @@ export async function updateCollection(collectionId: string, input: CollectionSe
         indexAccess: s.indexAccess,
         defaultAccess: s.defaultAccess,
         showAuthors: s.showAuthors,
+        ...(s.showVisibility !== undefined && { showVisibility: s.showVisibility }),
         views: s.views,
         showViewCountries: s.showViewCountries,
         ...(s.pdfDownload !== undefined && { pdfDownload: s.pdfDownload }),

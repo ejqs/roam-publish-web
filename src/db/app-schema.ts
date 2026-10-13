@@ -65,6 +65,8 @@ export const graph = pgTable("graph", {
   showOwner: boolean("show_owner").notNull().default(true),
   /** Unlisted publications show no breadcrumbs, so a shared link doesn't lead back to the graph. */
   hideUnlistedBreadcrumbs: boolean("hide_unlisted_breadcrumbs").notNull().default(true),
+  /** A Public or Discover chip after the title of open pages (components/privacy-icons.ts). */
+  showVisibility: boolean("show_visibility").notNull().default(true),
   /** Set by a moderator: the whole graph is hidden and its API key stops working. */
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   suspendedReason: text("suspended_reason"),
@@ -465,6 +467,8 @@ export const collection = pgTable("collection", {
   passwordHash: text("password_hash"),
   passwordVersion: integer("password_version").notNull().default(0),
   showAuthors: boolean("show_authors").notNull().default(true),
+  /** A Public or Discover chip after the title of open pages (components/privacy-icons.ts). */
+  showVisibility: boolean("show_visibility").notNull().default(true),
   views: text("views", { enum: VIEWS_MODE }).notNull().default("show"),
   showViewCountries: boolean("show_view_countries").notNull().default(true),
   /** Readers get a Download PDF button on pages here, unless a page overrides it (lib/pdf.ts). */

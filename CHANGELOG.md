@@ -6,6 +6,13 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.24.0 (2026-10-13)
+
+### Published pages
+- New: Open pages show a **Public** or **Discover** label after their title, next to the Unlisted, Password and
+  Members only labels. Turn it off in a graph's or collection's Settings → Display with "Show Public and Discover
+  labels".
+
 ## 0.23.1 (2026-10-10)
 
 ### Published pages

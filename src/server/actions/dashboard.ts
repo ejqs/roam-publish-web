@@ -368,6 +368,7 @@ const GraphDisplay = z.object({
   pdfStyle: PdfStyleInput.optional(),
   showOwner: z.boolean(),
   hideUnlistedBreadcrumbs: z.boolean(),
+  showVisibility: z.boolean().optional(),
   rss: z.boolean(),
   newPagesInGraph: z.boolean(),
   /** Collections new pages join; only ones the owner belongs to are kept. */
@@ -377,7 +378,7 @@ export type GraphDisplay = z.input<typeof GraphDisplay>;
 
 /**
  * How the graph's pages look and where new ones go: bylines, view counts, PDF download, breadcrumbs,
- * the RSS feed and default collections. None of it changes who can see a page. Owner only.
+ * the Public and Discover chips, the RSS feed and default collections. None of it changes who can see a page. Owner only.
  */
 export async function updateGraphDisplay(graphId: string, input: GraphDisplay): Promise<FormState> {
   return withAction("dashboard.updateGraphDisplay", async () => {

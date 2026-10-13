@@ -31,7 +31,12 @@ export function GraphDisplayForm({
   /** The feed lists the front page, so it needs one anyone can open. */
   frontPage: boolean;
   indexOpen: boolean;
-  initial: Omit<GraphDisplay, "views" | "pdfDownload" | "pdfStyle"> & { views: ViewsMode; pdfDownload: boolean; pdfStyle: PdfStyle };
+  initial: Omit<GraphDisplay, "views" | "pdfDownload" | "pdfStyle" | "showVisibility"> & {
+    views: ViewsMode;
+    pdfDownload: boolean;
+    pdfStyle: PdfStyle;
+    showVisibility: boolean;
+  };
   /** Collections the owner belongs to. */
   collections: { id: string; name: string }[];
 }) {
@@ -97,6 +102,14 @@ export function GraphDisplayForm({
             description="Unlisted pages won't link back to this graph or your profile."
             checked={s.hideUnlistedBreadcrumbs}
             onChange={set("hideUnlistedBreadcrumbs")}
+          />
+          <FieldSeparator />
+          <SettingSwitch
+            id="showVisibility"
+            label="Show Public and Discover labels"
+            description="A label after the title of open pages saying where they're listed. Unlisted, Password and Members only labels always show."
+            checked={s.showVisibility}
+            onChange={set("showVisibility")}
           />
           <FieldSeparator />
           <SettingSwitch
