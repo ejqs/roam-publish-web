@@ -12,10 +12,6 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 - New: Open pages show a **Public** or **Discover** label after their title, next to the Unlisted, Password and
   Members only labels. Turn it off in a graph's or collection's Settings → Display with "Show Public and Discover
   labels".
-
-## 0.23.1 (2026-10-10)
-
-### Published pages
 - Fixed: Download PDF now opens the print options on iPhone and iPad. Its menu also says where to save the PDF:
   Save as PDF in the print dialog, or Share, then Save to Files on iOS.
 
