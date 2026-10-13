@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, graph, publication, publicationKey } from "@/db/schema";
+import { collectionsOf } from "./collections";
 import { defaultCollectionsFor } from "./places";
 import { encryptBlocker, type LockRef, locksOf, lockKeyOf, type Spot, spotsOf, wantsEncryption } from "./encryption";
 
@@ -58,8 +59,11 @@ async function targetsOf(spots: Spot[]): Promise<SealTarget[]> {
  * keeps them out of a graph place that can't be encrypted (open, members only, or a password without
  * a key pair): shown there too, the page couldn't be encrypted at all, so anyone with its graph link
  * could read what the collection was set to keep end-to-end encrypted.
+ *
+ * `to`: where the publisher picked in the extension (0.2.0 and later), instead of "New pages go to":
+ * "graph" and collection ids, from `placesFor`. The same rules apply to it.
  */
-export async function newPagePlacement(graphId: string, userId: string, { encrypt = false } = {}) {
+export async function newPagePlacement(graphId: string, userId: string, { encrypt = false, to }: { encrypt?: boolean; to?: Destination[] } = {}) {
   const g = (await db.query.graph.findFirst({ where: eq(graph.id, graphId) }))!;
   if (encrypt) {
     // "Publish with encryption": only in the graph, as a Password page, whatever new pages usually do.
@@ -76,7 +80,7 @@ export async function newPagePlacement(graphId: string, userId: string, { encryp
     const blocked = !g.passwordHash ? NO_GRAPH_PASSWORD : (await encryptBlocker(db, spots)) ? GRAPH_PASSWORD_CANT_ENCRYPT : null;
     return { graph: g, collections: [] as string[], inGraph: true, access: "password" as const, spots, encrypt: !blocked, blocked };
   }
-  const joining = await defaultCollectionsFor(graphId, userId);
+  const joining = to ? await pickedCollections(userId, to) : await defaultCollectionsFor(graphId, userId);
   const cs = joining.length
     ? await db.query.collection.findMany({ where: inArray(collection.id, joining.map((c) => c.id)), orderBy: collection.name })
     : [];
@@ -97,7 +101,8 @@ export async function newPagePlacement(graphId: string, userId: string, { encryp
     path: "",
   }));
   const encryptsHere = cs.some((c) => c.encryptNewPages);
-  let inGraph = (g.newPagesInGraph && !joining.some((c) => c.leavesGraph)) || joining.length === 0;
+  const wantsGraph = to ? to.includes(GRAPH) : g.newPagesInGraph;
+  let inGraph = (wantsGraph && !joining.some((c) => c.leavesGraph)) || joining.length === 0;
   if (inGraph && encryptsHere && joining.length) {
     const blocked = await encryptBlocker(db, [graphSpot(true), ...entries]);
     if (blocked?.spot.kind === "graph" && !(await encryptBlocker(db, [graphSpot(false), ...entries]))) inGraph = false;
@@ -115,6 +120,62 @@ export async function newPagePlacement(graphId: string, userId: string, { encryp
   };
 }
 
+/** Where a new page can be published from the extension: its graph, or a collection by id. */
+export const GRAPH = "graph";
+export type Destination = string;
+
+/** Destinations as sent: undefined when none were, false when they're malformed. */
+export function parseDestinations(to: unknown): Destination[] | undefined | false {
+  if (to === undefined || (Array.isArray(to) && to.length === 0)) return undefined;
+  if (!Array.isArray(to) || to.length > 50 || !to.every((d) => typeof d === "string" && d.length > 0 && d.length <= 64)) return false;
+  return [...new Set(to as string[])];
+}
+
+/** Why a picked place can't take a new page from this publisher, or null when every one can. */
+export async function destinationBlocked(userId: string, to: Destination[]) {
+  const mine = new Map((await collectionsOf(userId)).map((c) => [c.id, c]));
+  for (const id of to) {
+    if (id === GRAPH) continue;
+    const c = mine.get(id);
+    if (!c) return "Join that collection on roam.pub first.";
+    if (c.suspendedAt) return "That collection isn't available.";
+  }
+  return null;
+}
+
+async function pickedCollections(userId: string, to: Destination[]) {
+  return (await collectionsOf(userId))
+    .filter((c) => to.includes(c.id) && !c.suspendedAt)
+    .map((c) => ({ id: c.id, leavesGraph: c.pagesLeaveGraph }));
+}
+
+/**
+ * Where the extension's Publish can put a new page, for its "Publish where?" question: the graph and
+ * the collections this publisher belongs to, how a page starts out in each, and where "New pages go
+ * to" would put it, which the question starts on.
+ */
+export async function placesFor(graphId: string, userId: string) {
+  const g = (await db.query.graph.findFirst({ where: eq(graph.id, graphId) }))!;
+  const { inGraph, collections: joining } = await newPagePlacement(graphId, userId);
+  const collections = (await collectionsOf(userId)).filter((c) => !c.suspendedAt);
+  // Whether a new page published only there is encrypted, by the same rules as publishing.
+  const encrypts = async (to: Destination) => (await newPagePlacement(graphId, userId, { to: [to] })).encrypt;
+  return {
+    graph: { name: g.name, access: g.defaultAccess, encrypted: await encrypts(GRAPH) },
+    collections: await Promise.all(
+      collections.map(async (c) => ({
+        id: c.id,
+        name: c.name,
+        access: c.defaultAccess,
+        // As `addEntry` lists a new entry.
+        listing: c.featured && c.indexAccess === "open" && c.defaultAccess === "open" ? ("discover" as const) : ("listed" as const),
+        encrypted: await encrypts(c.id),
+      })),
+    ),
+    newPagesGoTo: [...(inGraph ? [GRAPH] : []), ...joining],
+  };
+}
+
 /**
  * Whether the page at `rootUid` is (or, new, will be) encrypted, and what to seal it to. `encrypt`:
  * the extension's "Publish with encryption", which only changes where a new page goes.
@@ -124,7 +185,7 @@ export async function sealPlan(
   userId: string,
   rootUid: string,
   newId = crypto.randomUUID(),
-  { encrypt = false } = {},
+  { encrypt = false, to }: { encrypt?: boolean; to?: Destination[] } = {},
 ): Promise<SealPlan> {
   const existing = await db.query.publication.findFirst({
     where: and(eq(publication.graphId, graphId), eq(publication.rootUid, rootUid)),
@@ -135,7 +196,7 @@ export async function sealPlan(
     if (!existing.encrypted) return { encrypt: false, ...asked };
     return { encrypt: true, publicationId: existing.id, locks: await targetsOf(await spotsOf(db, existing.id)), ...asked };
   }
-  const { spots, encrypt: will, blocked } = await newPagePlacement(graphId, userId, { encrypt });
+  const { spots, encrypt: will, blocked } = await newPagePlacement(graphId, userId, { encrypt, to });
   if (encrypt && blocked) return { encrypt: false, encryptBlocked: blocked };
   return will ? { encrypt: true, publicationId: newId, locks: await targetsOf(spots), ...asked } : { encrypt: false, ...asked };
 }
