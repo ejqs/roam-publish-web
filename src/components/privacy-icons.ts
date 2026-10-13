@@ -1,4 +1,4 @@
-import { EyeOffIcon, LockIcon, SearchXIcon, UsersIcon } from "lucide-react";
+import { CompassIcon, EyeOffIcon, GlobeIcon, LockIcon, SearchXIcon, UsersIcon } from "lucide-react";
 import { EncryptedIcon } from "@/components/encrypted-icon";
 import { ACCESS_LABELS, LISTING_LABELS } from "@/components/manage/labels";
 import type { Access } from "@/db/schema";
@@ -9,6 +9,8 @@ import type { Access } from "@/db/schema";
  * is the lock with an E beside it.
  */
 export const PRIVACY_ICONS = {
+  public: GlobeIcon,
+  discover: CompassIcon,
   unlisted: EyeOffIcon,
   password: LockIcon,
   encrypted: EncryptedIcon,
@@ -30,15 +32,16 @@ export type PrivacyNote = {
 };
 
 /**
- * What a reader is told about a page they're reading: whether it's protected, and whether it's
- * listed or kept out of site search. Nothing for an open, listed, searchable page. `container` is
- * the graph or collection it's shown in.
+ * What a reader is told about a page they're reading: whether it's protected, where it's listed
+ * (Public, Discover or Unlisted), and whether it's kept out of site search. `container` is the
+ * graph or collection it's shown in.
  */
 export function privacyNotes({
   access,
   encrypted,
   encryption,
-  unlisted,
+  listing,
+  showListing = true,
   unsearchable = false,
   container,
 }: {
@@ -46,7 +49,10 @@ export function privacyNotes({
   encrypted: boolean;
   /** How it was encrypted (lib/encryption-rules.ts ENCRYPTION_VERSIONS), and the code that did it. */
   encryption?: { version: number | null; by: string | null };
-  unlisted: boolean;
+  /** Where it's listed; "discover" only when it's actually on Discover (lib/discover.ts). */
+  listing: "unlisted" | "listed" | "discover";
+  /** The graph's or collection's "Show Public and Discover labels" setting. */
+  showListing?: boolean;
   /**
    * Listed here, and its owner took it out of roam.pub search. Unlisted already says it can't be found, and a
    * password or members-only page is never searchable, so neither shows it.
@@ -55,6 +61,20 @@ export function privacyNotes({
   container: string;
 }): PrivacyNote[] {
   const notes: PrivacyNote[] = [];
+  const unlisted = listing === "unlisted";
+  // Only an open page is Public or on Discover; a protected page's lock says more than where its title is listed.
+  if (showListing && access === "open" && !encrypted && !unlisted)
+    notes.push(
+      listing === "discover"
+        ? {
+            kind: "discover",
+            label: LISTING_LABELS.discover,
+            text: `Anyone can read it. It's listed on ${container} and on roam.pub/discover.`,
+            href: "/discover",
+            linkLabel: "Open Discover",
+          }
+        : { kind: "public", label: LISTING_LABELS.listed, text: `Anyone can read it. It's listed on ${container}.` },
+    );
   if (encrypted) {
     const v = encryption?.version ?? 1;
     const by = encryption?.by ? ` by ${encryption.by}` : "";

@@ -28,6 +28,7 @@ type Initial = {
   encryptNewPages: boolean;
   pagesLeaveGraph: boolean;
   showAuthors: boolean;
+  showVisibility: boolean;
   views: ViewsMode;
   showViewCountries: boolean;
   pdfDownload: boolean;
@@ -150,6 +151,14 @@ export function CollectionSettingsForm({
           />
           <FieldSeparator />
           <Toggle id="c-authors" label="Show authors" description="Bylines on pages in this collection. Pages can override it." checked={s.showAuthors} onChange={set("showAuthors")} />
+          <FieldSeparator />
+          <Toggle
+            id="c-visibility"
+            label="Show Public and Discover labels"
+            description="A label after the title of open pages saying where they're listed. Unlisted, Password and Members only labels always show."
+            checked={s.showVisibility}
+            onChange={set("showVisibility")}
+          />
           <FieldSeparator />
           <ContainerViewsFields
             kind="collection"

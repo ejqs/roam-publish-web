@@ -393,7 +393,7 @@ async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: s
       related={related}
       siteSearch={await canSearchSite(me)}
       byline={byline}
-      privacy={privacyNotes({ access, encrypted: pub.encrypted, encryption: { version: pub.encryptionVersion, by: pub.encryptedBy }, unlisted: entry.listing === "unlisted", unsearchable: !pub.searchable && entry.listing === "listed", container: c.name })}
+      privacy={privacyNotes({ access, encrypted: pub.encrypted, encryption: { version: pub.encryptionVersion, by: pub.encryptedBy }, listing: entry.listing === "unlisted" ? "unlisted" : onDiscover ? "discover" : "listed", showListing: c.showVisibility, unsearchable: !pub.searchable && entry.listing === "listed", container: c.name })}
       report={{ collectionSlug: c.slug, entryUid: entry.entryUid }}
       votes={votes}
       countViews={entry.listing !== "unlisted" && access === "open"}

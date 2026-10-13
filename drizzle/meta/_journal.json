@@ -330,6 +330,13 @@
       "when": 1791532282793,
       "tag": "0046_pdf_download",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1791874024042,
+      "tag": "0047_show_visibility",
+      "breakpoints": true
     }
   ]
 }
