@@ -6,6 +6,21 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.24.0 (2026-10-13)
+
+### Security
+- Improved: **A password's length decides whether it encrypts.** A graph or collection password of at least 10
+  characters encrypts new Password pages end to end; a shorter one, from 4 characters, locks them without
+  encrypting. The "Encrypt new password pages" switch is gone: Sharing and collection Settings say "Locked and
+  encrypted" or "Locked". A graph or collection keeps its current setting until its settings are next saved.
+
+### Published pages
+- New: Open pages show a **Public** or **Discover** label after their title, next to the Unlisted, Password and
+  Members only labels. Turn it off in a graph's or collection's Settings → Display with "Show Public and Discover
+  labels".
+- Fixed: Download PDF now opens the print options on iPhone and iPad. Its menu also says where to save the PDF:
+  Save as PDF in the print dialog, or Share, then Save to Files on iOS.
+
 ## 0.23.0 (2026-10-09)
 
 ### Publishing

@@ -3,7 +3,6 @@
 import { FileDownIcon, LockIcon } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { flushSync } from "react-dom";
-import { toast } from "sonner";
 import { PdfStyleControls } from "@/components/manage/pdf-fields";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -29,7 +28,10 @@ export type PdfOffer = {
 const today = () => new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 const PAGE_STYLE_ID = "pdf-page-style";
-const TIP_KEY = "rp:pdf-tip-seen";
+
+/** iPhone or iPad, where printing has no Save as PDF destination. iPadOS reports itself as a Mac. */
+const isIOS = () =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
 /**
  * Puts a style on <html> for printing: the data-pdf-* choices the print stylesheet reads
@@ -142,21 +144,19 @@ export function PdfDownloadButton({ offer }: { offer: PdfOffer }) {
     const title = document.title;
     const shown = shownTitle();
     if (shown) document.title = shown;
-    let seen = false;
-    try {
-      seen = localStorage.getItem(TIP_KEY) === "1";
-      localStorage.setItem(TIP_KEY, "1");
-    } catch {}
-    if (!seen) toast("Choose Save as PDF as the destination to download it.");
-    // After the popover has closed, so it isn't in the PDF.
-    requestAnimationFrame(() =>
-      setTimeout(() => {
-        window.print();
+    // Back to the owner's style for the browser's own Print once the dialog closes. iOS returns from
+    // print() while its sheet is still open, so this can't run right after it.
+    window.addEventListener(
+      "afterprint",
+      () => {
         document.title = title;
-        // Back to the owner's style for the browser's own Print.
         applyStyle(offer.style, offer.link, "expanded");
-      }, 50),
+      },
+      { once: true },
     );
+    // Right away, inside the tap: iOS Safari ignores print() once the gesture has passed. The
+    // popover needn't close first, since the print layout leaves out everything outside <main>.
+    window.print();
   }
 
   return (
@@ -181,6 +181,12 @@ export function PdfDownloadButton({ offer }: { offer: PdfOffer }) {
           <FileDownIcon />
           Download PDF
         </Button>
+        {/* Only rendered once opened, so only in the browser. */}
+        <p className="-mt-2 text-xs text-muted-foreground">
+          {isIOS()
+            ? "In the print options, tap Share, then Save to Files."
+            : "In the print dialog, choose Save as PDF as the destination."}
+        </p>
       </PopoverContent>
     </Popover>
   );

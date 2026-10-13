@@ -381,7 +381,7 @@ describe("the graph password", () => {
   });
 });
 
-describe("Encrypt new password pages", () => {
+describe("New Password pages are encrypted when the password can encrypt", () => {
   const LONG_PW = "another-long-one";
   const access = (password: string, extra: Record<string, unknown> = {}) =>
     updateGraphAccess(g.id, {
@@ -422,14 +422,17 @@ describe("Encrypt new password pages", () => {
     return (await db.query.publication.findFirst({ where: and(eq(publication.graphId, g.id), eq(publication.rootUid, t.uid)) }))!;
   }
 
-  test("can't be turned on with a password that can't encrypt", async () => {
+  test("a password that can't encrypt only locks, whatever the form sends", async () => {
+    const encrypts = async () => (await db.query.graph.findFirst({ where: eq(graph.id, g.id) }))!.encryptNewPages;
     // The graph password predates encryption: no key pair until it's typed again.
-    expect((await access(""))?.message).toContain("at least 10");
-    expect((await access("short1"))?.ok).toBe(false);
-    expect((await db.query.graph.findFirst({ where: eq(graph.id, g.id) }))!.encryptNewPages).toBe(false);
-    // Typing it again makes the key pair.
-    expect((await access(GRAPH_PW))?.ok).toBe(true);
-    expect((await db.query.graph.findFirst({ where: eq(graph.id, g.id) }))!.encryptNewPages).toBe(true);
+    expect((await access(""))?.ok).toBe(true);
+    expect(await encrypts()).toBe(false);
+    // Shorter than 10 characters: a plain lock.
+    expect((await access("short1"))?.ok).toBe(true);
+    expect(await encrypts()).toBe(false);
+    // Long enough: encrypted, even if an older form says not to.
+    expect((await access(GRAPH_PW, { encryptNewPages: false }))?.ok).toBe(true);
+    expect(await encrypts()).toBe(true);
   });
 
   test("is only kept while new pages start as Password", async () => {
@@ -447,8 +450,8 @@ describe("Encrypt new password pages", () => {
     expect(textOf((await readerSees(await readGraphPage(pub))).tree)).toContain(SECRET);
   });
 
-  test("off, new pages stay readable", async () => {
-    expect((await access(LONG_PW, { encryptNewPages: false }))?.ok).toBe(true);
+  test("with a short password, new pages are locked but stay readable", async () => {
+    expect((await access("four"))?.ok).toBe(true);
     expect((await publishNew()).encrypted).toBe(false);
   });
 
@@ -462,7 +465,8 @@ describe("Encrypt new password pages", () => {
   test("a collection's setting encrypts pages added to it", async () => {
     const c = await makeCollection(owner.id);
     const save = (extra: Record<string, unknown>) => saveCollection(c, extra);
-    expect((await save({ password: "short1" })).ok).toBe(false);
+    expect((await save({ password: "short1" })).ok).toBe(true);
+    expect((await db.query.collection.findFirst({ where: eq(collection.id, c.id) }))!.encryptNewPages).toBe(false);
     expect(await save({ password: LONG_PW })).toMatchObject({ ok: true });
     expect((await db.query.collection.findFirst({ where: eq(collection.id, c.id) }))!.encryptNewPages).toBe(true);
     // Pages go only to the collection, so it's their one place.
@@ -481,7 +485,7 @@ describe("Encrypt new password pages", () => {
   });
 
   test("a graph that can hold it encrypted keeps it, encrypted for both", async () => {
-    expect((await access(LONG_PW, { encryptNewPages: false }))?.ok).toBe(true);
+    expect((await access(LONG_PW))?.ok).toBe(true);
     const c = await makeCollection(owner.id);
     expect((await saveCollection(c, { password: LONG_PW })).ok).toBe(true);
     await db.insert(graphDefaultCollection).values({ graphId: g.id, collectionId: c.id });

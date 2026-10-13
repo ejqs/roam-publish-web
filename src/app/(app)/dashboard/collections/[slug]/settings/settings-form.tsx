@@ -28,6 +28,7 @@ type Initial = {
   encryptNewPages: boolean;
   pagesLeaveGraph: boolean;
   showAuthors: boolean;
+  showVisibility: boolean;
   views: ViewsMode;
   showViewCountries: boolean;
   pdfDownload: boolean;
@@ -82,7 +83,8 @@ export function CollectionSettingsForm({
     currentPassword: undefined,
     resetEncrypted: undefined,
   });
-  const [saved, setSaved] = useState(() => form(s, access, canEncrypt));
+  // As stored, so a collection whose saved setting differs from what its password does shows it as a change to save.
+  const [saved, setSaved] = useState(() => ({ ...form(s, access, canEncrypt), encryptNewPages: initial.encryptNewPages }));
   const dirty = changed(form(s, access, canEncrypt), saved);
   useUnsavedChanges(dirty);
   const set = <K extends keyof Initial>(k: K) => (v: Initial[K]) => setS((p) => ({ ...p, [k]: v }));
@@ -136,6 +138,7 @@ export function CollectionSettingsForm({
             canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
             pinned={pinned}
+            savedEncrypt={saved.encryptNewPages}
             onChange={setAccess}
           />
           <FieldSeparator />
@@ -148,6 +151,14 @@ export function CollectionSettingsForm({
           />
           <FieldSeparator />
           <Toggle id="c-authors" label="Show authors" description="Bylines on pages in this collection. Pages can override it." checked={s.showAuthors} onChange={set("showAuthors")} />
+          <FieldSeparator />
+          <Toggle
+            id="c-visibility"
+            label="Show Public and Discover labels"
+            description="A label after the title of open pages saying where they're listed. Unlisted, Password and Members only labels always show."
+            checked={s.showVisibility}
+            onChange={set("showVisibility")}
+          />
           <FieldSeparator />
           <ContainerViewsFields
             kind="collection"

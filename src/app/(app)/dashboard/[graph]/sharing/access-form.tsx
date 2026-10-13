@@ -55,7 +55,8 @@ export function GraphAccessForm({
     currentPassword: undefined,
     resetEncrypted: undefined,
   });
-  const [saved, setSaved] = useState(() => form(access, canEncrypt));
+  // As stored, so a graph whose saved setting differs from what its password does shows it as a change to save.
+  const [saved, setSaved] = useState(() => ({ ...form(access, canEncrypt), encryptNewPages: initial.encryptNewPages }));
   const dirty = changed(form(access, canEncrypt), saved);
   useUnsavedChanges(dirty);
 
@@ -91,6 +92,7 @@ export function GraphAccessForm({
             canEncrypt={canEncrypt}
             encryptedPages={encryptedPages}
             pinned={pinned ? { reason: pinned, from: saved.indexAccess } : undefined}
+            savedEncrypt={saved.encryptNewPages}
             onChange={setAccess}
           />
         </FieldGroup>

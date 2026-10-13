@@ -17,7 +17,7 @@ import { purgeCollection } from "@/lib/deletion";
 import { clearGatedCollectionDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { canEncryptWith, dropLock, KeysError, setLockPassword } from "@/lib/encryption";
-import { encryptNewPagesBlocked, saveContainerAccessBlocked } from "@/lib/control-rules";
+import { saveContainerAccessBlocked } from "@/lib/control-rules";
 import { hashPassword, Password } from "@/lib/gates";
 import { canReceiveInvite } from "@/lib/graph-access";
 import { rateLimit } from "@/lib/rate-limit";
@@ -74,6 +74,8 @@ const Settings = z.object({
   indexAccess: z.enum(ACCESS),
   defaultAccess: z.enum(ACCESS),
   showAuthors: z.boolean(),
+  /** The Public or Discover chip on open pages here. */
+  showVisibility: z.boolean().optional(),
   views: z.enum(VIEWS_MODE),
   showViewCountries: z.boolean(),
   /** Download PDF on pages here, unless a page overrides it (lib/pdf.ts). */
@@ -82,7 +84,8 @@ const Settings = z.object({
   indexable: z.boolean(),
   searchListed: z.boolean(),
   featured: z.boolean(),
-  encryptNewPages: z.boolean(),
+  /** Ignored: it follows the password. Kept so older forms still validate. */
+  encryptNewPages: z.boolean().optional(),
   pagesLeaveGraph: z.boolean().optional(),
   discoverable: z.boolean(),
   rss: z.boolean(),
@@ -109,10 +112,10 @@ export async function updateCollection(collectionId: string, input: CollectionSe
     const hasPassword = s.password ? true : s.clearPassword ? false : !!c.passwordHash;
     const blocked = saveContainerAccessBlocked("collection", s, !!c.passwordHash, 0);
     if (blocked) return { ok: false, message: blocked };
-    // Only kept while new pages start as Password: it does nothing otherwise.
-    const encryptNewPages = s.encryptNewPages && s.defaultAccess === "password";
-    if (encryptNewPages && !(await canEncryptWith({ scope: "collection", id: c.id }, s.password)))
-      return { ok: false, message: encryptNewPagesBlocked("collection") };
+    // New Password pages are encrypted whenever the password can encrypt; a shorter one only locks
+    // them. There's no switch: `encryptNewPages` from older forms is ignored.
+    const encryptNewPages =
+      s.defaultAccess === "password" && !s.clearPassword && (await canEncryptWith({ scope: "collection", id: c.id }, s.password));
     if (!hasPassword && (await pagesNeedingContainerPassword("collection", c.id)))
       return { ok: false, message: "Some pages still use the collection password. Change them first." };
     const ownPin = await pinOf({ kind: "collection", collectionId: c.id });
@@ -147,6 +150,7 @@ export async function updateCollection(collectionId: string, input: CollectionSe
         indexAccess: s.indexAccess,
         defaultAccess: s.defaultAccess,
         showAuthors: s.showAuthors,
+        ...(s.showVisibility !== undefined && { showVisibility: s.showVisibility }),
         views: s.views,
         showViewCountries: s.showViewCountries,
         ...(s.pdfDownload !== undefined && { pdfDownload: s.pdfDownload }),

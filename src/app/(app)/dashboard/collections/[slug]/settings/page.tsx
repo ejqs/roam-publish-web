@@ -59,6 +59,7 @@ export default async function CollectionSettingsPage(props: PageProps<"/dashboar
             encryptNewPages: c.encryptNewPages,
             pagesLeaveGraph: c.pagesLeaveGraph,
             showAuthors: c.showAuthors,
+            showVisibility: c.showVisibility,
             views: c.views,
             showViewCountries: c.showViewCountries,
             pdfDownload: c.pdfDownload,
