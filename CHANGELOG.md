@@ -6,6 +6,13 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.25.0 (2026-10-14)
+
+### Publishing
+- New: Roam Publish 0.2.0 asks where to publish something new: your graph, your graph encrypted, or one of your
+  collections. It starts on your graph's **New pages go to** setting, and a collection picked is the only place
+  the page goes.
+
 ## 0.24.0 (2026-10-13)
 
 ### Security

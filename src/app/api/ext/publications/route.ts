@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { collectionEntry, graph, LOCK_SCOPES, type Node, publication, shortlink } from "@/db/schema";
 import { contentHash } from "@/lib/content-hash";
-import { newPagePlacement, type SealedContent, sealPlan, sealsMatch, storeSealedKeys } from "@/lib/e2e-publish";
+import { destinationBlocked, newPagePlacement, parseDestinations, type SealedContent, sealPlan, sealsMatch, storeSealedKeys } from "@/lib/e2e-publish";
 import { foldedUids } from "@/lib/folds";
 import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, encryptPage, hiddenTitle, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
@@ -50,6 +50,11 @@ const Body = z.object({
    * Password page, encrypted; refused when the graph password can't encrypt. Ignored on a republish.
    */
   encrypt: z.literal(true).optional(),
+  /**
+   * Where the publisher picked for a new page (extension 0.2.0 and later): "graph" and collection ids,
+   * instead of the graph's "New pages go to". Ignored on a republish and with `encrypt`.
+   */
+  to: z.array(z.string().min(1).max(64)).min(1).max(50).optional(),
 });
 
 /**
@@ -209,7 +214,12 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   const tree = "tree" in p ? withoutShortlinks(p.tree, await shortlinkSet(ctx.graphId)) : emptyTree(p.rootUid);
   const folded = "folded" in p ? p.folded : foldedUids(tree);
   const encrypt = !existing && !!p.encrypt;
-  const plan = sealed && (await sealPlan(ctx.graphId, ctx.userId, p.rootUid, sealed.publicationId, { encrypt }));
+  const to = existing || encrypt ? undefined : (parseDestinations(p.to) || undefined);
+  if (to) {
+    const blocked = await destinationBlocked(ctx.userId, to);
+    if (blocked) return json(req, { error: blocked }, 403);
+  }
+  const plan = sealed && (await sealPlan(ctx.graphId, ctx.userId, p.rootUid, sealed.publicationId, { encrypt, to }));
   if (sealed && !(plan && sealsMatch(plan, sealed))) return resealResponse(req);
   if (sealed && !existing && (await db.query.publication.findFirst({ where: eq(publication.id, sealed.publicationId), columns: { id: true } })))
     return resealResponse(req);
@@ -283,9 +293,9 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
     return json(req, { status: "updated", url, shortUrl: short, contentHash: hash, visibility, ...listing, encrypted: existing.encrypted, changeLog: await changeLogStatusOf(ctx.graphId), collections: await collectionCount(ctx.userId) });
   }
 
-  // New pages go where the graph's "New pages go to" setting says (lib/e2e-publish.ts), or only to the
-  // graph as a Password page when published with encryption.
-  const { inGraph, collections, access, blocked } = await newPagePlacement(ctx.graphId, ctx.userId, { encrypt });
+  // New pages go where the publisher picked, or else where the graph's "New pages go to" setting says
+  // (lib/e2e-publish.ts), or only to the graph as a Password page when published with encryption.
+  const { inGraph, collections, access, blocked } = await newPagePlacement(ctx.graphId, ctx.userId, { encrypt, to });
   // Never published readable when it was asked to be encrypted.
   if (blocked) return json(req, { error: blocked }, 400);
 
