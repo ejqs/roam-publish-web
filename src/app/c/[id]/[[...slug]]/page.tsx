@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { AccessLock, lockInfo } from "@/components/access-lock";
 import { DashboardLink } from "@/components/dashboard-link";
 import { ManageLink } from "@/components/manage-link";
+import { PageBar } from "@/components/page-bar";
 import { FeedLink } from "@/components/feed-link";
 import { GateNotice } from "@/components/gate-notice";
 import { dashboardHref, PublicationView } from "@/components/publication-view";
@@ -232,14 +233,20 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
   return (
     <>
       <main className={cn("relative flex-1", layout === "list" ? "bg-card" : "bg-background")}>
-        <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
+        <PageBar
+          className="absolute top-3 right-4 left-4"
+          owner={
+            <>
+              <DashboardLink href={role ? `/dashboard/collections/${encodeURIComponent(c.slug)}` : undefined} />
+              {role === "owner" && <ManageLink href={`/dashboard/collections/${encodeURIComponent(c.slug)}/settings`} />}
+            </>
+          }
+        >
           <QuickSearch scope={{ path: collectionPath(c.slug), name: c.name }} siteSearch={await canSearchSite(me)} />
-          <DashboardLink href={role ? `/dashboard/collections/${encodeURIComponent(c.slug)}` : undefined} />
-          {role === "owner" && <ManageLink href={`/dashboard/collections/${encodeURIComponent(c.slug)}/settings`} />}
           {hasCollectionFeed(c) && <FeedLink href={collectionFeedPath(c.slug)} />}
           <ReportAbuseButton target={{ collectionSlug: c.slug }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
-        </div>
+        </PageBar>
         {layout !== "list" ? (
           <FrontPage
             layout={layout}

@@ -5,6 +5,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
 import { DashboardLink } from "@/components/dashboard-link";
 import { ManageLink } from "@/components/manage-link";
+import { PageBar } from "@/components/page-bar";
 import { ReportAbuseButton } from "@/components/report-abuse-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SiteFooter } from "@/components/site-footer";
@@ -62,12 +63,18 @@ export default async function ProfilePage(props: PageProps<"/u/[username]">) {
   return (
     <>
       <main className="relative flex-1 bg-card">
-        <div className="absolute top-3 right-4 left-4 flex items-center justify-end gap-1">
-          <DashboardLink />
-          {mine && <ManageLink href="/dashboard#profile" />}
+        <PageBar
+          className="absolute top-3 right-4 left-4"
+          owner={
+            <>
+              <DashboardLink />
+              {mine && <ManageLink href="/dashboard#profile" />}
+            </>
+          }
+        >
           <ReportAbuseButton target={{ username: p.username }} />
           <ThemeToggle size="icon-sm" className="text-muted-foreground" />
-        </div>
+        </PageBar>
         <div className="mx-auto w-full max-w-[700px] px-4 py-16">
           <h1 className="text-[32px] sm:text-[42px] leading-tight font-semibold break-words">@{p.username}</h1>
           {p.bio && <p className="mt-2 text-muted-foreground break-words">{p.bio}</p>}

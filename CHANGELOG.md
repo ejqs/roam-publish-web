@@ -6,6 +6,13 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.25.1 (2026-10-20)
+
+### Published pages
+- Improved: **A tidier bar at the top of pages.** Dashboard and Manage sit on the left, apart from Search,
+  Download PDF, Report abuse and the theme on the right, all in one button style. On published pages the bar no
+  longer covers the page, so the breadcrumb sits right above the title.
+
 ## 0.25.0 (2026-10-14)
 
 ### Publishing
