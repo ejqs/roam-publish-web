@@ -160,8 +160,9 @@ export function ListPagination<F extends string, S extends string>({
   page: number;
   matching: number;
 }) {
-  if (matching === 0) return null;
-  const pageCount = Math.max(1, Math.ceil(matching / PAGE_SIZE));
+  const pageCount = Math.ceil(matching / PAGE_SIZE);
+  // One page needs no paging; the list's own count already says how many.
+  if (pageCount <= 1) return null;
   return (
     <nav className="flex flex-wrap items-center justify-between gap-2 text-sm" aria-label="Pagination">
       <PageLink href={listHref(cfg, path, state, { page: page - 1 })} disabled={page <= 1} rel="prev">

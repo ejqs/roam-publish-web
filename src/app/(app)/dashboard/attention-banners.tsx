@@ -77,16 +77,6 @@ export function attentionItems({
     });
   }
 
-  if (hasGraph && !me) {
-    items.push({
-      id: "claim",
-      severity: "warning",
-      title: "Claim your username",
-      body: "Get a short profile link that lists your graphs.",
-      action: { label: "Claim username", href: "#profile" },
-    });
-  }
-
   const hiddenFrontPages = graphs.filter(
     (g) =>
       !g.suspendedAt &&

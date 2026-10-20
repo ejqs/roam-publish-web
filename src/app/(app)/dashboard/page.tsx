@@ -143,7 +143,7 @@ export default async function DashboardPage() {
       description={
         <p className="text-xs text-muted-foreground">Hand-picked sets of pages from any of your graphs.</p>
       }
-      action={eligible && <AddCollectionDialog variant="default" />}
+      action={eligible && <AddCollectionDialog />}
       items={collectionItems}
     />
   );

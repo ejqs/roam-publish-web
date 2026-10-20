@@ -13,6 +13,11 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
   Download PDF, Report abuse and the theme on the right, all in one button style. On published pages the bar no
   longer covers the page, so the breadcrumb sits right above the title.
 
+### Dashboard
+- Improved: The overview asks for a username once, in the Profile card, without a banner repeating it above.
+- Improved: Lists that fit on one page no longer show Previous and Next.
+- Improved: **Add collection** uses the same button style as **Connect graph**.
+
 ## 0.25.0 (2026-10-14)
 
 ### Publishing
