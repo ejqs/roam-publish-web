@@ -5,6 +5,7 @@ import { DashboardLink } from "@/components/dashboard-link";
 import { EncryptedBody, type TagBase } from "@/components/encrypted-body";
 import { QuickSearch } from "@/components/quick-search";
 import { ManageDialog } from "@/components/manage/manage-dialog";
+import { PageBar } from "@/components/page-bar";
 import { type PdfOffer, PdfDownloadButton, PdfMasthead } from "@/components/pdf-download";
 import type { PrivacyNote } from "@/components/privacy-icons";
 import { type BodyProps, type Byline, PublicationBody } from "@/components/publication-body";
@@ -87,15 +88,21 @@ export function PublicationView({
     <>
       <main className="relative flex-1 bg-card">
         <FoldAllRoot>
-          <div className="absolute top-3 right-4 left-4 z-10 flex items-center justify-end gap-1 pdf:hidden">
+          <PageBar
+            className="px-4 pt-3"
+            owner={
+              <>
+                <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
+                {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
+              </>
+            }
+          >
             <QuickSearch siteSearch={siteSearch} />
             {pdf && <PdfDownloadButton offer={pdf} />}
-            <DashboardLink href={manage ? dashboardHref(manage) : undefined} />
-            {manage && <ManageDialog data={manage} trigger="floating" afterUnpublish={afterUnpublish} />}
             <ReportAbuseButton target={report} />
             <ThemeToggle size="icon-sm" className="text-muted-foreground" />
-          </div>
-          <article data-pdf-article={pdf ? "" : undefined} className="relative mx-auto w-full max-w-[700px] px-4 py-16 text-[16px]">
+          </PageBar>
+          <article data-pdf-article={pdf ? "" : undefined} className="relative mx-auto w-full max-w-[700px] px-4 pt-6 pb-16 text-[16px]">
             {pdf && <PdfMasthead offer={pdf} />}
             {sealed ? (
               <EncryptedBody {...sealed} body={bodyProps} links={[...links]} tagBase={tagBase} />

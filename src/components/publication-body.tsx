@@ -91,7 +91,7 @@ export function PublicationBody({
   return (
     <>
       {outline && (
-        <PageOutlineAside headings={outline} className="absolute top-16 right-full bottom-16 hidden w-60 pr-6 xl:block pdf:hidden" />
+        <PageOutlineAside headings={outline} className="absolute top-6 right-full bottom-16 hidden w-60 pr-6 xl:block pdf:hidden" />
       )}
       {zoomed && zoomNode ? (
         <>

@@ -26,7 +26,7 @@ export type ReportTarget =
   | { username: string }
   | { collectionSlug: string; entryUid?: string };
 
-/** Top-right "Report abuse" for a published page, a whole graph, or a user's profile. */
+/** "Report abuse" (a flag in a public page's bar) for a published page, a whole graph, or a user's profile. */
 export function ReportAbuseButton({ target }: { target: ReportTarget }) {
   const what =
     "username" in target
@@ -52,9 +52,8 @@ export function ReportAbuseButton({ target }: { target: ReportTarget }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant="ghost" size="sm" className="text-muted-foreground max-sm:px-1.5" title="Report abuse">
+          <Button variant="ghost" size="icon-sm" className="text-muted-foreground" title="Report abuse" aria-label="Report abuse">
             <FlagIcon />
-            <span className="max-sm:sr-only">Report abuse</span>
           </Button>
         }
       />

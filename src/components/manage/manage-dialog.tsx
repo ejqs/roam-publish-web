@@ -121,8 +121,9 @@ export function ManageDialog({
       <DialogTrigger
         render={
           trigger === "floating" ? (
-            <Button variant="outline" size="sm" className="gap-1.5 bg-card">
-              <Settings2Icon /> Manage
+            <Button variant="ghost" size="sm" className="text-muted-foreground max-sm:px-1.5" title="Manage">
+              <Settings2Icon />
+              <span className="max-sm:sr-only">Manage</span>
             </Button>
           ) : (
             <Button variant="ghost" size="sm" className="text-muted-foreground">
