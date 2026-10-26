@@ -6,6 +6,20 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.26.0 (2026-10-26)
+
+### Publishing
+- New: Roam Publish 0.3.0 can change a page's settings from Roam: where it's listed, its byline, view count and
+  Download PDF, in its graph and in each of its collections, and take it out of a collection. Access and passwords
+  are still changed here.
+- New: Roam Publish 0.3.0 can change a collection's settings from Roam for its owner: name, description, byline,
+  view count, Download PDF, Discover, search and RSS.
+
+### Dashboard
+- New: Roam Publish 0.3.0 has a dashboard in Roam with your views, upvotes, reader countries, most read pages and
+  collections. roam.pub now keeps each page's view count per day for 90 days, so it can show views by day from
+  today on.
+
 ## 0.25.1 (2026-10-20)
 
 ### Published pages
