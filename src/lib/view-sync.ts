@@ -1,11 +1,12 @@
 import "server-only";
-import { type AnyColumn, and, asc, eq, inArray, lte, min, type SQL, sql } from "drizzle-orm";
+import { type AnyColumn, and, asc, eq, inArray, lt, lte, min, type SQL, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   collection,
   collectionEntry,
   graph,
   pageViews,
+  pageViewsDay,
   publication,
   type JobResult,
 } from "@/db/schema";
@@ -251,6 +252,24 @@ const existingCols = {
 const countriesDue = (old: Existing | undefined, views: number, now: Date) =>
   !old || tier(old.views) !== tier(views) ? now : old.countriesNextSyncAt;
 
+/** Days of counts kept in page_views_day. */
+export const DAYS_KEPT = 90;
+
+/** The UTC day of a moment, as page_views_day stores it. */
+export const utcDay = (at: Date) => at.toISOString().slice(0, 10);
+
+/**
+ * Saves every count this run synced as its day's count, so stats can tell views per day. A later
+ * run the same day overwrites it; `prune` drops days past DAYS_KEPT.
+ */
+async function recordDay(now: Date, prune = false) {
+  await db.execute(sql`
+    insert into page_views_day (page_views_id, day, views)
+    select id, ${utcDay(now)}::date, views from page_views where synced_at = ${now.toISOString()}::timestamptz
+    on conflict (page_views_id, day) do update set views = excluded.views`);
+  if (prune) await db.delete(pageViewsDay).where(lt(pageViewsDay.day, utcDay(new Date(now.getTime() - DAYS_KEPT * DAY))));
+}
+
 /** Resets every tracked page to its all-time count. Saves `fullSweepAt` in the cursor for the hot sweep. */
 export async function fullSweep(client: UmamiClient, cursor: Record<string, unknown>, now = new Date()): Promise<JobResult> {
   const { rows, complete } = await client.allMetrics("path", await since(), now);
@@ -277,6 +296,7 @@ export async function fullSweep(client: UmamiClient, cursor: Record<string, unkn
   // Only when the sweep saw everything, or a cut-off list would wipe real counts.
   const gone = complete ? [...existing.values()].filter((r) => !places.has(keyOf(r))).map((r) => r.id) : [];
   for (const part of chunks(gone)) await db.delete(pageViews).where(inArray(pageViews.id, part));
+  await recordDay(now, true);
   cursor.fullSweepAt = now.toISOString();
   return { calls: client.calls, paths: rows.length, pages: places.size, removed: gone.length, complete };
 }
@@ -336,6 +356,7 @@ export async function hotSweep(client: UmamiClient, fullSweepAt: Date | null, no
       .where(eq(pageViews.id, old.id));
   }
   await upsert(added);
+  await recordDay(now);
   return { calls: client.calls, paths: rows.length, updated: list.length - waiting - added.length, added: added.length, waiting, surged: surges };
 }
 

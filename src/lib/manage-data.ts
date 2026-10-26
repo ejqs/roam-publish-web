@@ -74,6 +74,7 @@ export type ManageData = {
   };
   entries: {
     entryId: string;
+    collectionId: string;
     path: string;
     collectionName: string;
     collectionSlug: string;
@@ -122,6 +123,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
       .filter((e) => e.entry.publicationId === pub.id)
       .map(({ entry, c }) => ({
         entryId: entry.id,
+        collectionId: c.id,
         path: entryPath(c.slug, entry.entryUid, pub.title),
         collectionName: c.name,
         collectionSlug: c.slug,

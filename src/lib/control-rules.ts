@@ -69,3 +69,10 @@ export function setPlacePasswordBlocked(password: string, encrypted: boolean) {
 export function removeOwnPasswordBlocked(container: { label: string; hasPassword: boolean }) {
   if (!container.hasPassword) return `${container.label} has no password, so it stays while this page uses Password.`;
 }
+
+/** On Discover for a page's place in a collection: `access` is who can read it there. */
+export function entryDiscoverBlocked(access: Access, c: { indexAccess: Access; indexable: boolean; suspended: boolean }) {
+  if (access !== "open") return "Password-protected and members-only pages can't be listed on Discover.";
+  if (c.indexAccess !== "open" || !c.indexable || c.suspended)
+    return "Make the collection open and indexable to list its pages on Discover.";
+}
