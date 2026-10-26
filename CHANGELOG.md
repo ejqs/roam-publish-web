@@ -6,6 +6,11 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.27.0 (2026-10-26)
+
+### Dashboard
+- New: Roam Publish 0.3.0 shows each page's views, upvotes and reader countries in Roam, next to its title.
+
 ## 0.26.0 (2026-10-26)
 
 ### Publishing
