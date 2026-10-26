@@ -4,6 +4,7 @@ import { GET as COLLECTION, PATCH as PATCH_COLLECTION } from "@/app/api/ext/coll
 import { PATCH as PATCH_PAGE } from "@/app/api/ext/publications/[rootUid]/route";
 import { DELETE as REMOVE_ENTRY, PATCH as PATCH_ENTRY } from "@/app/api/ext/publications/[rootUid]/collections/[collectionId]/route";
 import { GET as SETTINGS } from "@/app/api/ext/publications/[rootUid]/settings/route";
+import { GET as PAGE_STATS } from "@/app/api/ext/publications/[rootUid]/stats/route";
 import { GET as STATS } from "@/app/api/ext/stats/route";
 import { db } from "@/db";
 import { collection, collectionEntry, pageViews, pageViewsDay, publication, publicationView, publicationVote } from "@/db/schema";
@@ -39,6 +40,9 @@ const patchEntry = (key: string, rootUid: string, collectionId: string, body: un
 const removeEntry = (key: string, rootUid: string, collectionId: string) =>
   REMOVE_ENTRY(extRequest(`/api/ext/publications/${rootUid}/collections/${collectionId}`, key, { method: "DELETE" }), entry(rootUid, collectionId));
 const stats = async (key: string, period = "30") => STATS(extRequest(`/api/ext/stats?period=${period}`, key));
+
+const pageStats = async (key: string, rootUid: string, period = "7") =>
+  PAGE_STATS(extRequest(`/api/ext/publications/${rootUid}/stats?period=${period}`, key), page(rootUid));
 
 let owner: Awaited<ReturnType<typeof makeUser>>;
 let g: Awaited<ReturnType<typeof makeGraph>>;
@@ -239,6 +243,33 @@ describe("stats", () => {
 
   test("an unknown period is refused", async () => {
     expect((await stats(key, "year")).status).toBe(400);
+    const p = await makePublication(g.id, owner.id);
+    expect((await pageStats(key, p.rootUid, "year")).status).toBe(400);
+  });
+
+  test("one page's stats count that page alone", async () => {
+    const a = await makePublication(g.id, owner.id, { title: "Alpha" });
+    const b = await makePublication(g.id, owner.id, { title: "Beta" });
+    await db.insert(pageViews).values([
+      { publicationId: a.id, path: "/a", views: 12, countries: [{ code: "PH", views: 12 }] },
+      { publicationId: b.id, path: "/b", views: 30, countries: [{ code: "US", views: 30 }] },
+    ]);
+    const reader = await makeUser();
+    await db.insert(publicationVote).values({ publicationId: a.id, userId: reader.id });
+    const res = await pageStats(key, a.rootUid);
+    expect(res.status).toBe(200);
+    const s = await res.json();
+    expect(s).toMatchObject({ period: "7", views: { total: 12 }, upvotes: { total: 1, period: 1 }, countries: [{ code: "PH", views: 12 }] });
+    expect(s.views.byDay).toHaveLength(7);
+    expect(s).not.toHaveProperty("collections");
+  });
+
+  test("a member can't read another member's page stats", async () => {
+    const member = await makeUser();
+    await addGraphMember(g.id, member.id);
+    const p = await makePublication(g.id, owner.id);
+    expect((await pageStats(await keyFor(member.id, g), p.rootUid)).status).toBe(403);
+    expect((await pageStats(key, "nope")).status).toBe(404);
   });
 });
 
