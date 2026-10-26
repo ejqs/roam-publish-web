@@ -337,6 +337,13 @@
       "when": 1791874024042,
       "tag": "0047_show_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793021147963,
+      "tag": "0048_page_views_day",
+      "breakpoints": true
     }
   ]
 }

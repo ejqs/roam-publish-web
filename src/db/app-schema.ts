@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   customType,
+  date,
   doublePrecision,
   index,
   integer,
@@ -738,6 +739,22 @@ export const pageViews = pgTable(
     index("page_views_countries_due_idx").on(t.countriesNextSyncAt),
     check("page_views_one_place", sql`(${t.publicationId} is null) <> (${t.entryId} is null)`),
   ],
+);
+
+/**
+ * A place's view count as last synced each day (UTC), so stats can say how many views came in per
+ * day: a day's views are its count minus the day before's. Written by the view sync, kept 90 days.
+ */
+export const pageViewsDay = pgTable(
+  "page_views_day",
+  {
+    pageViewsId: text("page_views_id")
+      .notNull()
+      .references(() => pageViews.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }).notNull(),
+    views: integer("views").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.pageViewsId, t.day] }), index("page_views_day_day_idx").on(t.day)],
 );
 
 /**
