@@ -19,9 +19,10 @@ const TOP_PAGES = 5;
 /**
  * Stats for the extension's dashboard: the graph's pages for its owner, a member's own pages for a
  * member. Every number is one roam.pub already keeps; nothing new is tracked about readers. Views
- * per day come from page_views_day (lib/view-sync.ts), so they start when that began.
+ * per day come from page_views_day (lib/view-sync.ts), so they start when that began. With `only`
+ * (a publication id), the numbers are that page's alone and collections are left out.
  */
-export async function extStats(ctx: ExtContext, period: StatsPeriod, now = new Date()) {
+export async function extStats(ctx: ExtContext, period: StatsPeriod, now = new Date(), only?: string) {
   const pubs = await db
     .select({
       id: publication.id,
@@ -39,6 +40,7 @@ export async function extStats(ctx: ExtContext, period: StatsPeriod, now = new D
         eq(publication.graphId, ctx.graphId),
         isNull(publication.removedAt),
         ctx.role === "owner" ? undefined : eq(publication.publishedBy, ctx.userId),
+        only ? eq(publication.id, only) : undefined,
       ),
     );
   const ids = pubs.map((p) => p.id);
@@ -142,7 +144,7 @@ export async function extStats(ctx: ExtContext, period: StatsPeriod, now = new D
     for (const r of logged.rows) published.add(r.day);
   }
 
-  const collections = (await collectionsOf(ctx.userId)).filter((c) => !c.suspendedAt);
+  const collections = only ? [] : (await collectionsOf(ctx.userId)).filter((c) => !c.suspendedAt);
   const pageCounts = collections.length
     ? new Map(
         (
