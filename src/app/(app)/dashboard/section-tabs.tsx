@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ExternalLinkIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, EyeOffIcon } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -82,4 +82,18 @@ export function resourceTabs(base: string, isOwner: boolean, withDefaults = fals
     ...(isOwner && withDefaults ? [{ href: `${base}/sharing`, label: "Sharing" }] : []),
     ...(isOwner ? [{ href: `${base}/settings`, label: "Settings" }] : []),
   ];
+}
+
+/** Under a graph's or collection's Pages list: its Unlisted pages, which the Unlisted tab lists instead. */
+export function UnlistedElsewhere({ n, from, href }: { n: number; from: string; href: string }) {
+  if (!n) return null;
+  return (
+    <Link href={href} className="-mt-2 flex w-fit max-w-full items-center gap-1.5 text-sm text-link hover:underline">
+      <EyeOffIcon className="size-3.5 shrink-0" />
+      <span className="truncate">
+        {n.toLocaleString("en-US")} Unlisted {n === 1 ? "page" : "pages"} from {from}
+      </span>
+      <ChevronRightIcon className="size-3.5 shrink-0" />
+    </Link>
+  );
 }

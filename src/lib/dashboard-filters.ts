@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNotNull, isNull, not, sql, type SQL } from "drizzle-orm";
 import { collection, collectionEntry, graph, publication } from "@/db/schema";
 
 /** Who can see a page, as the ladder names it, plus moderator removal. */
@@ -25,6 +25,19 @@ export const ACCESS_WHERE: Record<AccessFilter, SQL> = {
   members: and(live, sql`${graphReadAccess} = 'members'`)!,
   removed: isNotNull(publication.removedAt),
 };
+
+/**
+ * Unlisted pages shown in their graph. They have their own dashboard tab (/dashboard/unlisted), so
+ * the graph's Pages list leaves them out; pages only in collections stay in it.
+ */
+export const UNLISTED_IN_GRAPH = and(eq(publication.inGraph, true), ACCESS_WHERE.unlisted)!;
+export const notUnlistedInGraph = not(UNLISTED_IN_GRAPH);
+export const unlistedInGraphCount = sql<number>`count(*) filter (where ${UNLISTED_IN_GRAPH})`.mapWith(Number);
+
+/** The Unlisted tab, optionally narrowed to one graph (`g:{name}`) or collection (`c:{slug}`). */
+export const unlistedTabPath = (from?: { graph: string } | { collection: string }) =>
+  "/dashboard/unlisted" +
+  (!from ? "" : `?from=${encodeURIComponent("graph" in from ? `g:${from.graph}` : `c:${from.collection}`)}`);
 
 /** Per-setting counts, for a select grouped by graph. */
 const countWhere = (a: AccessFilter) => sql<number>`count(*) filter (where ${ACCESS_WHERE[a]})`.mapWith(Number);
@@ -177,6 +190,11 @@ const ENTRY_WHERE: Record<EntryFilter, SQL> = {
   members: and(live, sql`${entryReadAccess} = 'members'`)!,
   removed: isNotNull(publication.removedAt),
 };
+
+/** A collection's Unlisted pages, which the Unlisted tab lists instead of its Pages list. Needs publication joined. */
+export const UNLISTED_ENTRY = ENTRY_WHERE.unlisted;
+export const unlistedEntryCount = sql<number>`count(*) filter (where ${UNLISTED_ENTRY})`.mapWith(Number);
+export const notUnlistedEntry = not(UNLISTED_ENTRY);
 
 const entryCountWhere = (f: EntryFilter) => sql<number>`count(*) filter (where ${ENTRY_WHERE[f]})`.mapWith(Number);
 /** Per-rung counts for a select over collection_entry joined to publication. */

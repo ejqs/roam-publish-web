@@ -77,7 +77,7 @@ describe("adding a page to a collection", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({ listing: "discover", access: "open", movedOutOfGraph: false });
-    expect(body.url).toContain(`/${g.name}/`);
+    expect(body.url).toContain(`/l/${(await pubOf(p.rootUid))!.linkId}/`);
     expect((await pubOf(p.rootUid))!.inGraph).toBe(true);
   });
 

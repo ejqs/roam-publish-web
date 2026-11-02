@@ -22,6 +22,7 @@ const Input = z.object({
   username: z.string().min(1).max(64).optional(),
   collectionSlug: z.string().min(1).max(64).optional(),
   entryUid: z.string().max(64).optional(),
+  linkId: z.string().max(64).optional(),
   reason: z.enum(reportReasons, {
     error: "Choose a reason.",
   }),
@@ -53,13 +54,16 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
       username: formData.get("username") || undefined,
       collectionSlug: formData.get("collectionSlug") || undefined,
       entryUid: formData.get("entryUid") || undefined,
+      linkId: formData.get("linkId") || undefined,
       reason: formData.get("reason"),
       details: formData.get("details") ?? "",
       email: formData.get("email") ?? "",
     });
     if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
     const r = parsed.data;
-    if ([r.graphName, r.username, r.collectionSlug].filter(Boolean).length !== 1)
+    // Unlisted pages are reported by their /l/ id or entry uid alone, so the form doesn't name the graph or collection.
+    const unnamedEntry = !r.collectionSlug && !r.graphName && !r.username && !r.linkId ? r.entryUid : undefined;
+    if ([r.graphName, r.username, r.collectionSlug, r.linkId, unnamedEntry].filter(Boolean).length !== 1)
       return { ok: false, message: "Invalid report." };
 
     const h = await headers();
@@ -71,7 +75,17 @@ export async function submitReport(_prev: ReportState, formData: FormData): Prom
     let publicationId: string | null = null;
     let profileUserId: string | null = null;
     let collectionId: string | null = null;
-    if (r.collectionSlug) {
+    if (r.linkId) {
+      const pub = await db.query.publication.findFirst({ where: eq(publication.linkId, r.linkId.toLowerCase()) });
+      if (!pub) return GONE;
+      graphId = pub.graphId;
+      publicationId = pub.id;
+    } else if (unnamedEntry) {
+      const entry = await db.query.collectionEntry.findFirst({ where: eq(collectionEntry.entryUid, unnamedEntry.toLowerCase()) });
+      if (!entry) return GONE;
+      collectionId = entry.collectionId;
+      publicationId = entry.publicationId;
+    } else if (r.collectionSlug) {
       const c = await loadCollection(r.collectionSlug);
       if (!c) return GONE;
       collectionId = c.id;

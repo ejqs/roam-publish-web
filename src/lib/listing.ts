@@ -10,6 +10,15 @@ export const LISTING_LOG: Record<EntryListing, string> = {
   discover: "Made public and listed on Discover",
 };
 
+/**
+ * The change log line for a new listing. Going to or from Unlisted moves the page to another
+ * link (/l/{linkId} or its graph address), so the line ends with the one it has now.
+ */
+export function listingLog(before: { visibility: string }, listing: EntryListing, url: string) {
+  const moved = (before.visibility === "unlisted") !== (listing === "unlisted");
+  return moved ? `${LISTING_LOG[listing]}: ${url}` : LISTING_LOG[listing];
+}
+
 export function listingOf(pub: { visibility: string; discoverable: boolean }): EntryListing {
   return pub.visibility === "unlisted" ? "unlisted" : pub.discoverable ? "discover" : "listed";
 }

@@ -20,8 +20,8 @@ const WORDS_PER_MINUTE = 200;
 export type PreviewCard =
   | {
       locked: false;
-      /** The graph or collection it's shown in. */
-      container: string;
+      /** The graph or collection it's shown in; null on Unlisted pages, which don't name it. */
+      container: string | null;
       title: string;
       description: string;
       author: string | null;
@@ -32,7 +32,7 @@ export type PreviewCard =
       publishedAt: string;
       updatedAt: string;
     }
-  | { locked: true; container: string };
+  | { locked: true; container: string | null };
 
 /** The first few hundred characters (or `max`) of a page's text, without Roam markup. */
 export function excerpt(tree: Node, max = EXCERPT) {
@@ -90,7 +90,7 @@ export function cardVersion(card: PreviewCard) {
   return createHash("sha256").update(JSON.stringify(card)).digest("base64url").slice(0, 12);
 }
 
-export const cardSiteName = (container: string) => `${container} · Roam Publish`;
+export const cardSiteName = (container: string | null) => (container ? `${container} · Roam Publish` : "Roam Publish");
 
 /**
  * The Open Graph and Twitter tags for a page. `image` is the card's path (with its version); the

@@ -6,7 +6,7 @@ import { ManageDialog } from "@/components/manage/manage-dialog";
 import { Badge } from "@/components/ui/badge";
 import type { graph, publication } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
-import { publicationPath } from "@/lib/publications";
+import { placePath } from "@/lib/publications";
 import { NEEDS_REPUBLISH } from "@/lib/encryption-rules";
 import { pinBlocked, placeLink, sharedAtText } from "@/lib/pin-rules";
 import { type ListedSealedTitle, SealedTitleText } from "@/components/sealed-title";
@@ -25,6 +25,7 @@ type Row = Pick<
   | "kind"
   | "title"
   | "visibility"
+  | "linkId"
   | "discoverable"
   | "removedAt"
   | "removedReason"
@@ -90,7 +91,7 @@ export function PublicationList({
                   <div className="min-w-0">
                     <div className="flex items-start gap-2">
                       <Link
-                        href={p.inGraph || !firstEntry ? publicationPath(g.name, p.rootUid, p.title) : firstEntry.path}
+                        href={p.inGraph || !firstEntry ? placePath(g.name, p) : firstEntry.path}
                         className="line-clamp-2 min-w-0 break-words text-foreground hover:underline sm:line-clamp-1"
                       >
                         {p.sealedTitle ? <SealedTitleText sealed={p.sealedTitle} fallback={p.title} /> : p.title}

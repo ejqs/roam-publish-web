@@ -64,7 +64,7 @@ export const graph = pgTable("graph", {
   description: text("description").notNull().default(""),
   /** Breadcrumbs on the front page and publications link back to the owner's public profile. */
   showOwner: boolean("show_owner").notNull().default(true),
-  /** Unlisted publications show no breadcrumbs, so a shared link doesn't lead back to the graph. */
+  /** No longer read: Unlisted pages never name their graph (since 0.28.0). Kept so older deploys still find it. */
   hideUnlistedBreadcrumbs: boolean("hide_unlisted_breadcrumbs").notNull().default(true),
   /** A Public or Discover chip after the title of open pages (components/privacy-icons.ts). */
   showVisibility: boolean("show_visibility").notNull().default(true),
@@ -197,6 +197,13 @@ export type Node = {
   children: Node[];
 };
 
+const LINK_ID_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789";
+/** 10 random lowercase letters and digits: 36^10 ids, too many to guess. */
+export function newLinkId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  return Array.from(bytes, (b) => LINK_ID_CHARS[b % 36]).join("");
+}
+
 export const publication = pgTable(
   "publication",
   {
@@ -208,6 +215,12 @@ export const publication = pgTable(
     kind: text("kind", { enum: ["page", "block"] }).notNull(),
     /** Unlisted items are reachable by link only; public ones also appear on the front page. */
     visibility: text("visibility", { enum: ["public", "unlisted"] }).notNull().default("unlisted"),
+    /**
+     * Random id of its Unlisted address, roam.pub/l/{linkId}/{title}, which doesn't name the graph
+     * (lib/publications.ts placePath). Kept while it's Public, so making it Unlisted again brings
+     * back the same link.
+     */
+    linkId: text("link_id").notNull().unique().$defaultFn(newLinkId),
     /**
      * Listed on /discover and the home page's trending list (when also public). New pages start
      * without it; set per page when it's listed.

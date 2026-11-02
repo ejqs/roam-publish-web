@@ -7,7 +7,7 @@ import { z } from "zod";
  */
 export const RESERVED_GRAPH_NAMES = new Set([
   "_next", "about", "admin", "api", "blog", "c", "collection", "collections", "costs", "dashboard", "discover",
-  "feed", "forgot-password", "help", "invites", "keys", "login", "logout", "new", "onboarding", "p", "privacy",
+  "feed", "forgot-password", "help", "invites", "keys", "l", "login", "logout", "new", "onboarding", "p", "privacy",
   "report", "reset-password", "search", "settings", "setup", "signup", "static", "support", "terms", "u",
   "unlock", "updates", "verify-email", "www",
 ]);

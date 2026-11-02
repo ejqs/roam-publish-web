@@ -91,17 +91,9 @@ export function GraphDisplayForm({
           <SettingSwitch
             id="showOwner"
             label="Link to your profile"
-            description="Show your @username in breadcrumbs. Only while your profile is public."
+            description="Show your @username in the breadcrumbs of Public pages. Only while your profile is public."
             checked={s.showOwner}
             onChange={set("showOwner")}
-          />
-          <FieldSeparator />
-          <SettingSwitch
-            id="hideUnlistedBreadcrumbs"
-            label="Hide breadcrumbs on Unlisted pages"
-            description="Unlisted pages won't link back to this graph or your profile."
-            checked={s.hideUnlistedBreadcrumbs}
-            onChange={set("hideUnlistedBreadcrumbs")}
           />
           <FieldSeparator />
           <SettingSwitch

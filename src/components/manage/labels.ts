@@ -37,7 +37,7 @@ export function rungDescription(r: Rung, place: string, kind: "graph" | "collect
   return {
     discover: `Public, and also on roam.pub/discover.`,
     public: `Anyone can read it. Listed on ${front} and in roam.pub search, and [[links]] on other pages lead here.`,
-    unlisted: "Anyone with the link can read it. Not listed anywhere, and [[links]] to it from other pages show as plain text.",
+    unlisted: `Anyone with the link can read it. Not listed anywhere, its link and page don't name ${place}, and [[links]] to it show as plain text.`,
     password: "Readers enter the password.",
     members: `Only people invited to ${place}, signed in.`,
   }[r];

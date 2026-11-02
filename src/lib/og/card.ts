@@ -9,7 +9,7 @@ import { bylineFor } from "@/lib/viewer";
  */
 export async function cardFor(
   pub: typeof publication.$inferSelect,
-  { container, access, showAuthor }: { container: string; access: Access; showAuthor: boolean },
+  { container, access, showAuthor }: { container: string | null; access: Access; showAuthor: boolean },
 ): Promise<PreviewCard> {
   if (access !== "open" || pub.encrypted) return { locked: true, container };
   const byline = await bylineFor(pub, showAuthor);
@@ -29,5 +29,8 @@ export async function cardFor(
 
 export const pageCardPath = (graphName: string, rootUid: string, v: string) =>
   `/api/og/page/${encodeURIComponent(graphName)}/${encodeURIComponent(rootUid)}?v=${v}`;
+
+/** The card of an Unlisted page in its graph, by its /l/ id, so the image's address doesn't name the graph either. */
+export const linkCardPath = (linkId: string, v: string) => `/api/og/link/${encodeURIComponent(linkId)}?v=${v}`;
 
 export const entryCardPath = (entryUid: string, v: string) => `/api/og/entry/${encodeURIComponent(entryUid)}?v=${v}`;

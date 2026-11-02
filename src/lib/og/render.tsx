@@ -74,11 +74,12 @@ function Frame({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ContainerLine({ name }: { name: string }) {
+/** The graph or collection on top of the card; Unlisted pages, which don't name theirs, say so instead. */
+function ContainerLine({ name }: { name: string | null }) {
   return (
     <div style={{ display: "flex", alignItems: "center", fontSize: 26 }}>
       <div style={{ display: "flex", fontWeight: 700, maxWidth: 560, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-        {name}
+        {name ?? "Unlisted page"}
       </div>
     </div>
   );

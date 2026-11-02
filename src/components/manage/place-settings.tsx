@@ -128,11 +128,18 @@ export function usePlaceSettings({ target, access, discoverBlocked, place, searc
     setNote("");
     start(async () => {
       setOptimistic((s) => ({ ...s, access: next }));
-      done(
+      const res =
         target.kind === "graph"
           ? await setAccess(target.publicationId, next)
-          : await updateEntry(target.entryId, { listing: next === "public" ? "listed" : next }),
-      );
+          : await updateEntry(target.entryId, { listing: next === "public" ? "listed" : next });
+      done(res);
+      // Unlisted pages move between their own dashboard tab and the Pages list, with a new link: say where it went.
+      if (res?.ok !== false && read === "open" && (next === "unlisted") !== (reach === "unlisted"))
+        toast.success(
+          next === "unlisted"
+            ? `Now Unlisted, at a new link that doesn't name ${container.label}. Find it in the Unlisted tab.`
+            : `Now ${next === "discover" ? "on Discover" : "Public"}, at a link that names ${container.label}, and back in its Pages list.`,
+        );
     });
   }
 

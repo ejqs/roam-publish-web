@@ -22,7 +22,8 @@ import { hashPassword, Password } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { frontPageLink, narrowsAccess, pinBlocked } from "@/lib/pin-rules";
 import { containerPasswordBlocked, deleteGraphBlocked, pinOf, unpublishBlocked } from "@/lib/pins";
-import { LISTING_LOG, listingChanges, listingSet, pageDiscoverBlocked } from "@/lib/listing";
+import { listingChanges, listingLog, listingSet, pageDiscoverBlocked } from "@/lib/listing";
+import { placeUrl } from "@/lib/publications";
 import { hasVerifiedGraph } from "@/lib/profiles";
 import { rateLimit } from "@/lib/rate-limit";
 import { Username, usernameTakenByOther } from "@/lib/usernames";
@@ -95,9 +96,9 @@ export async function setAccess(publicationId: string, access: Access): Promise<
       .update(publication)
       .set(listingSet(listing))
       .where(and(eq(publication.id, publicationId), manageablePublications(session.user.id)))
-      .returning({ graphId: publication.graphId, rootUid: publication.rootUid });
+      .returning({ graphId: publication.graphId, rootUid: publication.rootUid, title: publication.title, visibility: publication.visibility, linkId: publication.linkId });
     if (!changed) return { ok: false, message: "You can't change this page." };
-    if (listingChanges(row.pub, listing)) logChange(changed, "listing", LISTING_LOG[listing]);
+    if (listingChanges(row.pub, listing)) logChange(changed, "listing", listingLog(row.pub, listing, placeUrl(row.g.name, changed)));
     revalidatePath("/dashboard", "layout");
     revalidatePath("/[graph]", "page");
     revalidatePath("/");
@@ -221,7 +222,6 @@ const GraphSettings = z.object({
   indexable: z.boolean(),
   searchListed: z.boolean(),
   showOwner: z.boolean(),
-  hideUnlistedBreadcrumbs: z.boolean(),
   rss: z.boolean(),
   description: Description,
 });
@@ -368,7 +368,6 @@ const GraphDisplay = z.object({
   pdfDownload: z.boolean().optional(),
   pdfStyle: PdfStyleInput.optional(),
   showOwner: z.boolean(),
-  hideUnlistedBreadcrumbs: z.boolean(),
   showVisibility: z.boolean().optional(),
   rss: z.boolean(),
   newPagesInGraph: z.boolean(),

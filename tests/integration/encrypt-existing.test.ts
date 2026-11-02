@@ -60,7 +60,7 @@ describe("encryptExistingPages", () => {
     const preview = await encryptExistingPages("collection", c.id, { preview: true });
     expect(preview.pages).toEqual(["Ready"]);
     expect(preview.skipped).toEqual([
-      { title: "Open in graph", reason: `Open in ${g.name}`, manageHref: `/${g.name}/${openInGraph.rootUid}/open-in-graph?manage` },
+      { title: "Open in graph", reason: `Open in ${g.name}`, manageHref: `/l/${openInGraph.linkId}/open-in-graph?manage` },
       { title: "Theirs", reason: "Published by another member" },
     ]);
     expect((await row(ready.id))!.encrypted).toBe(false);

@@ -12,7 +12,8 @@ export const GET = withRoute("GET /api/og/entry/[entry]", async (_req: Request, 
   const container: Container = { ...r.c, kind: "collection" };
   const place: Place = { ...r.entry, kind: "entry" };
   const card = await cardFor(r.pub, {
-    container: r.c.name,
+    // Unlisted pages don't name their collection.
+    container: r.entry.listing === "unlisted" ? null : r.c.name,
     access: effectiveAccess(container, place),
     showAuthor: showsAuthor(container, place),
   });

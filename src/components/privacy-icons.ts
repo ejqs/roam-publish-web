@@ -58,7 +58,8 @@ export function privacyNotes({
    * password or members-only page is never searchable, so neither shows it.
    */
   unsearchable?: boolean;
-  container: string;
+  /** The graph or collection, by name; null on Unlisted pages, which don't name it. */
+  container: string | null;
 }): PrivacyNote[] {
   const notes: PrivacyNote[] = [];
   const unlisted = listing === "unlisted";
@@ -93,13 +94,13 @@ export function privacyNotes({
   else if (access === "password")
     notes.push({ kind: "password", label: ACCESS_LABELS.password, text: "Readers need the password. Unlocking lasts 30 days on a browser." });
   else if (access === "members")
-    notes.push({ kind: "members", label: ACCESS_LABELS.members, text: `Only members of ${container} can read it, once signed in.` });
+    notes.push({ kind: "members", label: ACCESS_LABELS.members, text: container ? `Only members of ${container} can read it, once signed in.` : "Only members can read it, once signed in." });
   if (unlisted)
     notes.push({
       kind: "unlisted",
       label: LISTING_LABELS.unlisted,
       // Unlisted pages can hide their graph from readers, so this doesn't name it.
-      text: "Only people with the link can find it. It isn't on a front page, in search engines or on Discover, and links on other pages don't lead here.",
+      text: "Only people with the link can find it. It isn't on a front page, in search engines or on Discover, links on other pages don't lead here, and it doesn't name the graph or collection it's in.",
     });
   // A protected page is never in site search, so saying so again only adds noise.
   else if (unsearchable && access === "open" && !encrypted)

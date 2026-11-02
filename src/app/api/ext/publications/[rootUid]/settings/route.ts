@@ -6,7 +6,6 @@ import { entryDiscoverBlocked, graphListingBlocked } from "@/lib/control-rules";
 import { ownPage, requireExtKey } from "@/lib/ext-auth";
 import { listingOf, pageDiscoverBlocked } from "@/lib/listing";
 import { type ContainerDefaults, manageDataFor } from "@/lib/manage-data";
-import { publicationUrl } from "@/lib/publications";
 import { withRoute } from "@/lib/telemetry";
 
 export const OPTIONS = preflight;
@@ -44,7 +43,7 @@ export const GET = withRoute("GET /api/ext/publications/[rootUid]/settings", asy
     graph: {
       name: gp.container.label,
       inGraph: gp.inGraph,
-      url: publicationUrl(m.origin.graphName, m.origin.rootUid, m.title),
+      url: appUrl(gp.path),
       listing: listingOf(gp),
       /** Why its listing can't change here (only in collections), if it can't. */
       listingBlocked: graphListingBlocked(gp.inGraph) ?? null,

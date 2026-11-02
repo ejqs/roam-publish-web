@@ -7,7 +7,7 @@ import { canManageEntry, collectionsOf } from "./collections";
 import { canManage, graphsOf } from "./graph-access";
 import { entryPins, pagePins } from "./pins";
 import type { Pin } from "./pin-rules";
-import { entryPath, publicationPath } from "./publications";
+import { entryPlacePath, placePath } from "./publications";
 import type { PlaceState } from "@/components/manage/place-access-form";
 
 /** What a graph or collection gives a page that doesn't choose for itself, or starts it with. */
@@ -124,7 +124,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
       .map(({ entry, c }) => ({
         entryId: entry.id,
         collectionId: c.id,
-        path: entryPath(c.slug, entry.entryUid, pub.title),
+        path: entryPlacePath(c.slug, entry, pub.title),
         collectionName: c.name,
         collectionSlug: c.slug,
         canManage: !pub.removedAt && canManageEntry(collectionRoles.get(c.id) ?? null, userId, entry),
@@ -174,7 +174,7 @@ export async function manageDataFor(userId: string, publicationIds: string[]): P
       origin: { graphName: g.name, rootUid: pub.rootUid },
       graphPlace: {
         inGraph: pub.inGraph,
-        path: publicationPath(g.name, pub.rootUid, pub.title),
+        path: placePath(g.name, pub),
         visibility: pub.visibility,
         discoverable: pub.discoverable,
         frontPage: g.frontPage,

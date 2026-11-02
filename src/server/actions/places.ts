@@ -26,7 +26,7 @@ import {
 import { OPENS_AFTER_REPUBLISH } from "@/lib/encryption-rules";
 import { manageablePublications } from "@/lib/graph-access";
 import { SEARCHABLE_FOR } from "@/lib/listing";
-import { entryUrl } from "@/lib/publications";
+import { entryPlaceUrl } from "@/lib/publications";
 import { narrowsAccess, pinBlocked, placeLink } from "@/lib/pin-rules";
 import { entryPins, pagePins, pinnedPages, pinOf } from "@/lib/pins";
 import { withAction } from "@/lib/telemetry";
@@ -144,7 +144,7 @@ export async function addToCollection(
           .where(and(eq(publication.id, publicationId), eq(publication.inGraph, true)))
           .returning({ graphId: publication.graphId, rootUid: publication.rootUid })
       : [];
-    await logForPublications([publicationId], "collections", (p) => `Added to collection ${collectionLink(c)}: ${entryUrl(c.slug, entry.entryUid, p.title)}`);
+    await logForPublications([publicationId], "collections", (p) => `Added to collection ${collectionLink(c)}: ${entryPlaceUrl(c.slug, entry, p.title)}`);
     if (left) logChange(left, "listing", "Hidden from the graph (collections only)");
     revalidateAll();
     const added = left ? `Added to ${c.name}, and taken out of the graph.` : `Added to ${c.name}.`;

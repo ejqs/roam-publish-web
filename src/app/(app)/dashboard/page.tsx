@@ -33,6 +33,7 @@ import {
   type EntryCounts,
   entryCounts as entryCountColumns,
   graphPagesPath,
+  unlistedTabPath,
 } from "@/lib/dashboard-filters";
 import { ProfileCard } from "./profile-card";
 import { LevelLegend, type ResourceItem, ResourceList } from "./resource-list";
@@ -122,7 +123,7 @@ export default async function DashboardPage() {
       segments: (["discover", "listed", "unlisted", "password", "members"] as const).map((level) => ({
         level,
         n: n[level],
-        href: `${manageHref}?access=${level}`,
+        href: level === "unlisted" ? unlistedTabPath({ collection: c.slug }) : `${manageHref}?access=${level}`,
       })),
       view: { href: collectionPath(c.slug), url: `${appUrl}${collectionPath(c.slug)}`, label: "View collection" },
       membersHref: `${manageHref}/members`,
@@ -169,7 +170,7 @@ export default async function DashboardPage() {
           suffix: paused ? " (paused)" : undefined,
         },
         { level: "listed", n: c.public, href: `${pagesHref}?access=public` },
-        { level: "unlisted", n: c.unlisted, href: `${pagesHref}?access=unlisted` },
+        { level: "unlisted", n: c.unlisted, href: unlistedTabPath({ graph: g.name }) },
         { level: "password", n: c.password, href: `${pagesHref}?access=password` },
         { level: "members", n: c.members, href: `${pagesHref}?access=members` },
         { level: "removed", n: c.removed, href: `${pagesHref}?access=removed` },
