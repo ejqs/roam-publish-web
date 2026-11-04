@@ -18,6 +18,9 @@ import { safeNext } from "@/lib/safe-next";
  * The link logs in whoever owns the address, and makes the account first if there isn't one, so the
  * two pages differ only in asking for a name and where a new account goes next.
  */
+/** Placeholders read as faint examples, well below the labels and typed text. */
+const light = "placeholder:text-muted-foreground/45";
+
 export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
   const params = useSearchParams();
   const next = safeNext(params.get("next"), mode === "signup" ? "/onboarding" : "/dashboard");
@@ -104,12 +107,12 @@ export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
           {mode === "signup" && (
             <Field>
               <FieldLabel htmlFor="name">Name</FieldLabel>
-              <Input id="name" name="name" autoComplete="name" required />
+              <Input id="name" name="name" autoComplete="name" placeholder="Ann Lee" className={light} required />
             </Field>
           )}
           <Field>
             <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input id="email" name="email" type="email" autoComplete="email" required autoFocus={mode === "login"} defaultValue={lastEmail} />
+            <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" className={light} required autoFocus={mode === "login"} defaultValue={lastEmail} />
           </Field>
           <Button type="submit" disabled={pending}>
             {pending && <Spinner data-icon="inline-start" />}
