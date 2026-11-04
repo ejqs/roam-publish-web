@@ -20,17 +20,27 @@ const next = () => `${Date.now().toString(36)}${n++}`;
 
 export type TestUser = { id: string; email: string; cookie: string };
 
-/** A signed-up user with a verified email and a live session cookie. */
-export async function makeUser(opts: { verified?: boolean; email?: string } = {}): Promise<TestUser> {
-  const email = opts.email ?? `u${next()}@example.com`;
-  const password = "correct horse battery";
-  const { user: u } = await auth.api.signUpEmail({ body: { email, password, name: email.split("@")[0] } });
-  await db.update(user).set({ emailVerified: true }).where(eq(user.id, u.id));
-  const res = await auth.api.signInEmail({ body: { email, password }, asResponse: true });
-  const cookie = res.headers
+/**
+ * Requests a sign-in link for this email the way the log in form does, and opens it. Returns the
+ * session cookie it set. The email is taken out of request.emails, so tests count only their own.
+ */
+export async function signInByLink(email: string, name?: string) {
+  await auth.api.signInMagicLink({ body: { email, name }, headers: new Headers() });
+  const i = request.emails.findLastIndex((e) => e.includes(`to=${email} `));
+  const [sent] = request.emails.splice(i, 1);
+  const token = new URL(sent.match(/https?:\/\/\S+\/magic-link\/verify\S+/)![0]).searchParams.get("token")!;
+  const res = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(), asResponse: true });
+  return res.headers
     .getSetCookie()
     .map((c) => c.split(";")[0])
     .join("; ");
+}
+
+/** A signed-up user with a verified email and a live session cookie. */
+export async function makeUser(opts: { verified?: boolean; email?: string } = {}): Promise<TestUser> {
+  const email = opts.email ?? `u${next()}@example.com`;
+  const cookie = await signInByLink(email, email.split("@")[0]);
+  const u = (await db.query.user.findFirst({ where: eq(user.email, email) }))!;
   if (opts.verified === false) await db.update(user).set({ emailVerified: false }).where(eq(user.id, u.id));
   return { id: u.id, email, cookie };
 }

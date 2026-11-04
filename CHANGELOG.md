@@ -8,6 +8,10 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 
 ## 0.28.0 (2026-11-02)
 
+### Security
+- New: Log in and sign up with a link sent to your email. Passwords are no longer used: enter your email on the
+  log in page and open the link to reach the same account. Each link works once and expires in 15 minutes.
+
 ### Published pages
 - New: Unlisted pages get their own link, roam.pub/l/…, that doesn't name their graph. Unlisted pages in a
   collection use roam.pub/c/… without the collection's name. Links shared before keep working.

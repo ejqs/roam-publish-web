@@ -35,7 +35,7 @@ const outline = [
   ]),
   block("**What's collected**", [
     block(
-      "Your account: email address, name and a hashed password. Login sessions record the IP address and browser they came from.",
+      "Your account: email address and name, plus a hashed password for accounts made before log in moved to email links. Login sessions record the IP address and browser they came from.",
     ),
     block("Your graphs: their names, and the time zone the extension sends."),
     block("What you publish: the page or block text and structure the extension sends, its title, tags, byline and settings."),
@@ -93,7 +93,7 @@ const outline = [
   block("**Who else handles it**", [
     block("[Railway](https://railway.com) hosts the website and its database, on servers in Singapore."),
     block(
-      "[Resend](https://resend.com) sends account emails (verification, password reset, invites, moderation notices). " +
+      "[Resend](https://resend.com) sends account emails (log in links, invites, moderation notices). " +
         "Emails you send to roam.pub, such as a reply to one of those, are kept by Resend and read by roam.pub's admins, who may write back.",
     ),
     block("Umami runs the analytics above."),
@@ -124,7 +124,7 @@ const outline = [
   ]),
   block("**Security**", [
     block("Everything is sent over HTTPS."),
-    block("Account passwords, page passwords and API keys are stored hashed, and append-only tokens encrypted."),
+    block("Log in links, account passwords, page passwords and API keys are stored hashed, and append-only tokens encrypted."),
     block(
       "The operator can access what's stored, and only uses it to run, support and moderate the service. The exception is encrypted pages, whose text and title are stored encrypted with their passwords (pages encrypted before titles were keep a readable title until they're next published). Readers' browsers decrypt them, so the server doesn't read them to show them. Pages published from extension 0.2.0 or newer are encrypted in Roam, so the server never sees their text; older ones, and pages encrypted on the website, were encrypted by the server, which saw their text then. See [[Encrypted pages]].",
     ),

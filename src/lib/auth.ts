@@ -1,15 +1,17 @@
 import "server-only";
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins/admin";
+import { magicLink } from "better-auth/plugins/magic-link";
 import { apiKey } from "@better-auth/api-key";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { deleteAccountData, isBlocked } from "@/lib/deletion";
 import { sendEmail } from "@/lib/email";
-import { deleteAccount, email, resetPassword, verifyEmail } from "@/lib/email-templates";
+import { MAGIC_LINK_MINUTES } from "@/lib/sign-in-link";
+import { deleteAccount, email, signInLink } from "@/lib/email-templates";
 
 /** Bootstrap admins by user id; anyone with role "admin" is also an admin. */
 export const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS ?? "")
@@ -28,27 +30,9 @@ export const auth = betterAuth({
     // collapses into one shared bucket per path.
     ipAddress: { ipAddressHeaders: ["x-real-ip", "x-forwarded-for"] },
   },
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: true,
-    sendResetPassword: async ({ user, url }) => {
-      void sendEmail({
-        to: user.email,
-        ...email(resetPassword, { address: user.email, url }),
-      });
-    },
-  },
-  emailVerification: {
-    sendOnSignUp: true,
-    sendOnSignIn: true,
-    autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }) => {
-      void sendEmail({
-        to: user.email,
-        ...email(verifyEmail, { address: user.email, url }),
-      });
-    },
-  },
+  // Sign-in is by emailed link only (magicLink below). Accounts made with a password before keep their
+  // row in `account`, unused: the link finds the person by email.
+  emailAndPassword: { enabled: false },
   user: {
     deleteUser: {
       enabled: true,
@@ -64,14 +48,27 @@ export const auth = betterAuth({
       },
     },
   },
+  hooks: {
+    // A suspended account's link fails when its session is made (the admin plugin), which would show
+    // the browser a bare JSON error. Send it back to log in instead, like the link's other errors.
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== "/magic-link/verify") return;
+      const err = ctx.context.returned;
+      if (!isAPIError(err) || err.body?.code !== "BANNED_USER") return;
+      const back = new URL(String(ctx.query?.errorCallbackURL ?? "/login"), ctx.context.baseURL);
+      back.searchParams.set("error", "BANNED_USER");
+      throw ctx.redirect(back.toString());
+    }),
+  },
   databaseHooks: {
     user: {
       create: {
         // Emails of accounts deleted under a moderation action can't sign up again; see src/lib/deletion.ts.
         before: async (user) => {
-          // Not 403: sign-up turns a 403 into its generic "check your email" reply, and nothing would arrive.
+          // The code makes the sign-in link redirect back to log in with this message (lib/sign-in-link.ts).
           if (await isBlocked("email", user.email))
             throw new APIError("BAD_REQUEST", {
+              code: "EMAIL_BLOCKED",
               message: "This email can't be used on Roam Publish. Contact us if you think this is a mistake.",
             });
         },
@@ -82,6 +79,17 @@ export const auth = betterAuth({
     // Bans are enforced by this plugin on sign-in and session creation.
     admin({
       bannedUserMessage: "This account has been suspended. Check your email for details.",
+    }),
+    magicLink({
+      expiresIn: MAGIC_LINK_MINUTES * 60,
+      // Only a hash of the token is stored, so a database read can't be turned into a sign-in.
+      storeToken: "hashed",
+      sendMagicLink: async ({ email: to, url }) => {
+        void sendEmail({
+          to,
+          ...email(signInLink, { address: to, url, minutes: String(MAGIC_LINK_MINUTES) }),
+        });
+      },
     }),
     apiKey({
       defaultPrefix: "rp_",
