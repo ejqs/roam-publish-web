@@ -57,6 +57,7 @@ describe("an Unlisted page in a graph", () => {
     const owner = await makeUser();
     const g = await makeGraph(owner.id);
     const pub = await makePublication(g.id, owner.id, { rootUid: "unl00001", title: "Draft Idea", visibility: "unlisted" });
+    await makePublication(g.id, owner.id, { rootUid: "pub00009", title: "Listed Notes", visibility: "public" });
     actAs(null);
     expect(await redirectOf(() => graphRoute(g.name, pub.rootUid, ["draft-idea"]))).toBe(`/l/${pub.linkId}/draft-idea`);
     const out = await linkRoute(pub.linkId, ["draft-idea"]);
@@ -64,6 +65,8 @@ describe("an Unlisted page in a graph", () => {
     expect(view).toBeDefined();
     expect(view.props.breadcrumbs ?? null).toBeNull();
     expect(JSON.stringify(view.props)).not.toContain(g.name);
+    // A Map stringifies as {}, so check its entries: none may lead to (and so name) the graph.
+    expect([...(view.props.links as Map<string, string>).values()]).toEqual([]);
   });
 
   test("an /l/ address with an old title is corrected; an unknown one is not found", async () => {
@@ -107,6 +110,7 @@ describe("an Unlisted page in a collection", () => {
     const pub = await makePublication(g.id, owner.id, { title: "Draft Idea", visibility: "public" });
     const entry = (await addEntry(c.id, pub.id, owner.id))!;
     await db.update(collectionEntry).set({ listing: "unlisted" }).where(eq(collectionEntry.id, entry.id));
+    await addEntry(c.id, (await makePublication(g.id, owner.id, { title: "Listed Notes", visibility: "public" })).id, owner.id);
     actAs(null);
     const at = `/c/${entry.entryUid}/draft-idea`;
     expect(await redirectOf(async () => renderNested(await cRoute(c.slug, [entry.entryUid, "draft-idea"]), "EntryPage"))).toBe(at);
@@ -115,5 +119,6 @@ describe("an Unlisted page in a collection", () => {
     expect(view).toBeDefined();
     expect(JSON.stringify(view.props)).not.toContain(c.slug);
     expect(JSON.stringify(view.props)).not.toContain(c.name);
+    expect([...(view.props.links as Map<string, string>).values()]).toEqual([]);
   });
 });

@@ -388,8 +388,9 @@ async function EntryPage({ r, rest, via, zoom }: { r: Entry; rest: string[]; via
   ]);
   // [[links]] resolve to other pages in this collection, never to unlisted ones: a link would hand
   // their address to every reader. Nor to pages whose title is encrypted: roam.pub doesn't know it.
+  // On an Unlisted page they stay plain text, since their addresses would name the collection.
   const links = new PageLinks(
-    siblings
+    (unnamed ? [] : siblings)
       .filter(({ entry: e, pub: p }) => p.kind === "page" && e.listing !== "unlisted" && !p.titleCipher)
       .map(({ entry: e, pub: p }) => [p.title.toLowerCase(), entryPath(c.slug, e.entryUid, p.title)]),
     unnamed ? undefined : (t) => collectionTagPath(c.slug, t),

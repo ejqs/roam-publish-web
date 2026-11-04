@@ -16,7 +16,8 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 - New: Unlisted pages get their own link, roam.pub/l/…, that doesn't name their graph. Unlisted pages in a
   collection use roam.pub/c/… without the collection's name. Links shared before keep working.
 - Improved: Unlisted pages no longer name their graph or collection anywhere a reader sees: the browser tab, link
-  previews, downloaded PDFs, the password prompt and the report form.
+  previews, downloaded PDFs, the password prompt and the report form. Their [[links]] to other pages show as plain
+  text, since those pages' links name the graph or collection.
 
 ### Dashboard
 - New: An Unlisted tab lists all your Unlisted pages from every graph and collection, each with its link to copy.

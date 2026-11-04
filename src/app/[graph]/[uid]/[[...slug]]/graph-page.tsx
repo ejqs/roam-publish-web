@@ -128,21 +128,24 @@ export async function GraphPage({ data, slug, zoom }: { data: GraphPlace; slug: 
   const tagsBrowsable = showBreadcrumbs && g.frontPage;
   const manageFor = me ? manageDataFor(me, [pub.id]).then((m) => m.get(pub.id)) : Promise.resolve(undefined);
   const [pages, owner, votes, byline, manage, related, views] = await Promise.all([
-    db
-      .select({ title: publication.title, rootUid: publication.rootUid })
-      .from(publication)
-      .where(
-        and(
-          eq(publication.graphId, g.id),
-          eq(publication.kind, "page"),
-          eq(publication.inGraph, true),
-          // [[links]] never lead to unlisted pages: a link would hand their address to every reader.
-          eq(publication.visibility, "public"),
-          // Nor to pages whose title is encrypted: roam.pub doesn't know it.
-          isNull(publication.titleCipher),
-          livePublication,
+    // An Unlisted page's [[links]] stay plain text: their addresses would name its graph.
+    unnamed
+      ? []
+      : db
+        .select({ title: publication.title, rootUid: publication.rootUid })
+        .from(publication)
+        .where(
+          and(
+            eq(publication.graphId, g.id),
+            eq(publication.kind, "page"),
+            eq(publication.inGraph, true),
+            // [[links]] never lead to unlisted pages: a link would hand their address to every reader.
+            eq(publication.visibility, "public"),
+            // Nor to pages whose title is encrypted: roam.pub doesn't know it.
+            isNull(publication.titleCipher),
+            livePublication,
+          ),
         ),
-      ),
     showBreadcrumbs && g.showOwner ? publicProfile(g.userId) : null,
     listed
       ? db
