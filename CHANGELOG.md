@@ -6,7 +6,7 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
-## 0.28.0 (2026-11-02)
+## 0.28.0 (2026-11-04)
 
 ### Security
 - New: Log in and sign up with a link sent to your email. Passwords are no longer used: enter your email on the
