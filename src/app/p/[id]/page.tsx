@@ -16,7 +16,7 @@ import { canManageEntry, collectionRole } from "@/lib/collections";
 import { collection, collectionEntry, graph, publication, shortlink } from "@/db/schema";
 import { effectiveAccess } from "@/lib/gates";
 import { canManage, graphRole } from "@/lib/graph-access";
-import { entryUrl, publicationUrl } from "@/lib/publications";
+import { entryPlaceUrl, placeUrl } from "@/lib/publications";
 import { SHORT_ID } from "@/lib/shortlinks";
 import { plainText } from "@/lib/slug";
 import { bylineFor, viewerId } from "@/lib/viewer";
@@ -92,7 +92,7 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
               {
                 key: "graph",
                 where: `Graph · ${g.name}`,
-                url: publicationUrl(g.name, pub.rootUid, pub.title),
+                url: placeUrl(g.name, pub),
                 listing:
                   (pub.visibility === "unlisted" ? LISTING_LABELS.unlisted : pub.discoverable ? LISTING_LABELS.discover : LISTING_LABELS.listed) +
                   notSearchable(pub.visibility === "public" && !pub.discoverable, pub.searchable),
@@ -104,7 +104,7 @@ export default async function ShortlinkPage(props: PageProps<"/p/[id]">) {
         ...entries.map(({ entry, c }) => ({
           key: entry.id,
           where: `Collection · ${c.name}`,
-          url: entryUrl(c.slug, entry.entryUid, pub.title),
+          url: entryPlaceUrl(c.slug, entry, pub.title),
           listing: LISTING_LABELS[entry.listing] + notSearchable(entry.listing === "listed", pub.searchable),
           access: ACCESS_LABELS[effectiveAccess({ ...c, kind: "collection" }, entry)],
           manage: canManageEntry(roles.get(c.id) ?? null, uid, entry)

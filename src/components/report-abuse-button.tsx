@@ -24,14 +24,19 @@ import { REPORT_REASONS } from "@/lib/report-reasons";
 export type ReportTarget =
   | { graphName: string; rootUid?: string }
   | { username: string }
-  | { collectionSlug: string; entryUid?: string };
+  | { collectionSlug: string; entryUid?: string }
+  /** Unlisted pages, by ids that don't name their graph or collection. */
+  | { linkId: string }
+  | { entryUid: string };
 
 /** "Report abuse" (a flag in a public page's bar) for a published page, a whole graph, or a user's profile. */
 export function ReportAbuseButton({ target }: { target: ReportTarget }) {
   const what =
     "username" in target
       ? "this profile"
-      : "collectionSlug" in target
+      : "linkId" in target || !("collectionSlug" in target || "graphName" in target)
+        ? "this page"
+        : "collectionSlug" in target
         ? target.entryUid
           ? "this page"
           : "this collection"
@@ -68,6 +73,10 @@ export function ReportAbuseButton({ target }: { target: ReportTarget }) {
           </DialogHeader>
           {"username" in target ? (
             <input type="hidden" name="username" value={target.username} />
+          ) : "linkId" in target ? (
+            <input type="hidden" name="linkId" value={target.linkId} />
+          ) : !("collectionSlug" in target || "graphName" in target) ? (
+            <input type="hidden" name="entryUid" value={target.entryUid} />
           ) : "collectionSlug" in target ? (
             <>
               <input type="hidden" name="collectionSlug" value={target.collectionSlug} />

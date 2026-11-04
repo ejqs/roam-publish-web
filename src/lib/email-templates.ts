@@ -34,27 +34,15 @@ export function renderTemplate({ template, values }: TemplateEmail) {
 
 // Account
 
-export const verifyEmail = define<{ address: string; url: string }>({
-  key: "verify-email",
-  subject: () => "Verify your Roam Publish email",
+export const signInLink = define<{ address: string; url: string; minutes: string }>({
+  key: "sign-in-link",
+  subject: () => "Log in to Roam Publish",
   message: (v) => ({
-    preview: "Confirm your email to start publishing.",
-    heading: "Verify your email",
-    blocks: [{ p: `Confirm that ${v.address} is yours to finish logging in to Roam Publish.` }],
-    action: { label: "Verify email", url: v.url },
-    note: "If you didn't sign up for Roam Publish, ignore this email.",
-  }),
-});
-
-export const resetPassword = define<{ address: string; url: string }>({
-  key: "reset-password",
-  subject: () => "Reset your Roam Publish password",
-  message: (v) => ({
-    preview: "Choose a new password for your account.",
-    heading: "Reset your password",
-    blocks: [{ p: `Someone asked to reset the password for ${v.address}. Choose a new one with the button below.` }],
-    action: { label: "Reset password", url: v.url },
-    note: "If you didn't ask for this, ignore this email. Your password stays the same.",
+    preview: "Your link to log in to Roam Publish.",
+    heading: "Log in to Roam Publish",
+    blocks: [{ p: `Use this link to log in as ${v.address}. It works once and expires in ${v.minutes} minutes.` }],
+    action: { label: "Log in", url: v.url },
+    note: "If you didn't ask for this, ignore this email.",
   }),
 });
 

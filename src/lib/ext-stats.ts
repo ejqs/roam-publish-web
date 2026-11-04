@@ -30,6 +30,8 @@ export async function extStats(ctx: ExtContext, period: StatsPeriod, now = new D
       kind: publication.kind,
       title: publication.title,
       inGraph: publication.inGraph,
+      visibility: publication.visibility,
+      linkId: publication.linkId,
       encrypted: publication.encrypted,
       createdAt: publication.createdAt,
       updatedAt: publication.updatedAt,

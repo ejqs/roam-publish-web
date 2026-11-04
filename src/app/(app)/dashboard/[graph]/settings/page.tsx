@@ -53,7 +53,6 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
             pdfDownload: g.pdfDownload,
             pdfStyle: pdfStyleOf(g.pdfStyle),
             showOwner: g.showOwner,
-            hideUnlistedBreadcrumbs: g.hideUnlistedBreadcrumbs,
             showVisibility: g.showVisibility,
             rss: g.rss,
             newPagesInGraph: g.newPagesInGraph,

@@ -103,7 +103,7 @@ describe("publish", () => {
     const a = await (await publish(ownerKey, p)).json();
     expect(a.status).toBe("created");
     expect(a.visibility).toBe("unlisted");
-    expect(a.url).toContain(`/${g.name}/`);
+    expect(a.url).toMatch(/\/l\/[a-z0-9]{10}\/hello$/);
     const b = await (await publish(ownerKey, p)).json();
     expect(b.status).toBe("unchanged");
     const p2 = payload({ rootUid: p.rootUid, text: "edited" });

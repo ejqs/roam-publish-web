@@ -1,7 +1,7 @@
-import { count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/db";
 import { collectionEntry, publication, user } from "@/db/schema";
@@ -17,12 +17,15 @@ import {
   entryCounts,
   entryListOrder,
   entryListWhere,
+  notUnlistedEntry,
   PAGE_SIZE,
   parseListState,
   sortHref,
+  unlistedEntryCount,
+  unlistedTabPath,
 } from "@/lib/dashboard-filters";
 import { ListEmpty, ListPagination, ListToolbar } from "../../list-toolbar";
-import { ResourceHeader, resourceTabs } from "../../section-tabs";
+import { ResourceHeader, resourceTabs, UnlistedElsewhere } from "../../section-tabs";
 import { EntryList } from "./entry-list";
 
 export const metadata: Metadata = { title: "Collection · Roam Publish" };
@@ -39,10 +42,12 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
   const path = collectionPagesPath(c.slug);
 
   const state = parseListState(COLLECTION_LIST, await props.searchParams);
-  const where = entryListWhere(c.id, state);
+  // Unlisted pages have their own tab; this list holds the collection's listed and protected ones.
+  if (state.access === "unlisted") redirect(unlistedTabPath({ collection: c.slug }));
+  const where = and(entryListWhere(c.id, state), notUnlistedEntry)!;
   const [[totals], [{ matching }]] = await Promise.all([
     db
-      .select({ total: count(), ...entryCounts })
+      .select({ total: count(), ...entryCounts, unlistedHere: unlistedEntryCount })
       .from(collectionEntry)
       .innerJoin(publication, eq(publication.id, collectionEntry.publicationId))
       .where(eq(collectionEntry.collectionId, c.id)),
@@ -139,8 +144,8 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
         cfg={COLLECTION_LIST}
         path={path}
         state={state}
-        counts={{ all: totals.total, ...totals }}
-        hidden={["removed"]}
+        counts={{ ...totals, all: totals.total - totals.unlistedHere, unlisted: 0 }}
+        hidden={["removed", "unlisted"]}
       />
 
       {/* overflow-visible so the bulk-change bar can stick while scrolling. */}
@@ -170,6 +175,7 @@ export default async function CollectionDashboardPage(props: PageProps<"/dashboa
           <ListPagination cfg={COLLECTION_LIST} path={path} state={state} page={page} matching={matching} />
         </CardContent>
       </Card>
+      <UnlistedElsewhere n={totals.unlistedHere} from={c.name} href={unlistedTabPath({ collection: c.slug })} />
 
     </div>
   );

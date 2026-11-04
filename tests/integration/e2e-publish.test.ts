@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { updateGraphAccess } from "@/server/actions/dashboard";
 import { updateCollection } from "@/server/actions/collections";
-import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
+import { readGraphPage } from "../helpers/read-page";
 import GraphFrontPage from "@/app/[graph]/page";
 import { FrontPage } from "@/components/front-page";
 import { GET, POST } from "@/app/api/ext/publications/route";
@@ -115,7 +115,7 @@ async function readerSees(rootUid: string) {
   request.cookies.clear();
   await clearReaderKeys();
   await unlock({ scope: "graph", id: g.id, password: GRAPH_PW });
-  const out = await GraphPage({ params: Promise.resolve({ graph: g.name, uid: rootUid }) } as never);
+  const out = await readGraphPage(g.name, rootUid);
   const sealed = findElements(out as never, PublicationView)[0]?.props.sealed as
     | { page: { id: string; cipher: string; sealedKey: string }; lock: { scope: "graph"; id: string; version: number } }
     | undefined;

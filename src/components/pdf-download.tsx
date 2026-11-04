@@ -98,7 +98,7 @@ export function PdfMasthead({ offer }: { offer: PdfOffer }) {
     <>
       <p data-pdf-eyebrow className="hidden items-center gap-[5pt] pdf:flex mb-[6pt] text-[8pt] text-[#738091]">
         {offer.protected && <LockIcon aria-hidden className="size-[9pt]" />}
-        roam.pub · {offer.source}
+        {offer.source ? `roam.pub · ${offer.source}` : "roam.pub"}
       </p>
       <p data-pdf-meta className="hidden pdf:block mb-[4pt] text-[8.5pt] text-muted-foreground">
         {facts.map((f, i) => (

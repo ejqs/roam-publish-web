@@ -9,7 +9,7 @@ import { canEncryptWith, encryptNewPageIfWanted, KeysError, syncPublicationKeys 
 import { ENCRYPT_PASSWORD_MIN } from "@/lib/encryption-rules";
 import { ownPage, requireExtKey } from "@/lib/ext-auth";
 import { primaryUrls } from "@/lib/places";
-import { collectionUrl, entryUrl } from "@/lib/publications";
+import { collectionUrl, entryPlaceUrl } from "@/lib/publications";
 import { pinBlocked, placeLink } from "@/lib/pin-rules";
 import { pinOf } from "@/lib/pins";
 import { withRoute } from "@/lib/telemetry";
@@ -80,7 +80,7 @@ export const GET = withRoute("GET /api/ext/publications/[rootUid]/collections", 
         url: collectionUrl(c.slug),
         ...startsAs(c, pub),
         /** The page's link in this collection, when it's already there. */
-        entryUrl: e ? entryUrl(c.slug, e.entryUid, pub.title) : null,
+        entryUrl: e ? entryPlaceUrl(c.slug, e, pub.title) : null,
         /** Why it can't be added here, when it can't. */
         blocked: e ? null : ((await encryptedBlocked(pub, c)) ?? null),
         movesOutOfGraph: !e && movesOutOfGraph(pub, g, c),
@@ -138,7 +138,7 @@ export const POST = withRoute("POST /api/ext/publications/[rootUid]/collections"
     console.error("Couldn't encrypt a page added to a collection", pub.id, e);
     return false;
   });
-  const url = entryUrl(c.slug, entry.entryUid, pub.title);
+  const url = entryPlaceUrl(c.slug, entry, pub.title);
   await logForPublications([pub.id], "collections", `Added to collection ${collectionLink(c)}: ${url}`);
   if (moves) logChange(pub, "listing", "Hidden from the graph (collections only)");
   if (encrypted) logChange(pub, "access", "Encrypted with password", `encrypted:${pub.id}:${entry.id}`);

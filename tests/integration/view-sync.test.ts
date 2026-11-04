@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
+import { readGraphPage } from "../helpers/read-page";
 import { PublicationView } from "@/components/publication-view";
 import { db } from "@/db";
 import {
@@ -292,7 +292,7 @@ describe("job runner", () => {
 describe("footer", () => {
   async function render(as: Awaited<ReturnType<typeof makeUser>> | null, g: { name: string }, rootUid: string) {
     actAs(as);
-    const out = await GraphPage({ params: Promise.resolve({ graph: g.name, uid: rootUid }) } as never);
+    const out = await readGraphPage(g.name, rootUid);
     const view = findElements(out as never, PublicationView)[0];
     return view ? ((view.props.views ?? null) as ViewFooter | null) : "gated";
   }

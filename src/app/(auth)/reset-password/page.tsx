@@ -1,10 +1,6 @@
-import { Suspense } from "react";
-import { ResetPasswordForm } from "./reset-password-form";
+import { redirect } from "next/navigation";
 
-export default function ResetPasswordPage() {
-  return (
-    <Suspense>
-      <ResetPasswordForm />
-    </Suspense>
-  );
+/** Accounts log in with an emailed link now, so links to the old password pages land on log in. */
+export default function Page() {
+  redirect("/login");
 }

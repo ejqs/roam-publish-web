@@ -18,7 +18,7 @@ import { db } from "@/db";
 import { type Blocker, isUnlocked } from "@/lib/gates";
 import { ENCRYPT_PASSWORD_MIN } from "./encryption-rules";
 import { type SealedPage, type SealedTitle, UNLOCK_PROOF_INFO } from "./reader-crypto";
-import { entryPath, publicationPath } from "./publications";
+import { entryPlacePath, placePath } from "./publications";
 import { SITE_VERSION } from "./version";
 import {
   collection,
@@ -259,7 +259,7 @@ export async function spotsOf(tx: Db, publicationId: string): Promise<Spot[]> {
           ? { scope: "graph", id: g.id, version: g.passwordVersion }
           : null,
       shown: pub.inGraph,
-      path: publicationPath(g.name, pub.rootUid, pub.title),
+      path: placePath(g.name, pub),
     },
     ...entries.map(({ entry, c }): Spot => ({
       kind: "entry",
@@ -271,7 +271,7 @@ export async function spotsOf(tx: Db, publicationId: string): Promise<Spot[]> {
           ? { scope: "collection", id: c.id, version: c.passwordVersion }
           : null,
       shown: true,
-      path: entryPath(c.slug, entry.entryUid, pub.title),
+      path: entryPlacePath(c.slug, entry, pub.title),
     })),
   ];
 }

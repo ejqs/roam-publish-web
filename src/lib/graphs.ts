@@ -19,4 +19,10 @@ export const loadGraph = cache(async (name: string) => {
   return { ...row.g, takenDown: !!row.g.suspendedAt || !!row.banned };
 });
 
+/** The same, by id: for addresses that don't name the graph (/l/{linkId}). */
+export const loadGraphById = cache(async (id: string) => {
+  const [row] = await db.select({ name: graph.name }).from(graph).where(eq(graph.id, id)).limit(1);
+  return row ? loadGraph(row.name) : undefined;
+});
+
 export { graphPath } from "./publications";

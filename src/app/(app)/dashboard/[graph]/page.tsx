@@ -1,6 +1,6 @@
-import { count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/db";
@@ -18,13 +18,16 @@ import {
   graphPagesPath,
   listOrder,
   listWhere,
+  notUnlistedInGraph,
   PAGE_SIZE,
   parseListState,
   sortHref,
+  unlistedInGraphCount,
+  unlistedTabPath,
 } from "@/lib/dashboard-filters";
 import { ListEmpty, ListPagination, ListToolbar } from "../list-toolbar";
 import { PublicationList } from "../publication-list";
-import { ResourceHeader, resourceTabs } from "../section-tabs";
+import { ResourceHeader, resourceTabs, UnlistedElsewhere } from "../section-tabs";
 
 export const metadata: Metadata = { title: "Published pages · Roam Publish" };
 
@@ -39,9 +42,11 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
   if (!g || !role) notFound();
 
   const state = parseListState(GRAPH_LIST, await props.searchParams);
-  const where = listWhere(g.id, state);
+  // Unlisted pages have their own tab; this list holds the graph's listed and protected ones.
+  if (state.access === "unlisted") redirect(unlistedTabPath({ graph: g.name }));
+  const where = and(listWhere(g.id, state), notUnlistedInGraph)!;
   const [[totals], [{ matching }]] = await Promise.all([
-    db.select({ total: count(), ...accessCounts }).from(publication).where(eq(publication.graphId, g.id)),
+    db.select({ total: count(), ...accessCounts, unlistedInGraph: unlistedInGraphCount }).from(publication).where(eq(publication.graphId, g.id)),
     db.select({ matching: count() }).from(publication).where(where),
   ]);
   const pageCount = Math.max(1, Math.ceil(matching / PAGE_SIZE));
@@ -53,6 +58,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
       kind: publication.kind,
       title: publication.title,
       visibility: publication.visibility,
+      linkId: publication.linkId,
       discoverable: publication.discoverable,
       removedAt: publication.removedAt,
       removedReason: publication.removedReason,
@@ -126,8 +132,8 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
         cfg={GRAPH_LIST}
         path={path}
         state={state}
-        counts={{ all: totals.total, ...totals }}
-        hidden={["removed"]}
+        counts={{ ...totals, all: totals.total - totals.unlistedInGraph, unlisted: 0 }}
+        hidden={["removed", "unlisted"]}
       />
 
       {/* overflow-visible so the bulk-change bar can stick while scrolling. */}
@@ -151,6 +157,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
           <ListPagination cfg={GRAPH_LIST} path={path} state={state} page={page} matching={matching} />
         </CardContent>
       </Card>
+      <UnlistedElsewhere n={totals.unlistedInGraph} from={g.name} href={unlistedTabPath({ graph: g.name })} />
     </div>
   );
 }

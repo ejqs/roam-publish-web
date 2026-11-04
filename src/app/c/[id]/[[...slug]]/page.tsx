@@ -37,7 +37,7 @@ import { cardVersion, previewMetadata } from "@/lib/link-preview";
 import { manageDataFor } from "@/lib/manage-data";
 import { cardFor, entryCardPath } from "@/lib/og/card";
 import { liveGraph } from "@/lib/moderation";
-import { collectionPath, entryPath, zoomParam } from "@/lib/publications";
+import { collectionPath, entryPath, entryPlacePath, zoomParam } from "@/lib/publications";
 import { collectionTagPath, RELATED_LIMIT } from "@/lib/tag-paths";
 import { plainText, slugify } from "@/lib/slug";
 import { pdfOffer } from "@/lib/pdf";
@@ -56,14 +56,18 @@ type C = Resolved["c"];
 type Entry = Extract<Resolved, { kind: "entry" }>;
 const asContainer = (c: C): Container => ({ ...c, kind: "collection" });
 
-/** What /c/{id}/{...slug} points at: a collection, or a page at /c/{collection}/{entryUid}/{title}. */
+/**
+ * What /c/{id}/{...slug} points at: a collection, a page at /c/{collection}/{entryUid}/{title}, or
+ * an Unlisted page at /c/{entryUid}/{title}, which doesn't name its collection (`unnamed`).
+ */
 async function resolveRoute(rawId: string, slug: string[] = []) {
   const r = await resolveC(decodeURIComponent(rawId));
+  if (r?.kind === "entry") return { kind: "entry" as const, r, rest: slug, unnamed: true };
   if (r?.kind !== "collection") return null;
   if (!slug.length) return { kind: "collection" as const, r };
   const e = await resolveC(decodeURIComponent(slug[0]));
   if (e?.kind !== "entry" || e.c.id !== r.c.id) return null;
-  return { kind: "entry" as const, r: e, rest: slug.slice(1) };
+  return { kind: "entry" as const, r: e, rest: slug.slice(1), unnamed: false };
 }
 
 /** Live pages in a collection, in the owner's order. */
@@ -100,13 +104,15 @@ export async function generateMetadata(props: PageProps<"/c/[id]/[[...slug]]">):
   const container = asContainer(c);
   const place: Place = { ...r.entry, kind: "entry" };
   const access = effectiveAccess(container, place);
-  const path = entryPath(c.slug, r.entry.entryUid, r.pub.title);
-  const card = await cardFor(r.pub, { container: c.name, access, showAuthor: showsAuthor(container, place) });
+  // Unlisted pages don't name their collection: not in the title, the preview or its address.
+  const unnamed = r.entry.listing === "unlisted";
+  const path = entryPlacePath(c.slug, r.entry, r.pub.title);
+  const card = await cardFor(r.pub, { container: unnamed ? null : c.name, access, showAuthor: showsAuthor(container, place) });
   const preview = previewMetadata(card, { path, image: entryCardPath(r.entry.entryUid, cardVersion(card)) });
   if (access !== "open") return { ...preview, title: "Protected page", robots: { index: false, follow: false } };
   return {
     ...preview,
-    title: `${plainText(r.pub.title)} · ${c.name}`,
+    title: `${plainText(r.pub.title)} · ${unnamed ? "Roam Publish" : c.name}`,
     alternates: { canonical: path },
     robots: indexable && r.entry.listing !== "unlisted" ? undefined : { index: false },
   };
@@ -120,7 +126,7 @@ export default async function CollectionRoute(props: PageProps<"/c/[id]/[[...slu
   return route.kind === "collection" ? (
     <CollectionIndex c={route.r.c} search={await props.searchParams} />
   ) : (
-    <EntryPage r={route.r} rest={route.rest} zoom={zoomParam(await props.searchParams)} />
+    <EntryPage r={route.r} rest={route.rest} via={route.unnamed ? "entry" : "collection"} zoom={zoomParam(await props.searchParams)} />
   );
 }
 
@@ -302,13 +308,19 @@ async function CollectionIndex({ c, search }: { c: C; search: Record<string, str
   );
 }
 
-async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: string }) {
+/**
+ * A page in a collection. Unlisted ones live at /c/{entryUid}/{title} and never name the collection
+ * (no breadcrumbs, tags or related pages); the others at /c/{collection}/{entryUid}/{title}. `via`
+ * is the form of address it was opened at: the other form redirects, so links shared before keep working.
+ */
+async function EntryPage({ r, rest, via, zoom }: { r: Entry; rest: string[]; via: "entry" | "collection"; zoom?: string }) {
   const { c, entry, pub } = r;
   if (r.graphTakenDown) return <RemovedNotice what="graph" />;
   if (pub.removedAt) return <RemovedNotice what="page" />;
-  const path = entryPath(c.slug, entry.entryUid, pub.title);
-  // Fix up the title slug (and any extra segments) like graph pages do.
-  if (rest.length !== 1 || rest[0] !== slugify(pub.title)) redirect(path);
+  const unnamed = entry.listing === "unlisted";
+  const path = entryPlacePath(c.slug, entry, pub.title);
+  // Fix up the address form and title slug (and any extra segments) like graph pages do.
+  if (via !== (unnamed ? "entry" : "collection") || rest.length !== 1 || rest[0] !== slugify(pub.title)) redirect(path);
 
   const container = asContainer(c);
   const place: Place = { ...entry, kind: "entry" };
@@ -328,13 +340,13 @@ async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: s
         what="page"
         next={path}
         title={entry.listing !== "unlisted" && c.indexAccess === "open" ? plainText(pub.title) : undefined}
-        members={c.name}
+        members={unnamed ? undefined : c.name}
         manageHref={m && dashboardHref(m)}
       />
     );
   }
   // The browser opens an encrypted page with the password's key; the server only hands it over sealed.
-  const sealed = opened && "sealed" in opened && lock ? { page: opened.sealed, lock, members: c.name } : undefined;
+  const sealed = opened && "sealed" in opened && lock ? { page: opened.sealed, lock, members: unnamed ? undefined : c.name } : undefined;
 
   // Only open pages listed on Discover in an open, indexable collection can be upvoted.
   const onDiscover = entry.listing === "discover" && access === "open" && c.indexAccess === "open" && c.indexable;
@@ -376,13 +388,14 @@ async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: s
   ]);
   // [[links]] resolve to other pages in this collection, never to unlisted ones: a link would hand
   // their address to every reader. Nor to pages whose title is encrypted: roam.pub doesn't know it.
+  // On an Unlisted page they stay plain text, since their addresses would name the collection.
   const links = new PageLinks(
-    siblings
+    (unnamed ? [] : siblings)
       .filter(({ entry: e, pub: p }) => p.kind === "page" && e.listing !== "unlisted" && !p.titleCipher)
       .map(({ entry: e, pub: p }) => [p.title.toLowerCase(), entryPath(c.slug, e.entryUid, p.title)]),
-    (t) => collectionTagPath(c.slug, t),
+    unnamed ? undefined : (t) => collectionTagPath(c.slug, t),
   );
-  const related = siblings
+  const related = unnamed ? [] : siblings
     .filter(({ entry: e, pub: p }) => e.id !== entry.id && e.listing !== "unlisted" && p.tags.some((t) => pub.tags.includes(t)))
     .sort((a, b) => b.pub.updatedAt.getTime() - a.pub.updatedAt.getTime())
     .slice(0, RELATED_LIMIT)
@@ -392,22 +405,22 @@ async function EntryPage({ r, rest, zoom }: { r: Entry; rest: string[]; zoom?: s
     <PublicationView
       pub={pub}
       sealed={sealed}
-      tagBase={{ collection: c.slug }}
+      tagBase={unnamed ? null : { collection: c.slug }}
       path={path}
       zoom={zoom}
-      crumbs={[{ label: c.name, href: collectionPath(c.slug) }, { label: plainText(pub.title) }]}
+      crumbs={unnamed ? null : [{ label: c.name, href: collectionPath(c.slug) }, { label: plainText(pub.title) }]}
       links={links}
       related={related}
       siteSearch={await canSearchSite(me)}
       byline={byline}
-      privacy={privacyNotes({ access, encrypted: pub.encrypted, encryption: { version: pub.encryptionVersion, by: pub.encryptedBy }, listing: entry.listing === "unlisted" ? "unlisted" : onDiscover ? "discover" : "listed", showListing: c.showVisibility, unsearchable: !pub.searchable && entry.listing === "listed", container: c.name })}
-      report={{ collectionSlug: c.slug, entryUid: entry.entryUid }}
+      privacy={privacyNotes({ access, encrypted: pub.encrypted, encryption: { version: pub.encryptionVersion, by: pub.encryptedBy }, listing: entry.listing === "unlisted" ? "unlisted" : onDiscover ? "discover" : "listed", showListing: c.showVisibility, unsearchable: !pub.searchable && entry.listing === "listed", container: unnamed ? null : c.name })}
+      report={unnamed ? { entryUid: entry.entryUid } : { collectionSlug: c.slug, entryUid: entry.entryUid }}
       votes={votes}
       countViews={entry.listing !== "unlisted" && access === "open"}
       views={views}
       manage={manage}
-      afterUnpublish={collectionPath(c.slug)}
-      pdf={pdfOffer(c, entry, { path, source: c.name, access, updatedAt: pub.updatedAt, author: byline?.label })}
+      afterUnpublish={unnamed ? "/dashboard/unlisted" : collectionPath(c.slug)}
+      pdf={pdfOffer(c, entry, { path, source: unnamed ? "" : c.name, access, updatedAt: pub.updatedAt, author: byline?.label })}
     />
   );
 }

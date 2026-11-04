@@ -6,6 +6,25 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.28.0 (2026-11-04)
+
+### Security
+- New: Log in and sign up with a link sent to your email. Passwords are no longer used: enter your email on the
+  log in page and open the link to reach the same account. Each link works once and expires in 15 minutes.
+
+### Published pages
+- New: Unlisted pages get their own link, roam.pub/l/…, that doesn't name their graph. Unlisted pages in a
+  collection use roam.pub/c/… without the collection's name. Links shared before keep working.
+- Improved: Unlisted pages no longer name their graph or collection anywhere a reader sees: the browser tab, link
+  previews, downloaded PDFs, the password prompt and the report form. Their [[links]] to other pages show as plain
+  text, since those pages' links name the graph or collection.
+
+### Dashboard
+- New: An Unlisted tab lists all your Unlisted pages from every graph and collection, each with its link to copy.
+  A graph's or collection's Pages list now holds its listed and protected pages, and links to its Unlisted ones.
+- Improved: Manage shows each page's full link with a copy button.
+- Improved: Graph settings no longer have "Hide breadcrumbs on Unlisted pages": Unlisted pages never show them.
+
 ## 0.27.0 (2026-10-26)
 
 ### Dashboard

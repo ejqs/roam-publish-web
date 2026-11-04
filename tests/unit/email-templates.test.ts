@@ -4,8 +4,7 @@ import * as t from "@/lib/email-templates";
 import { moderationEmail, moderationTemplate } from "@/lib/moderation-email-templates";
 
 const sample: t.TemplateEmail[] = [
-  t.email(t.verifyEmail, { address: "ann@example.com", url: "https://roam.pub/v?token=a&b=c" }),
-  t.email(t.resetPassword, { address: "ann@example.com", url: "https://roam.pub/r" }),
+  t.email(t.signInLink, { address: "ann@example.com", url: "https://roam.pub/v?token=a&b=c", minutes: "15" }),
   t.email(t.deleteAccount, { address: "ann@example.com", url: "https://roam.pub/d" }),
   t.email(t.invite, { type: "graph", typeLabel: "Graph", name: "notes", url: "https://roam.pub/i", days: "7" }),
   t.email(t.transferOffer, { type: "graph", typeLabel: "Graph", name: "notes", url: "https://roam.pub/i", days: "7" }),

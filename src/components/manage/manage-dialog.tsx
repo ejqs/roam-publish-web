@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, useSyncExternalStore, useTransition } from "react";
 import { toast } from "sonner";
+import { CopyButton } from "@/components/copy-button";
 import { setPageSearchable, unpublish } from "@/server/actions/dashboard";
 import { addToCollection, removeEntry, updateGraphPlace } from "@/server/actions/places";
 import { PlaceSettingsFields, RUNG_ICONS } from "./place-settings";
@@ -440,9 +441,12 @@ function PlaceRow({
         <div className="flex flex-col gap-3 pr-3 pb-3 pl-10">
           {path ? (
             <>
-              <Link href={path} className="truncate text-xs text-link hover:underline">
-                {path}
-              </Link>
+              <div className="flex min-w-0 items-center gap-1.5">
+                <Link href={path} className="truncate text-xs text-link hover:underline">
+                  {absolute(path).replace(/^https?:\/\//, "")}
+                </Link>
+                <CopyButton text={absolute(path)} variant="ghost" />
+              </div>
               {pin}
               {children}
             </>

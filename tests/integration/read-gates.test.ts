@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import GraphFrontPage from "@/app/[graph]/page";
 import GraphTags from "@/app/[graph]/tags/page";
-import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
+import { readGraphPage } from "../helpers/read-page";
 import CPage from "@/app/c/[id]/[[...slug]]/page";
 import { FrontPage } from "@/components/front-page";
 import { PageList } from "@/components/page-list";
@@ -282,7 +282,7 @@ describe("[[links]] between published pages", () => {
     await makePublication(g.id, owner.id, { rootUid: "listed001", title: "Listed Notes", visibility: "public" });
     await makePublication(g.id, owner.id, { rootUid: "draft0001", title: "Draft Idea", visibility: "unlisted" });
     actAs(null);
-    const links = linksOf(await GraphPage({ params: Promise.resolve({ graph: g.name, uid: tree.uid }) } as never));
+    const links = linksOf(await readGraphPage(g.name, tree.uid));
     expect(links.has("listed notes")).toBe(true);
     expect(links.has("draft idea")).toBe(false);
   });

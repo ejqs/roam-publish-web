@@ -10,7 +10,7 @@ import {
   updateGraphPlace,
 } from "@/server/actions/places";
 import { setPageTags } from "@/server/actions/tags";
-import GraphPage from "@/app/[graph]/[uid]/[[...slug]]/page";
+import { readGraphPage as readAt } from "../helpers/read-page";
 import CPage from "@/app/c/[id]/[[...slug]]/page";
 import { GET, POST } from "@/app/api/ext/publications/route";
 // Readers unlock as their browser does: a proof for passwords that take one, keeping the key.
@@ -73,7 +73,7 @@ async function encrypted(opts: Partial<typeof publication.$inferInsert> = {}) {
 const row = (id: string) => db.query.publication.findFirst({ where: eq(publication.id, id) });
 
 async function readGraphPage(pub: { rootUid: string }) {
-  return GraphPage({ params: Promise.resolve({ graph: g.name, uid: pub.rootUid }) } as never);
+  return readAt(g.name, pub.rootUid);
 }
 
 /**

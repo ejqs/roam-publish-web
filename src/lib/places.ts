@@ -2,7 +2,7 @@ import "server-only";
 import { asc, eq, inArray, sql, type SQL, type SQLWrapper } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, collectionEntry, graph, publication } from "@/db/schema";
-import { entryUrl, publicationUrl } from "./publications";
+import { entryPlaceUrl, placeUrl } from "./publications";
 
 /**
  * Places (a page in a graph, or an entry in a collection) a reader who isn't a member can open
@@ -22,22 +22,25 @@ export const graphPlaceOpen = sql`(${publication.inGraph} and (${publication.acc
  * The link the extension shows for each page: its graph place, or its first collection place when
  * it's only in collections.
  */
-export async function primaryUrls(graphName: string, pubs: { id: string; rootUid: string; title: string; inGraph: boolean }[]) {
+export async function primaryUrls(
+  graphName: string,
+  pubs: { id: string; rootUid: string; title: string; inGraph: boolean; visibility: "public" | "unlisted"; linkId: string }[],
+) {
   const onlyInCollections = pubs.filter((p) => !p.inGraph).map((p) => p.id);
   const entries = onlyInCollections.length
     ? await db
-        .select({ publicationId: collectionEntry.publicationId, entryUid: collectionEntry.entryUid, slug: collection.slug })
+        .select({ publicationId: collectionEntry.publicationId, entryUid: collectionEntry.entryUid, listing: collectionEntry.listing, slug: collection.slug })
         .from(collectionEntry)
         .innerJoin(collection, eq(collection.id, collectionEntry.collectionId))
         .where(inArray(collectionEntry.publicationId, onlyInCollections))
         .orderBy(asc(collectionEntry.addedAt))
     : [];
-  const first = new Map<string, { entryUid: string; slug: string }>();
+  const first = new Map<string, { entryUid: string; listing: string; slug: string }>();
   for (const e of entries) if (!first.has(e.publicationId)) first.set(e.publicationId, e);
   return new Map(
     pubs.map((p) => {
       const e = first.get(p.id);
-      return [p.id, !p.inGraph && e ? entryUrl(e.slug, e.entryUid, p.title) : publicationUrl(graphName, p.rootUid, p.title)];
+      return [p.id, !p.inGraph && e ? entryPlaceUrl(e.slug, e, p.title) : placeUrl(graphName, p)];
     }),
   );
 }

@@ -75,7 +75,6 @@ test("display settings save without touching access", async () => {
     views: "hide",
     showViewCountries: false,
     showOwner: false,
-    hideUnlistedBreadcrumbs: true,
     rss: true,
     newPagesInGraph: false,
     defaultCollections: [mine.id, theirs.id],
@@ -85,7 +84,6 @@ test("display settings save without touching access", async () => {
   expect(await read(g.id)).toMatchObject({
     showAuthors: true,
     views: "hide",
-    hideUnlistedBreadcrumbs: true,
     newPagesInGraph: false,
     rss: false,
     indexAccess: "password",
@@ -150,7 +148,6 @@ test("PDF download saves with its style, and a page can override it", async () =
     pdfDownload: true,
     pdfStyle,
     showOwner: true,
-    hideUnlistedBreadcrumbs: true,
     rss: false,
     newPagesInGraph: true,
     defaultCollections: [],

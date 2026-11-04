@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import type { collection, collectionEntry, publication } from "@/db/schema";
 import type { ManageData } from "@/lib/manage-data";
 import { pinBlocked, placeLink, sharedAtText } from "@/lib/pin-rules";
-import { entryPath } from "@/lib/publications";
+import { entryPlacePath } from "@/lib/publications";
 import { type ListedSealedTitle, SealedTitleText } from "@/components/sealed-title";
 import { AccessMenu } from "../../access-menu";
 import { AllCheckbox, BulkSelect, RowCheckbox } from "../../bulk-select";
@@ -89,7 +89,7 @@ export function EntryList({
                   <div className="min-w-0">
                     <div className="flex items-start gap-2">
                       <Link
-                        href={entryPath(c.slug, entry.entryUid, pub.title)}
+                        href={entryPlacePath(c.slug, entry, pub.title)}
                         className="line-clamp-2 min-w-0 break-words text-foreground hover:underline sm:line-clamp-1"
                       >
                         {r.sealedTitle ? <SealedTitleText sealed={r.sealedTitle} fallback={pub.title} /> : pub.title}

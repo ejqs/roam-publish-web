@@ -101,7 +101,7 @@ blocks published collapsed, in tree order, so the extension can republish keepin
 open/collapsed") from any computer.
 `shortUrl` and `anchorUid` are null for pages that don't have them yet.
 `mine` is true for pages this key can change (all of them for the owner, the ones they published for a member).
-`url` is the page's graph URL, or its first collection URL when it isn't shown in the graph.
+`url` is the page's graph URL, or its first collection URL when it isn't shown in the graph. An Unlisted page's URL doesn't name its graph or collection (`/l/{linkId}/{title}`, `/c/{entryUid}/{title}`), so it changes when the page moves to or from Unlisted; always use the latest `url` roam.pub returns.
 
 ### `POST /api/ext/publications`
 Body `PublishPayload & { contentHash }` → `200 { status: "created" | "updated" | "unchanged", url, shortUrl, contentHash, visibility, changeLog }`.

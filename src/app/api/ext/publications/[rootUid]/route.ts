@@ -91,8 +91,9 @@ export const PATCH = withRoute("PATCH /api/ext/publications/[rootUid]", async (
   const [after] = set
     ? await db.update(publication).set(set).where(eq(publication.id, pub.id)).returning()
     : await db.select().from(publication).where(eq(publication.id, pub.id));
-  if (changed) logChange(pub, "listing", changed);
   const url = (await primaryUrls(ctx.graphName, [after])).get(after.id);
+  // Going to or from Unlisted moves the page to another link, so the log line gives the new one.
+  if (changed) logChange(pub, "listing", after.inGraph && after.visibility !== pub.visibility && url ? `${changed}: ${url}` : changed);
   return json(req, {
     visibility: after.visibility,
     ...extListing(g, after),

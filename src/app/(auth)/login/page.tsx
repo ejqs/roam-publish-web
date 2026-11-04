@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { signedInRedirect } from "@/lib/safe-next";
-import { LoginForm } from "./login-form";
+import { EmailLinkForm } from "../email-link-form";
 
 export default async function LoginPage(props: PageProps<"/login">) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -15,7 +15,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
 
   return (
     <Suspense>
-      <LoginForm />
+      <EmailLinkForm mode="login" />
     </Suspense>
   );
 }

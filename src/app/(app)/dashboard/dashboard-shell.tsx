@@ -2,10 +2,11 @@ import { WhatsNewLink } from "@/components/whats-new-link";
 import { pendingInvitesFor } from "@/lib/invites";
 import { SectionTabs } from "./section-tabs";
 
-export type DashboardTab = "/dashboard" | "/dashboard/keys" | "/dashboard/invites" | "/settings";
+export type DashboardTab = "/dashboard" | "/dashboard/unlisted" | "/dashboard/keys" | "/dashboard/invites" | "/settings";
 
 const TITLES: Record<DashboardTab, string> = {
   "/dashboard": "Dashboard",
+  "/dashboard/unlisted": "Unlisted",
   "/dashboard/keys": "API keys",
   "/dashboard/invites": "Invites",
   "/settings": "Settings",
@@ -45,6 +46,7 @@ export async function DashboardShell({
           current={current}
           tabs={[
             { href: "/dashboard", label: "Overview" },
+            { href: "/dashboard/unlisted", label: "Unlisted" },
             { href: "/dashboard/keys", label: "API keys" },
             { href: "/dashboard/invites", label: "Invites", count: invites },
             { href: "/settings", label: "Settings" },
