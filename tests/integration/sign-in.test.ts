@@ -10,12 +10,17 @@ import { request, resetRequest } from "../helpers/request";
 
 const origin = "http://localhost:3000";
 
-/** Calls a better-auth endpoint over HTTP, as the browser does. */
+let ip = 0;
+
+/**
+ * Calls a better-auth endpoint over HTTP, as the browser does. Each call comes from its own address:
+ * with NODE_ENV=production (staging's pre-deploy) the links' rate limit, 5 a minute per address, is on.
+ */
 const call = (path: string, body?: unknown) =>
   auth.handler(
     new Request(`${origin}/api/auth${path}`, {
       method: body === undefined ? "GET" : "POST",
-      headers: { "content-type": "application/json", origin },
+      headers: { "content-type": "application/json", origin, "x-real-ip": `10.0.${ip >> 8 & 255}.${ip++ & 255}` },
       body: body === undefined ? undefined : JSON.stringify(body),
       redirect: "manual",
     }),
