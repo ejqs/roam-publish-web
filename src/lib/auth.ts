@@ -10,7 +10,7 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { deleteAccountData, isBlocked } from "@/lib/deletion";
 import { sendEmail } from "@/lib/email";
-import { MAGIC_LINK_MINUTES } from "@/lib/sign-in-link";
+import { MAGIC_LINK_MINUTES, PASSWORD_MIN } from "@/lib/sign-in-link";
 import { deleteAccount, email, signInLink } from "@/lib/email-templates";
 
 /** Bootstrap admins by user id; anyone with role "admin" is also an admin. */
@@ -24,15 +24,29 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
   // Keys come only from the dashboard (issueKey: one per person per graph, via auth.api on the
   // server). Over HTTP these would let anyone mint more, each with its own rate limit.
-  disabledPaths: ["/api-key/create", "/api-key/update"],
+  disabledPaths: [
+    "/api-key/create",
+    "/api-key/update",
+    // Passwords are set and changed only from Settings, and never reset by email (see emailAndPassword).
+    "/sign-up/email",
+    "/request-password-reset",
+    "/reset-password",
+    "/change-password",
+  ],
   advanced: {
     // Behind Railway's edge proxy; without a resolvable IP, rate limiting
     // collapses into one shared bucket per path.
     ipAddress: { ipAddressHeaders: ["x-real-ip", "x-forwarded-for"] },
   },
-  // Sign-in is by emailed link only (magicLink below). Accounts made with a password before keep their
-  // row in `account`, unused: the link finds the person by email.
-  emailAndPassword: { enabled: false },
+  // Everyone logs in with an emailed link (magicLink below). A password is optional: people turn it on in
+  // Settings (src/server/actions/account.ts), and can then log in with it too. Nobody signs up with one,
+  // and there's no reset: someone who forgets theirs logs in with a link and sets a new one.
+  emailAndPassword: {
+    enabled: true,
+    disableSignUp: true,
+    requireEmailVerification: true,
+    minPasswordLength: PASSWORD_MIN,
+  },
   user: {
     deleteUser: {
       enabled: true,

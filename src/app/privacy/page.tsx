@@ -35,7 +35,7 @@ const outline = [
   ]),
   block("**What's collected**", [
     block(
-      "Your account: email address and name, plus a hashed password for accounts made before log in moved to email links. Login sessions record the IP address and browser they came from.",
+      "Your account: email address and name, plus a hashed password if you add one. Login sessions record the IP address and browser they came from.",
     ),
     block("Your graphs: their names, and the time zone the extension sends."),
     block("What you publish: the page or block text and structure the extension sends, its title, tags, byline and settings."),

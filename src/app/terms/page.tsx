@@ -34,7 +34,7 @@ const outline = [
   ]),
   block("**Your account**", [
     block("You need to be over 13, and old enough where you live to agree to these terms."),
-    block("Keep your email account and API keys to yourself: anyone who can read your email can log in. You're responsible for what's done with them."),
+    block("Keep your email account, password and API keys to yourself: anyone who can read your email can log in. You're responsible for what's done with them."),
     block("Only connect graphs you're an admin of, and only publish to other people's graphs or collections with their invitation."),
   ]),
   block("**Your content**", [

@@ -4,16 +4,22 @@ import { db } from "@/db";
 import { publication } from "@/db/schema";
 import { collectionsOf } from "@/lib/collections";
 import { graphsOf } from "@/lib/graph-access";
+import { hasPassword } from "@/lib/account-password";
 import { requireSession } from "@/lib/session";
 import { DashboardShell } from "../dashboard/dashboard-shell";
 import { DeleteAccountCard } from "../dashboard/delete-account";
+import { PasswordCard } from "./password-card";
 
 export const metadata: Metadata = { title: "Settings · Roam Publish" };
 
 /** Rarely used, irreversible account actions live here, away from the day-to-day dashboard. */
 export default async function SettingsPage() {
   const session = await requireSession("/settings");
-  const [graphs, collections] = await Promise.all([graphsOf(session.user.id), collectionsOf(session.user.id)]);
+  const [graphs, collections, password] = await Promise.all([
+    graphsOf(session.user.id),
+    collectionsOf(session.user.id),
+    hasPassword(session.user.id),
+  ]);
   const owned = graphs.filter((g) => g.role === "owner");
   const [{ pages }] = owned.length
     ? await db
@@ -29,6 +35,7 @@ export default async function SettingsPage() {
       description="Account-level actions you rarely need."
       narrow
     >
+      <PasswordCard hasPassword={password} />
       <DeleteAccountCard
         email={session.user.email}
         graphs={owned.map((g) => g.name)}

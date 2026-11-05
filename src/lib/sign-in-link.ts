@@ -13,3 +13,6 @@ export function linkError(code: string | null, description: string | null): stri
   if (code === "BANNED_USER") return "This account has been suspended. Check your email for details.";
   return description || "Could not log in with that link. Send a new one.";
 }
+
+/** Shortest account password accepted (Better Auth's default, set explicitly in src/lib/auth.ts). */
+export const PASSWORD_MIN = 8;

@@ -3,9 +3,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { account, blockedIdentity, session, user, verification } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { hasPassword } from "@/lib/account-password";
 import { blockedValue } from "@/lib/deletion";
+import { changeAccountPassword, removeAccountPassword, setAccountPassword } from "@/server/actions/account";
 import { resetDb } from "../helpers/db";
-import { makeUser, signInByLink } from "../helpers/factories";
+import { actAs, makeUser, signInByLink } from "../helpers/factories";
 import { request, resetRequest } from "../helpers/request";
 
 const origin = "http://localhost:3000";
@@ -48,11 +50,10 @@ beforeEach(async () => {
   resetRequest();
 });
 
-describe("password sign-in is gone", () => {
-  test("the email and password endpoints don't exist", async () => {
+describe("passwords are optional", () => {
+  test("nobody signs up, resets or changes a password over HTTP", async () => {
     const u = await makeUser();
     for (const [path, body] of [
-      ["/sign-in/email", { email: u.email, password: "correct horse battery" }],
       ["/sign-up/email", { email: "new@example.com", password: "correct horse battery", name: "New" }],
       ["/request-password-reset", { email: u.email, redirectTo: "/reset-password" }],
       ["/reset-password", { token: "x", newPassword: "another password 1" }],
@@ -64,6 +65,57 @@ describe("password sign-in is gone", () => {
     }
     expect(await db.select().from(user)).toHaveLength(1);
     expect(request.emails).toHaveLength(0);
+  });
+
+  test("without a password set, password log in fails", async () => {
+    const u = await makeUser();
+    const res = await call("/sign-in/email", { email: u.email, password: "correct horse battery" });
+    expect(res.status).toBe(401);
+    expect(res.headers.getSetCookie().some((c) => c.includes("session_token="))).toBe(false);
+  });
+
+  test("a password added in Settings logs in, and the link still works", async () => {
+    const u = await makeUser();
+    actAs(u);
+    expect(await setAccountPassword("short")).toMatchObject({ ok: false });
+    expect(await setAccountPassword("correct horse battery")).toEqual({ ok: true });
+    expect(await hasPassword(u.id)).toBe(true);
+    expect(await setAccountPassword("another password 1")).toMatchObject({ ok: false });
+    const res = await call("/sign-in/email", { email: u.email, password: "correct horse battery" });
+    expect(res.status).toBe(200);
+    expect(res.headers.getSetCookie().some((c) => c.includes("session_token="))).toBe(true);
+    expect((await call("/sign-in/email", { email: u.email, password: "wrong password 1" })).status).toBe(401);
+    expect(await signInByLink(u.email)).toContain("session_token=");
+  });
+
+  test("changing needs the current password and logs out other sessions", async () => {
+    const u = await makeUser();
+    actAs(u);
+    await setAccountPassword("correct horse battery");
+    const other = await signInByLink(u.email);
+    expect(await changeAccountPassword("wrong password 1", "another password 1")).toMatchObject({ ok: false });
+    expect(await changeAccountPassword("correct horse battery", "another password 1")).toEqual({ ok: true });
+    expect((await call("/sign-in/email", { email: u.email, password: "correct horse battery" })).status).toBe(401);
+    expect((await call("/sign-in/email", { email: u.email, password: "another password 1" })).status).toBe(200);
+    const token = other.match(/session_token=([^.;]+)/)![1];
+    expect(await db.query.session.findFirst({ where: eq(session.token, token) })).toBeUndefined();
+  });
+
+  test("removing it turns password log in off", async () => {
+    const u = await makeUser();
+    actAs(u);
+    await setAccountPassword("correct horse battery");
+    expect(await removeAccountPassword()).toEqual({ ok: true });
+    expect(await hasPassword(u.id)).toBe(false);
+    expect((await call("/sign-in/email", { email: u.email, password: "correct horse battery" })).status).toBe(401);
+    expect(await setAccountPassword("another password 1")).toEqual({ ok: true });
+  });
+
+  test("signed out, the Settings actions do nothing", async () => {
+    actAs(null);
+    expect(await setAccountPassword("correct horse battery")).toMatchObject({ ok: false });
+    expect(await removeAccountPassword()).toMatchObject({ ok: false });
+    expect(await db.select().from(account)).toHaveLength(0);
   });
 });
 

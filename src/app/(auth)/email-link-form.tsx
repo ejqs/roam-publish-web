@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { AuthCard } from "@/components/auth-card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,7 +22,10 @@ import { safeNext } from "@/lib/safe-next";
 const light = "placeholder:text-muted-foreground/45";
 
 export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
+  const router = useRouter();
   const params = useSearchParams();
+  // Log in only: people who added a password in Settings can use it instead of a link.
+  const [withPassword, setWithPassword] = useState(false);
   const next = safeNext(params.get("next"), mode === "signup" ? "/onboarding" : "/dashboard");
   const [error, setError] = useState<string | null>(() => linkError(params.get("error"), params.get("error_description")));
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -39,6 +42,24 @@ export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
     const name = form.get("name");
     setPending(true);
     setError(null);
+    if (withPassword) {
+      const { error } = await authClient.signIn.email({ email, password: String(form.get("password")), callbackURL: next });
+      setPending(false);
+      if (!error) {
+        router.push(next);
+        router.refresh();
+        return;
+      }
+      setLastEmail(email);
+      setError(
+        error.status === 429
+          ? "Too many tries. Wait a minute and try again."
+          : error.code === "EMAIL_NOT_VERIFIED"
+            ? "Log in with a link first to confirm your email."
+            : "Wrong email or password. Without a password set in Settings, log in with a link.",
+      );
+      return;
+    }
     const { error } = await authClient.signIn.magicLink({
       email,
       ...(name ? { name: String(name).trim() } : {}),
@@ -114,10 +135,29 @@ export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
             <FieldLabel htmlFor="email">Email</FieldLabel>
             <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" className={light} required autoFocus={mode === "login"} defaultValue={lastEmail} />
           </Field>
+          {withPassword && (
+            <Field>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <Input id="password" name="password" type="password" autoComplete="current-password" required autoFocus />
+            </Field>
+          )}
           <Button type="submit" disabled={pending}>
             {pending && <Spinner data-icon="inline-start" />}
-            Email me a link
+            {withPassword ? "Log in" : "Email me a link"}
           </Button>
+          {mode === "login" && (
+            <Button
+              type="button"
+              variant="link"
+              className="-mt-2 h-auto self-center p-0 text-sm"
+              onClick={() => {
+                setWithPassword(!withPassword);
+                setError(null);
+              }}
+            >
+              {withPassword ? "Email me a link instead" : "Log in with a password"}
+            </Button>
+          )}
           <FieldDescription className="text-center">
             By continuing you agree to the{" "}
             <Link href="/terms" className="text-link hover:underline">

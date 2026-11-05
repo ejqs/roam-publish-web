@@ -6,6 +6,12 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.29.0 (2026-11-05)
+
+### Security
+- New: Add a password in Settings to log in with it as well as with an emailed link. You can change or remove it
+  there; changing it logs out your other devices.
+
 ## 0.28.0 (2026-11-04)
 
 ### Security
