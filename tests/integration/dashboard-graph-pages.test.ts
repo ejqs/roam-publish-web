@@ -27,7 +27,8 @@ test("a graph's Pages list leaves out pages shown only in collections, and doesn
   await addEntry(c.id, only.id, owner.id);
   actAs(owner);
 
-  for (const params of [{}, { access: "public" }, { q: "collection" }]) {
+  const cases: Record<string, string>[] = [{}, { access: "public" }, { q: "collection" }];
+  for (const params of cases) {
     const out = await pagesOf(g.name, params);
     const [list] = findElements(out, PublicationList) as { props: { rows: { id: string }[] } }[];
     const ids = list?.props.rows.map((r) => r.id) ?? [];
