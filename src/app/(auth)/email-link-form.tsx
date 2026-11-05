@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
 import { linkError, MAGIC_LINK_MINUTES } from "@/lib/sign-in-link";
 import { safeNext } from "@/lib/safe-next";
+import { loginOptions } from "@/server/actions/login";
 
 /**
  * Log in and sign up both email a one-time link (better-auth's magic-link plugin, src/lib/auth.ts).
@@ -24,8 +25,9 @@ const light = "placeholder:text-muted-foreground/45";
 export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
   const params = useSearchParams();
-  // Log in only: people who added a password in Settings can use it instead of a link.
-  const [withPassword, setWithPassword] = useState(false);
+  // Log in only: once the email belongs to an account with a password (Settings), ask for it, with a
+  // link as the other choice. Everyone else gets a link straight away.
+  const [passwordFor, setPasswordFor] = useState<string | null>(null);
   const next = safeNext(params.get("next"), mode === "signup" ? "/onboarding" : "/dashboard");
   const [error, setError] = useState<string | null>(() => linkError(params.get("error"), params.get("error_description")));
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -35,34 +37,12 @@ export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
   const other = mode === "login" ? "/signup" : "/login";
   const withNext = (path: string) => `${path}?next=${encodeURIComponent(next)}`;
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const email = String(form.get("email")).trim();
-    const name = form.get("name");
+  async function sendLink(email: string, name?: string) {
     setPending(true);
     setError(null);
-    if (withPassword) {
-      const { error } = await authClient.signIn.email({ email, password: String(form.get("password")), callbackURL: next });
-      setPending(false);
-      if (!error) {
-        router.push(next);
-        router.refresh();
-        return;
-      }
-      setLastEmail(email);
-      setError(
-        error.status === 429
-          ? "Too many tries. Wait a minute and try again."
-          : error.code === "EMAIL_NOT_VERIFIED"
-            ? "Log in with a link first to confirm your email."
-            : "Wrong email or password. Without a password set in Settings, log in with a link.",
-      );
-      return;
-    }
     const { error } = await authClient.signIn.magicLink({
       email,
-      ...(name ? { name: String(name).trim() } : {}),
+      ...(name ? { name } : {}),
       callbackURL: next,
       newUserCallbackURL: mode === "signup" ? next : "/onboarding",
       errorCallbackURL: withNext(here),
@@ -77,7 +57,47 @@ export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
       return;
     }
     setLastEmail(email);
+    setPasswordFor(null);
     setSentTo(email);
+  }
+
+  async function logInWithPassword(email: string, password: string) {
+    setPending(true);
+    setError(null);
+    const { error } = await authClient.signIn.email({ email, password, callbackURL: next });
+    if (!error) {
+      router.push(next);
+      router.refresh();
+      return;
+    }
+    setPending(false);
+    setError(
+      error.status === 429
+        ? "Too many tries. Wait a minute and try again."
+        : error.code === "EMAIL_NOT_VERIFIED"
+          ? "Log in with a link first to confirm your email."
+          : "Wrong password.",
+    );
+  }
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    if (passwordFor) return logInWithPassword(passwordFor, String(form.get("password")));
+    const email = String(form.get("email")).trim();
+    const name = form.get("name");
+    if (mode === "signup") return sendLink(email, name ? String(name).trim() : undefined);
+    setPending(true);
+    setError(null);
+    const options = await loginOptions(email);
+    if (!options.ok) {
+      setPending(false);
+      return setError(options.message);
+    }
+    if (!options.password) return sendLink(email);
+    setPending(false);
+    setLastEmail(email);
+    setPasswordFor(email);
   }
 
   if (sentTo) {
@@ -106,7 +126,9 @@ export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
       title={mode === "login" ? "Log in to Roam Publish" : "Create your account"}
       description={
         mode === "login"
-          ? "We'll email you a link to log in."
+          ? passwordFor
+            ? "Enter your password, or get a link by email."
+            : "We'll email you a link to log in."
           : "You'll need an active Roam Research account to publish."
       }
       footer={
@@ -131,32 +153,49 @@ export function EmailLinkForm({ mode }: { mode: "login" | "signup" }) {
               <Input id="name" name="name" autoComplete="name" placeholder="Ann Lee" className={light} required />
             </Field>
           )}
-          <Field>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" className={light} required autoFocus={mode === "login"} defaultValue={lastEmail} />
-          </Field>
-          {withPassword && (
-            <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
-              <Input id="password" name="password" type="password" autoComplete="current-password" required autoFocus />
-            </Field>
-          )}
-          <Button type="submit" disabled={pending}>
-            {pending && <Spinner data-icon="inline-start" />}
-            {withPassword ? "Log in" : "Email me a link"}
-          </Button>
-          {mode === "login" && (
-            <Button
-              type="button"
-              variant="link"
-              className="-mt-2 h-auto self-center p-0 text-sm"
-              onClick={() => {
-                setWithPassword(!withPassword);
-                setError(null);
-              }}
-            >
-              {withPassword ? "Email me a link instead" : "Log in with a password"}
-            </Button>
+          {passwordFor ? (
+            <>
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="min-w-0 truncate font-medium">{passwordFor}</span>
+                <button
+                  type="button"
+                  className="shrink-0 text-link hover:underline"
+                  onClick={() => {
+                    setPasswordFor(null);
+                    setError(null);
+                  }}
+                >
+                  Change
+                </button>
+              </div>
+              <Field>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <Input id="password" name="password" type="password" autoComplete="current-password" required autoFocus />
+              </Field>
+              <Button type="submit" disabled={pending}>
+                {pending && <Spinner data-icon="inline-start" />}
+                Log in
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => void sendLink(passwordFor)}
+              >
+                Email me a link instead
+              </Button>
+            </>
+          ) : (
+            <>
+              <Field>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" className={light} required autoFocus={mode === "login"} defaultValue={lastEmail} />
+              </Field>
+              <Button type="submit" disabled={pending}>
+                {pending && <Spinner data-icon="inline-start" />}
+                {mode === "login" ? "Continue" : "Email me a link"}
+              </Button>
+            </>
           )}
           <FieldDescription className="text-center">
             By continuing you agree to the{" "}

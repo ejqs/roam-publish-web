@@ -5,6 +5,7 @@ import { account, blockedIdentity, session, user, verification } from "@/db/sche
 import { auth } from "@/lib/auth";
 import { hasPassword } from "@/lib/account-password";
 import { blockedValue } from "@/lib/deletion";
+import { loginOptions } from "@/server/actions/login";
 import { changeAccountPassword, removeAccountPassword, setAccountPassword } from "@/server/actions/account";
 import { resetDb } from "../helpers/db";
 import { actAs, makeUser, signInByLink } from "../helpers/factories";
@@ -109,6 +110,17 @@ describe("passwords are optional", () => {
     expect(await hasPassword(u.id)).toBe(false);
     expect((await call("/sign-in/email", { email: u.email, password: "correct horse battery" })).status).toBe(401);
     expect(await setAccountPassword("another password 1")).toEqual({ ok: true });
+  });
+
+  test("log in asks for a password only when the account has one", async () => {
+    const u = await makeUser();
+    actAs(null);
+    expect(await loginOptions(u.email)).toEqual({ ok: true, password: false });
+    expect(await loginOptions("nobody@example.com")).toEqual({ ok: true, password: false });
+    actAs(u);
+    await setAccountPassword("correct horse battery");
+    actAs(null);
+    expect(await loginOptions(` ${u.email.toUpperCase()} `)).toEqual({ ok: true, password: true });
   });
 
   test("signed out, the Settings actions do nothing", async () => {

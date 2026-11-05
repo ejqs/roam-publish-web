@@ -9,8 +9,8 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 ## 0.29.0 (2026-11-05)
 
 ### Security
-- New: Add a password in Settings to log in with it as well as with an emailed link. You can change or remove it
-  there; changing it logs out your other devices.
+- New: Add a password in Settings to log in with it. Log in then asks for it after your email, with an emailed
+  link as the other choice. You can change or remove it in Settings; changing it logs out your other devices.
 
 ## 0.28.0 (2026-11-04)
 
