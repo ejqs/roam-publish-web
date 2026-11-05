@@ -28,11 +28,14 @@ export const ACCESS_WHERE: Record<AccessFilter, SQL> = {
 
 /**
  * Unlisted pages shown in their graph. They have their own dashboard tab (/dashboard/unlisted), so
- * the graph's Pages list leaves them out; pages only in collections stay in it.
+ * the graph's Pages list leaves them out.
  */
 export const UNLISTED_IN_GRAPH = and(eq(publication.inGraph, true), ACCESS_WHERE.unlisted)!;
 export const notUnlistedInGraph = not(UNLISTED_IN_GRAPH);
 export const unlistedInGraphCount = sql<number>`count(*) filter (where ${UNLISTED_IN_GRAPH})`.mapWith(Number);
+
+/** Pages shown in their graph. Pages only in collections are listed in those collections, not the graph's Pages list. */
+export const shownInGraph = eq(publication.inGraph, true);
 
 /** The Unlisted tab, optionally narrowed to one graph (`g:{name}`) or collection (`c:{slug}`). */
 export const unlistedTabPath = (from?: { graph: string } | { collection: string }) =>

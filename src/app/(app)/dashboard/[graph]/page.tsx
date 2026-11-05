@@ -21,6 +21,7 @@ import {
   notUnlistedInGraph,
   PAGE_SIZE,
   parseListState,
+  shownInGraph,
   sortHref,
   unlistedInGraphCount,
   unlistedTabPath,
@@ -42,11 +43,16 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
   if (!g || !role) notFound();
 
   const state = parseListState(GRAPH_LIST, await props.searchParams);
-  // Unlisted pages have their own tab; this list holds the graph's listed and protected ones.
+  // Unlisted pages have their own tab, and pages only in collections are listed there;
+  // this list holds the graph's listed and protected pages.
   if (state.access === "unlisted") redirect(unlistedTabPath({ graph: g.name }));
-  const where = and(listWhere(g.id, state), notUnlistedInGraph)!;
-  const [[totals], [{ matching }]] = await Promise.all([
-    db.select({ total: count(), ...accessCounts, unlistedInGraph: unlistedInGraphCount }).from(publication).where(eq(publication.graphId, g.id)),
+  const where = and(listWhere(g.id, state), shownInGraph, notUnlistedInGraph)!;
+  const [[{ total }], [totals], [{ matching }]] = await Promise.all([
+    db.select({ total: count() }).from(publication).where(eq(publication.graphId, g.id)),
+    db
+      .select({ inGraph: count(), ...accessCounts, unlistedInGraph: unlistedInGraphCount })
+      .from(publication)
+      .where(and(eq(publication.graphId, g.id), shownInGraph)),
     db.select({ matching: count() }).from(publication).where(where),
   ]);
   const pageCount = Math.max(1, Math.ceil(matching / PAGE_SIZE));
@@ -108,7 +114,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
         name={g.name}
         caption={[
           role === "owner" ? "Owner" : "Member",
-          `${totals.total.toLocaleString("en-US")} published`,
+          `${total.toLocaleString("en-US")} published`,
           totals.discover > 0 && `${totals.discover.toLocaleString("en-US")} on Discover`,
         ]
           .filter(Boolean)
@@ -132,7 +138,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
         cfg={GRAPH_LIST}
         path={path}
         state={state}
-        counts={{ ...totals, all: totals.total - totals.unlistedInGraph, unlisted: 0 }}
+        counts={{ ...totals, all: totals.inGraph - totals.unlistedInGraph, unlisted: 0 }}
         hidden={["removed", "unlisted"]}
       />
 
