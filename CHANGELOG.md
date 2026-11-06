@@ -9,8 +9,8 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 ## 0.28.1 (2026-11-05)
 
 ### Dashboard
-- Improved: A graph's Pages list leaves out pages shown only in collections. Find them in each collection's
-  Pages list.
+- Improved: A graph's Pages list now holds only the pages shown in the graph. Pages only in collections have
+  their own page, linked under the list, where you can search them and filter by collection.
 
 ## 0.28.0 (2026-11-04)
 

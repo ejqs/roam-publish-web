@@ -37,6 +37,19 @@ export const unlistedInGraphCount = sql<number>`count(*) filter (where ${UNLISTE
 /** Pages shown in their graph. Pages only in collections are listed in those collections, not the graph's Pages list. */
 export const shownInGraph = eq(publication.inGraph, true);
 
+/**
+ * A graph's pages that are only in collections, where some collection lists them: Unlisted entries
+ * are on the Unlisted tab instead, as in the collection's own Pages list.
+ */
+export const ONLY_IN_COLLECTIONS = and(
+  eq(publication.inGraph, false),
+  isNull(publication.removedAt),
+  sql`exists (select 1 from ${collectionEntry} where ${collectionEntry.publicationId} = ${publication.id} and ${collectionEntry.listing} <> 'unlisted')`,
+)!;
+
+/** A graph's own page for its pages only in collections. */
+export const onlyInCollectionsPath = (graphName: string) => `/dashboard/${encodeURIComponent(graphName)}/collections-only`;
+
 /** The Unlisted tab, optionally narrowed to one graph (`g:{name}`) or collection (`c:{slug}`). */
 export const unlistedTabPath = (from?: { graph: string } | { collection: string }) =>
   "/dashboard/unlisted" +

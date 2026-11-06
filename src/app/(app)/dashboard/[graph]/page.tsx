@@ -19,6 +19,8 @@ import {
   listOrder,
   listWhere,
   notUnlistedInGraph,
+  ONLY_IN_COLLECTIONS,
+  onlyInCollectionsPath,
   PAGE_SIZE,
   parseListState,
   shownInGraph,
@@ -28,7 +30,7 @@ import {
 } from "@/lib/dashboard-filters";
 import { ListEmpty, ListPagination, ListToolbar } from "../list-toolbar";
 import { PublicationList } from "../publication-list";
-import { ResourceHeader, resourceTabs, UnlistedElsewhere } from "../section-tabs";
+import { OnlyInCollectionsLink, ResourceHeader, resourceTabs, UnlistedElsewhere } from "../section-tabs";
 
 export const metadata: Metadata = { title: "Published pages · Roam Publish" };
 
@@ -43,17 +45,18 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
   if (!g || !role) notFound();
 
   const state = parseListState(GRAPH_LIST, await props.searchParams);
-  // Unlisted pages have their own tab, and pages only in collections are listed there;
+  // Unlisted pages have their own tab, and pages only in collections their own page;
   // this list holds the graph's listed and protected pages.
   if (state.access === "unlisted") redirect(unlistedTabPath({ graph: g.name }));
   const where = and(listWhere(g.id, state), shownInGraph, notUnlistedInGraph)!;
-  const [[{ total }], [totals], [{ matching }]] = await Promise.all([
+  const [[{ total }], [totals], [{ matching }], [{ onlyInCollections }]] = await Promise.all([
     db.select({ total: count() }).from(publication).where(eq(publication.graphId, g.id)),
     db
       .select({ inGraph: count(), ...accessCounts, unlistedInGraph: unlistedInGraphCount })
       .from(publication)
       .where(and(eq(publication.graphId, g.id), shownInGraph)),
     db.select({ matching: count() }).from(publication).where(where),
+    db.select({ onlyInCollections: count() }).from(publication).where(and(eq(publication.graphId, g.id), ONLY_IN_COLLECTIONS)),
   ]);
   const pageCount = Math.max(1, Math.ceil(matching / PAGE_SIZE));
   const page = Math.min(state.page, pageCount);
@@ -164,6 +167,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
         </CardContent>
       </Card>
       <UnlistedElsewhere n={totals.unlistedInGraph} from={g.name} href={unlistedTabPath({ graph: g.name })} />
+      <OnlyInCollectionsLink n={onlyInCollections} from={g.name} href={onlyInCollectionsPath(g.name)} />
     </div>
   );
 }

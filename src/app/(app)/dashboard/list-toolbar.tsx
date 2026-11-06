@@ -29,12 +29,17 @@ export function ListToolbar<F extends string, S extends string>({
   state,
   counts,
   hidden = [],
+  filterIcon,
+  filterLabel = "Filter by listing",
 }: {
   cfg: ListConfig<F, S>;
   path: string;
   state: ListState<F, S>;
   counts: Record<F | "all", number>;
   hidden?: F[];
+  /** One icon for every filter, when they aren't the access ladder. */
+  filterIcon?: LucideIcon;
+  filterLabel?: string;
 }) {
   const filterOptions: (F | null)[] = [
     null,
@@ -93,9 +98,9 @@ export function ListToolbar<F extends string, S extends string>({
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-1 text-sm" role="group" aria-label="Filter by listing">
+      <div className="flex flex-wrap items-center gap-1 text-sm" role="group" aria-label={filterLabel}>
         {filterOptions.map((a) => {
-          const Icon = a ? FILTER_ICONS[a] : undefined;
+          const Icon = a ? (filterIcon ?? FILTER_ICONS[a]) : undefined;
           const active = state.access === a;
           return (
             <Link
