@@ -6,7 +6,7 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
-## 0.28.1 (2026-11-05)
+## 0.28.1 (2026-11-07)
 
 ### Dashboard
 - Improved: A graph's Pages list now holds only the pages shown in the graph. Pages only in collections have
