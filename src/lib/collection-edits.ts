@@ -1,13 +1,13 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { ACCESS, collection, collectionEntry, VIEWS_MODE } from "@/db/schema";
 import { CollectionName } from "@/lib/collections";
 import { PdfStyleInput } from "@/lib/pdf";
 import { Description } from "@/lib/descriptions";
-import { DISCOVER_TAG } from "@/lib/discover";
+import { type CacheFrom, expireDiscover } from "@/lib/discover-cache";
 import { clearGatedCollectionDiscover } from "@/lib/discover-rules";
 import { pagesNeedingContainerPassword } from "@/lib/container-pages";
 import { canEncryptWith, dropLock, KeysError, setLockPassword } from "@/lib/encryption";
@@ -21,11 +21,11 @@ export type CollectionResult =
   | { ok: true; message: string; slug?: string }
   | { ok: false; message: string; needCurrentPassword?: boolean };
 
-export function revalidate() {
+export function revalidate(from: CacheFrom = "action") {
   revalidatePath("/dashboard", "layout");
   revalidatePath("/c/[id]", "layout");
   revalidatePath("/");
-  updateTag(DISCOVER_TAG);
+  expireDiscover(from);
 }
 
 export const CollectionSettingsInput = z.object({
@@ -58,7 +58,8 @@ export const CollectionSettingsInput = z.object({
 });
 export type CollectionSettings = z.input<typeof CollectionSettingsInput>;
 /** Saves a collection's settings for its owner. */
-export async function updateCollectionAs(uid: string, collectionId: string, input: CollectionSettings): Promise<CollectionResult> {
+export async function updateCollectionAs(uid: string, collectionId: string, input: CollectionSettings,
+  from: CacheFrom = "action"): Promise<CollectionResult> {
   const parsed = CollectionSettingsInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const s = parsed.data;
@@ -132,6 +133,6 @@ export async function updateCollectionAs(uid: string, collectionId: string, inpu
     throw e;
   }
   await clearGatedCollectionDiscover(c.id);
-  revalidate();
+  revalidate(from);
   return { ok: true, message: "Settings saved." };
 }

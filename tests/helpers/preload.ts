@@ -38,12 +38,27 @@ mock.module("next/headers", () => ({
   }),
 }));
 
+// Next.js throws when a Route Handler calls updateTag (it's for Server Actions only). Every route
+// runs through withRoute, so tests mark that scope and fail the same way production does.
+const { AsyncLocalStorage } = await import("node:async_hooks");
+const inRoute = new AsyncLocalStorage<boolean>();
+const realTelemetry = { ...(await import("@/lib/telemetry")) };
+mock.module("@/lib/telemetry", () => ({
+  ...realTelemetry,
+  withRoute: <A extends unknown[]>(name: string, handler: (...args: A) => Response | Promise<Response>) =>
+    realTelemetry.withRoute(name, (...args: A) => inRoute.run(true, () => handler(...args))),
+}));
+
 const realCache = await import("next/cache");
 mock.module("next/cache", () => ({
   ...realCache,
   revalidatePath: () => {},
   revalidateTag: () => {},
-  updateTag: () => {},
+  updateTag: () => {
+    if (inRoute.getStore()) {
+      throw new Error("updateTag can only be called from within a Server Action. Use revalidateTag in Route Handlers.");
+    }
+  },
   // No incremental cache outside Next: run the function every time.
   unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
 }));

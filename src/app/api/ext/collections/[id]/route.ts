@@ -126,7 +126,7 @@ export const PATCH = withRoute("PATCH /api/ext/collections/[id]", async (req: Re
     password: "",
     clearPassword: false,
   };
-  const saved = await updateCollectionAs(ctx.userId, c.id, input);
+  const saved = await updateCollectionAs(ctx.userId, c.id, input, "route");
   if (!saved.ok) return json(req, { error: saved.message }, 409);
   const after = (await db.query.collection.findFirst({ where: eq(collection.id, c.id) }))!;
   return json(req, view({ ...after, role: c.role }));
