@@ -41,7 +41,7 @@ type Row = Pick<
 /** A sortable column header: where clicking it goes, and which way it's sorted now, if at all. */
 export type SortHeader = { href: string; dir: "asc" | "desc" | null };
 
-/** A graph's published pages: a stacked list on phones, columns on wider screens. */
+/** A graph's published pages (not those only in collections): a stacked list on phones, columns on wider screens. */
 export function PublicationList({
   g,
   rows,
@@ -59,8 +59,8 @@ export function PublicationList({
   discoverBlocked?: string;
   sort?: { title: SortHeader; updated: SortHeader };
 }) {
-  // Bulk changes cover the graph place, so only pages shown in the graph that the viewer manages.
-  const selectable = rows.filter((p) => !p.removedAt && p.inGraph && manage.get(p.id)?.canManagePage).map((p) => p.id);
+  // Bulk changes cover the graph place, so only pages the viewer manages.
+  const selectable = rows.filter((p) => !p.removedAt && manage.get(p.id)?.canManagePage).map((p) => p.id);
   return (
     <BulkSelect ids={selectable} tags={Object.fromEntries(rows.map((p) => [p.id, p.tags]))} graphName={g.name}>
       <div className="text-sm">
@@ -77,7 +77,6 @@ export function PublicationList({
           {rows.map((p) => {
             const m = manage.get(p.id);
             const gAccess = p.access === "inherit" ? g.defaultAccess : p.access;
-            const firstEntry = m?.entries[0];
             return (
               <li
                 key={p.id}
@@ -91,7 +90,7 @@ export function PublicationList({
                   <div className="min-w-0">
                     <div className="flex items-start gap-2">
                       <Link
-                        href={p.inGraph || !firstEntry ? placePath(g.name, p) : firstEntry.path}
+                        href={placePath(g.name, p)}
                         className="line-clamp-2 min-w-0 break-words text-foreground hover:underline sm:line-clamp-1"
                       >
                         {p.sealedTitle ? <SealedTitleText sealed={p.sealedTitle} fallback={p.title} /> : p.title}
@@ -142,8 +141,6 @@ export function PublicationList({
                         <Badge variant="destructive">Removed by moderator</Badge>
                         {p.removedReason && <p className="mt-1 text-xs text-muted-foreground">{p.removedReason}</p>}
                       </>
-                    ) : !p.inGraph ? (
-                      <Badge variant="outline">Collections only</Badge>
                     ) : !m?.canManagePage ? (
                       <Badge variant="outline">{p.visibility === "public" ? "Public" : "Unlisted"}</Badge>
                     ) : (
@@ -157,7 +154,7 @@ export function PublicationList({
                       />
                     )}
                     {/* The access menu names it already. */}
-                    {!p.removedAt && p.inGraph && gAccess !== "open" && !m?.canManagePage && (
+                    {!p.removedAt && gAccess !== "open" && !m?.canManagePage && (
                       <p
                         title={lockExplanation(gAccess, "graph", g.name)}
                         className="mt-1 flex w-fit cursor-help items-center gap-1 text-xs text-muted-foreground"

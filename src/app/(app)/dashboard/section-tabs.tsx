@@ -1,4 +1,4 @@
-import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, EyeOffIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, EyeOffIcon, FolderIcon } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -92,6 +92,20 @@ export function UnlistedElsewhere({ n, from, href }: { n: number; from: string; 
       <EyeOffIcon className="size-3.5 shrink-0" />
       <span className="truncate">
         {n.toLocaleString("en-US")} Unlisted {n === 1 ? "page" : "pages"} from {from}
+      </span>
+      <ChevronRightIcon className="size-3.5 shrink-0" />
+    </Link>
+  );
+}
+
+/** Under a graph's Pages list: its pages only in collections, which have their own page. */
+export function OnlyInCollectionsLink({ n, from, href }: { n: number; from: string; href: string }) {
+  if (!n) return null;
+  return (
+    <Link href={href} className="-mt-2 flex w-fit max-w-full items-center gap-1.5 text-sm text-link hover:underline">
+      <FolderIcon className="size-3.5 shrink-0" />
+      <span className="truncate">
+        {n.toLocaleString("en-US")} {n === 1 ? "page" : "pages"} only in collections from {from}
       </span>
       <ChevronRightIcon className="size-3.5 shrink-0" />
     </Link>

@@ -19,15 +19,18 @@ import {
   listOrder,
   listWhere,
   notUnlistedInGraph,
+  ONLY_IN_COLLECTIONS,
+  onlyInCollectionsPath,
   PAGE_SIZE,
   parseListState,
+  shownInGraph,
   sortHref,
   unlistedInGraphCount,
   unlistedTabPath,
 } from "@/lib/dashboard-filters";
 import { ListEmpty, ListPagination, ListToolbar } from "../list-toolbar";
 import { PublicationList } from "../publication-list";
-import { ResourceHeader, resourceTabs, UnlistedElsewhere } from "../section-tabs";
+import { OnlyInCollectionsLink, ResourceHeader, resourceTabs, UnlistedElsewhere } from "../section-tabs";
 
 export const metadata: Metadata = { title: "Published pages · Roam Publish" };
 
@@ -42,12 +45,18 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
   if (!g || !role) notFound();
 
   const state = parseListState(GRAPH_LIST, await props.searchParams);
-  // Unlisted pages have their own tab; this list holds the graph's listed and protected ones.
+  // Unlisted pages have their own tab, and pages only in collections their own page;
+  // this list holds the graph's listed and protected pages.
   if (state.access === "unlisted") redirect(unlistedTabPath({ graph: g.name }));
-  const where = and(listWhere(g.id, state), notUnlistedInGraph)!;
-  const [[totals], [{ matching }]] = await Promise.all([
-    db.select({ total: count(), ...accessCounts, unlistedInGraph: unlistedInGraphCount }).from(publication).where(eq(publication.graphId, g.id)),
+  const where = and(listWhere(g.id, state), shownInGraph, notUnlistedInGraph)!;
+  const [[{ total }], [totals], [{ matching }], [{ onlyInCollections }]] = await Promise.all([
+    db.select({ total: count() }).from(publication).where(eq(publication.graphId, g.id)),
+    db
+      .select({ inGraph: count(), ...accessCounts, unlistedInGraph: unlistedInGraphCount })
+      .from(publication)
+      .where(and(eq(publication.graphId, g.id), shownInGraph)),
     db.select({ matching: count() }).from(publication).where(where),
+    db.select({ onlyInCollections: count() }).from(publication).where(and(eq(publication.graphId, g.id), ONLY_IN_COLLECTIONS)),
   ]);
   const pageCount = Math.max(1, Math.ceil(matching / PAGE_SIZE));
   const page = Math.min(state.page, pageCount);
@@ -108,7 +117,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
         name={g.name}
         caption={[
           role === "owner" ? "Owner" : "Member",
-          `${totals.total.toLocaleString("en-US")} published`,
+          `${total.toLocaleString("en-US")} published`,
           totals.discover > 0 && `${totals.discover.toLocaleString("en-US")} on Discover`,
         ]
           .filter(Boolean)
@@ -132,7 +141,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
         cfg={GRAPH_LIST}
         path={path}
         state={state}
-        counts={{ ...totals, all: totals.total - totals.unlistedInGraph, unlisted: 0 }}
+        counts={{ ...totals, all: totals.inGraph - totals.unlistedInGraph, unlisted: 0 }}
         hidden={["removed", "unlisted"]}
       />
 
@@ -158,6 +167,7 @@ export default async function GraphPagesPage(props: PageProps<"/dashboard/[graph
         </CardContent>
       </Card>
       <UnlistedElsewhere n={totals.unlistedInGraph} from={g.name} href={unlistedTabPath({ graph: g.name })} />
+      <OnlyInCollectionsLink n={onlyInCollections} from={g.name} href={onlyInCollectionsPath(g.name)} />
     </div>
   );
 }
