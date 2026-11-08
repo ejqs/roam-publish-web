@@ -6,7 +6,7 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
-## 0.28.2 (2026-11-07)
+## 0.28.2 (2026-11-08)
 
 ### Publishing
 - Fixed: Changing a page's or a collection's settings from Roam, or taking a page out of a collection there, no
