@@ -45,7 +45,7 @@ export const PATCH = withRoute("PATCH /api/ext/publications/[rootUid]/collection
   if (!parsed.success) return json(req, { error: "Invalid settings" }, 400);
   const found = await entryOf(req, rc);
   if (found instanceof Response) return found;
-  const saved = await updateEntryAs(found.ctx.userId, found.entry.id, parsed.data);
+  const saved = await updateEntryAs(found.ctx.userId, found.entry.id, parsed.data, "route");
   if (!saved.ok) return json(req, { error: saved.message }, 409);
   const after = (await db.query.collectionEntry.findFirst({ where: eq(collectionEntry.id, found.entry.id) }))!;
   return json(req, { listing: after.listing, showAuthor: after.showAuthor, views: after.views, pdfDownload: after.pdfDownload });
@@ -58,7 +58,7 @@ export const PATCH = withRoute("PATCH /api/ext/publications/[rootUid]/collection
 export const DELETE = withRoute("DELETE /api/ext/publications/[rootUid]/collections/[collectionId]", async (req: Request, rc: Ctx) => {
   const found = await entryOf(req, rc);
   if (found instanceof Response) return found;
-  const removed = await removeEntryAs(found.ctx.userId, found.entry.id);
+  const removed = await removeEntryAs(found.ctx.userId, found.entry.id, undefined, "route");
   if (!removed.ok) return json(req, { error: removed.message }, 409);
   const pub = (await db.query.publication.findFirst({ where: (p, { eq }) => eq(p.id, found.pub.id) }))!;
   return json(req, {

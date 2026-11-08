@@ -85,7 +85,7 @@ export const PATCH = withRoute("PATCH /api/ext/publications/[rootUid]", async (
       showAuthor: body.showAuthor,
       views: body.views,
       pdfDownload: body.pdfDownload,
-    });
+    }, "route");
     if (!saved.ok) return json(req, { error: saved.message }, 409);
   }
   const [after] = set

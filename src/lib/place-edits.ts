@@ -1,6 +1,6 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
-import { revalidatePath, updateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -18,7 +18,7 @@ import {
 import { ACCESS_LABELS } from "@/components/manage/labels";
 import { type Change, logChange, logChanges, logForPublications, roamInert } from "@/lib/changelog";
 import { canManageEntry, collectionRole } from "@/lib/collections";
-import { DISCOVER_TAG } from "@/lib/discover";
+import { type CacheFrom, expireDiscover } from "@/lib/discover-cache";
 import { clearGatedCollectionDiscover, clearGatedGraphDiscover } from "@/lib/discover-rules";
 import { entryDiscoverBlocked, hideFromGraphBlocked } from "@/lib/control-rules";
 import {
@@ -51,13 +51,13 @@ export type PlaceResult = {
   needCurrentPassword?: boolean;
 };
 
-export function revalidateAll() {
+export function revalidateAll(from: CacheFrom = "action") {
   revalidatePath("/dashboard", "layout");
   revalidatePath("/[graph]", "layout");
   revalidatePath("/c/[id]", "layout");
   revalidatePath("/u/[username]", "page");
   revalidatePath("/");
-  updateTag(DISCOVER_TAG);
+  expireDiscover(from);
 }
 
 export const PlaceInput = z.object({
@@ -142,7 +142,7 @@ function passwordUpdate(input: z.output<typeof PlaceInput>, current: { passwordV
 
 /** Graph place of a page: access, own password, byline, and whether it's shown in the graph at all. */
 export async function updateGraphPlaceAs(uid: string, publicationId: string,
-  raw: PlaceInput & { inGraph?: boolean },): Promise<PlaceResult> {
+  raw: PlaceInput & { inGraph?: boolean }, from: CacheFrom = "action"): Promise<PlaceResult> {
   const parsed = PlaceInput.extend({ inGraph: z.boolean().optional() }).safeParse(raw);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const input = parsed.data;
@@ -213,13 +213,13 @@ export async function updateGraphPlaceAs(uid: string, publicationId: string,
   if (input.inGraph !== undefined && input.inGraph !== pub.inGraph)
     log.push({ ...page, category: "listing", text: input.inGraph ? "Shown in the graph again" : "Hidden from the graph (collections only)" });
   logChanges(log);
-  revalidateAll();
+  revalidateAll(from);
   return { ok: true, message: input.password ? "Password set." : "Saved." };
 }
 
 /** A page's place in a collection. Collection owners manage every entry; members their own. */
 export async function updateEntryAs(uid: string, entryId: string,
-  raw: PlaceInput & { listing?: (typeof ENTRY_LISTING)[number] },): Promise<PlaceResult> {
+  raw: PlaceInput & { listing?: (typeof ENTRY_LISTING)[number] }, from: CacheFrom = "action"): Promise<PlaceResult> {
   const parsed = PlaceInput.extend({ listing: z.enum(ENTRY_LISTING).optional() }).safeParse(raw);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   const input = parsed.data;
@@ -288,7 +288,7 @@ export async function updateEntryAs(uid: string, entryId: string,
   if (accessLog.length) await logForPublications([entry.publicationId], "access", accessLog.join("; "));
   if (input.listing && input.listing !== entry.listing)
     await logForPublications([entry.publicationId], "listing", `${LISTING_LOG[input.listing]} in ${collectionLink(c)}`);
-  revalidateAll();
+  revalidateAll(from);
   return { ok: true, message: input.password ? "Password set." : "Saved." };
 }
 
@@ -296,7 +296,8 @@ export async function updateEntryAs(uid: string, entryId: string,
  * Takes a page out of a collection: by whoever manages the entry, or whoever manages the page.
  * A page can't be left with no place at all; unpublish it instead.
  */
-export async function removeEntryAs(uid: string, entryId: string, currentPassword?: string): Promise<PlaceResult> {
+export async function removeEntryAs(uid: string, entryId: string, currentPassword?: string,
+  from: CacheFrom = "action"): Promise<PlaceResult> {
   if (currentPassword !== undefined && (currentPassword.length > 200 || !triesLeft(uid, { currentPassword })))
     return { ok: false, message: "Too many tries. Try again in a few minutes." };
   const entry = await db.query.collectionEntry.findFirst({ where: eq(collectionEntry.id, entryId) });
@@ -349,6 +350,6 @@ export async function removeEntryAs(uid: string, entryId: string, currentPasswor
       "collections",
       `Removed from collection ${c ? collectionLink(c) : ""}`.trim() + (backInGraph ? "; back in the graph, unlisted" : ""),
     );
-  revalidateAll();
+  revalidateAll(from);
   return { ok: true, message: "Removed from the collection." };
 }
