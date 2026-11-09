@@ -155,6 +155,9 @@ export const GET = withRoute("GET /api/ext/publications", async (req: Request) =
       visibility: p.visibility,
       ...extListing(g, p),
       encrypted: p.encrypted,
+      // Its access in its graph (Open, Password or Members), for the marks the extension draws on links
+      // to it; null for a page only in collections, which each set their own.
+      access: p.inGraph ? (p.access === "inherit" ? g.defaultAccess : p.access) : null,
       removed: !!p.removedAt,
       mine: ctx.role === "owner" || p.publishedBy === ctx.userId,
       updatedAt: p.updatedAt,

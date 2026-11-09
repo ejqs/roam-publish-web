@@ -6,8 +6,9 @@ import { blockedIdentity, collection, cPath } from "@/db/schema";
 import { requireAdminPage } from "@/lib/admin";
 import { emailHash } from "@/lib/deletion";
 import { adminLiftBlock, adminReleaseCollectionSlug } from "@/server/actions/admin/moderation";
-import { ADMIN_PAGE_SIZE, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
+import { ADMIN_PAGE_SIZE, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
 import { LiftButton } from "./lift-button";
+import { AdminTime } from "../admin-time";
 
 /**
  * What deleted accounts left blocked because a moderator had acted on them (src/lib/deletion.ts).
@@ -73,7 +74,7 @@ export default async function AdminBlockedPage(props: PageProps<"/admin/blocked"
           )}
           {rows.map((b) => (
             <TableRow key={`${b.kind}:${b.value}`} className="align-top">
-              <TableCell className="text-muted-foreground">{fmtDate(b.createdAt)}</TableCell>
+              <TableCell className="text-muted-foreground"><AdminTime d={b.createdAt} /></TableCell>
               <TableCell>
                 <Badge variant="outline">{b.kind}</Badge>
               </TableCell>
@@ -118,7 +119,7 @@ export default async function AdminBlockedPage(props: PageProps<"/admin/blocked"
             )}
             {slugs.map((s) => (
               <TableRow key={s.path}>
-                <TableCell className="text-muted-foreground">{fmtDate(s.createdAt)}</TableCell>
+                <TableCell className="text-muted-foreground"><AdminTime d={s.createdAt} /></TableCell>
                 <TableCell className="font-mono text-xs">/c/{s.path}</TableCell>
                 <TableCell className="text-right max-sm:text-left">
                   <LiftButton

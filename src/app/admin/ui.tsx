@@ -25,9 +25,6 @@ export function param(v: string | string[] | undefined) {
   return (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
 }
 
-const dateFmt = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" });
-export const fmtDate = (d: Date | null | undefined) => (d ? dateFmt.format(d) : "—");
-
 function href(path: string, params: Record<string, string>, page: number) {
   const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v));
   if (page > 1) q.set("page", String(page));

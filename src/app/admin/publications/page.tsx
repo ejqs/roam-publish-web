@@ -8,7 +8,8 @@ import { requireAdminPage } from "@/lib/admin";
 import { publicationPath } from "@/lib/publications";
 import { plainText } from "@/lib/slug";
 import { PublicationActions } from "../target-actions";
-import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
+import { ADMIN_PAGE_SIZE, FilterLinks, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
+import { AdminTime } from "../admin-time";
 
 const FILTERS = ["all", "public", "unlisted", "removed", "reported"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -110,7 +111,7 @@ export default async function AdminPublicationsPage(props: PageProps<"/admin/pub
               <TableCell data-label="Reports">
                 {reports > 0 ? <Badge variant="destructive">{reports} open</Badge> : <span className="text-muted-foreground">0</span>}
               </TableCell>
-              <TableCell data-label="Updated" className="text-muted-foreground">{fmtDate(pub.updatedAt)}</TableCell>
+              <TableCell data-label="Updated" className="text-muted-foreground"><AdminTime d={pub.updatedAt} /></TableCell>
               <TableCell className="text-right max-sm:text-left">
                 <PublicationActions pub={pub} graphName={graphName} />
               </TableCell>

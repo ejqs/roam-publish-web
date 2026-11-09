@@ -3,7 +3,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { requireAdminPage } from "@/lib/admin";
 import { ACTIVE_DAYS, extAtLeast, extVersionUse } from "@/lib/ext-version";
 import { liveExtVersion } from "@/lib/whats-new";
-import { fmtDate, STACKED_TABLE } from "../ui";
+import { STACKED_TABLE } from "../ui";
+import { AdminTime } from "../admin-time";
 
 export const metadata = { title: "Extension · Admin" };
 
@@ -62,7 +63,7 @@ export default async function AdminExtensionPage() {
                 {r.cantSeal}
               </TableCell>
               <TableCell data-label="Last call" className="text-muted-foreground">
-                {fmtDate(r.lastSeenAt)}
+                <AdminTime d={r.lastSeenAt} />
               </TableCell>
             </TableRow>
           ))}

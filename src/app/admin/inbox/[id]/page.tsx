@@ -7,8 +7,9 @@ import { db } from "@/db";
 import { inboxReply, user } from "@/db/schema";
 import { requireAdminPage } from "@/lib/admin";
 import { emailFrameDoc, inboxClient, parseAddress, replyAddress } from "@/lib/inbox";
-import { fmtDate, param } from "../../ui";
+import { param } from "../../ui";
 import { ReplyForm } from "./reply-form";
+import { AdminTime } from "../../admin-time";
 
 export const metadata = { title: "Email · Admin" };
 
@@ -60,7 +61,7 @@ export default async function AdminInboxEmailPage(props: PageProps<"/admin/inbox
     ["To", e.to.join(", ")],
     ...(e.cc?.length ? [["Cc", e.cc.join(", ")] as [string, string]] : []),
     ...(e.reply_to?.length ? [["Reply-To", e.reply_to.join(", ")] as [string, string]] : []),
-    ["Received", fmtDate(new Date(e.created_at))],
+    ["Received", <AdminTime key="received" d={e.created_at} />],
   ];
 
   return (
@@ -137,7 +138,7 @@ export default async function AdminInboxEmailPage(props: PageProps<"/admin/inbox
           {replies.map(({ r, adminEmail }) => (
             <div key={r.id} className="flex flex-col gap-1 rounded-sm border bg-card p-4 text-sm">
               <p className="text-muted-foreground">
-                {adminEmail ?? "An admin"} to {r.to} · {fmtDate(r.createdAt)}
+                {adminEmail ?? "An admin"} to {r.to} · <AdminTime d={r.createdAt} inline />
               </p>
               <p className="whitespace-pre-wrap break-words">{r.body}</p>
             </div>

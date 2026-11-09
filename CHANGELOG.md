@@ -6,6 +6,14 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.29.0 (2026-11-09)
+
+### Site
+- New: **What's new** has a map of changes per day. Point at a day to see how many changes it brought and which
+  versions, and select it to go to them.
+- Improved: **What's new** shows 10 releases a page, with **Newer** and **Older** buttons. Links to a change, like
+  those in the RSS feed, still open the page that has it.
+
 ## 0.28.3 (2026-11-09)
 
 ### Site

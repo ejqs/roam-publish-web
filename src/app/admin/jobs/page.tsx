@@ -7,8 +7,9 @@ import { requireAdminPage } from "@/lib/admin";
 import { type JobRow, type JobStatus, jobStatus, utcDay } from "@/lib/jobs";
 import { FULL_SWEEP, JOBS } from "@/lib/jobs-registry";
 import { viewSyncStats } from "@/lib/view-sync";
-import { fmtDate, STACKED_TABLE } from "../ui";
+import { STACKED_TABLE } from "../ui";
 import { RunNowButton } from "./run-now-button";
+import { AdminTime } from "../admin-time";
 
 export const metadata = { title: "Jobs · Admin" };
 
@@ -98,7 +99,7 @@ export default async function AdminJobsPage() {
                     {row?.lastError && (
                       <details className="mt-1 text-xs">
                         <summary className="cursor-pointer text-destructive">
-                          Last error {fmtDate(row.lastErrorAt)}
+                          Last error <AdminTime d={row.lastErrorAt} inline />
                         </summary>
                         <pre className="mt-1 max-w-full overflow-x-auto whitespace-pre-wrap break-words font-mono">
                           {row.lastError}
@@ -110,16 +111,16 @@ export default async function AdminJobsPage() {
                     <StatusBadge s={status} />
                   </TableCell>
                   <TableCell data-label="Last run" className="text-muted-foreground">
-                    {fmtDate(row?.lastFinishedAt)}
+                    <AdminTime d={row?.lastFinishedAt} />
                   </TableCell>
                   <TableCell data-label="Last success" className="text-muted-foreground">
-                    {fmtDate(row?.lastSuccessAt)}
+                    <AdminTime d={row?.lastSuccessAt} />
                   </TableCell>
                   <TableCell data-label="Took" className="text-muted-foreground">
                     {duration(row?.lastDurationMs ?? null)}
                   </TableCell>
                   <TableCell data-label="Next run" className="text-muted-foreground">
-                    {job.exclusive ? fmtDate(row?.nextDueAt) : job.schedule.toLowerCase()}
+                    {job.exclusive ? <AdminTime d={row?.nextDueAt} /> : job.schedule.toLowerCase()}
                   </TableCell>
                   <TableCell data-label="Result" className="max-w-xs whitespace-normal text-xs text-muted-foreground">
                     {resultText(row?.lastResult ?? null)}
@@ -147,13 +148,13 @@ export default async function AdminJobsPage() {
             <dt className="text-muted-foreground">Waiting for a country lookup</dt>
             <dd className="tabular-nums">{views.countriesDue.toLocaleString("en-US")}</dd>
             <dt className="text-muted-foreground">Oldest country lookup</dt>
-            <dd>{fmtDate(views.oldestCountries)}</dd>
+            <dd><AdminTime d={views.oldestCountries} /></dd>
             <dt className="text-muted-foreground">Last full sweep</dt>
-            <dd>{fmtDate(fullSweepAt)}</dd>
+            <dd><AdminTime d={fullSweepAt} /></dd>
             <dt className="text-muted-foreground">API calls today (UTC)</dt>
             <dd className="tabular-nums">{callsToday.toLocaleString("en-US")}</dd>
             <dt className="text-muted-foreground">Last rate limit</dt>
-            <dd>{fmtDate(lastLimited)}</dd>
+            <dd><AdminTime d={lastLimited} /></dd>
           </dl>
         </section>
         <section className="flex flex-col gap-3">
