@@ -11,7 +11,8 @@ import { jobStatus } from "@/lib/jobs";
 import { JOBS } from "@/lib/jobs-registry";
 import type { MetricKind } from "@/lib/telemetry";
 import { isUnhealthy, type MetricStats, metricStats } from "@/lib/telemetry-stats";
-import { fmtDate, param, STACKED_TABLE } from "../ui";
+import { param, STACKED_TABLE } from "../ui";
+import { AdminTime } from "../admin-time";
 
 export const metadata = { title: "Status · Admin" };
 
@@ -120,7 +121,7 @@ function MetricTable({ rows, kind }: { rows: MetricStats[]; kind: MetricKind }) 
             <TableCell data-label="Last error" className="max-w-xs whitespace-normal text-xs">
               {s.lastError ? (
                 <details>
-                  <summary className="cursor-pointer text-destructive">{fmtDate(s.lastErrorAt)}</summary>
+                  <summary className="cursor-pointer text-destructive"><AdminTime d={s.lastErrorAt} inline /></summary>
                   <pre className="mt-1 max-w-full overflow-x-auto whitespace-pre-wrap break-words font-mono">
                     {s.lastError}
                   </pre>

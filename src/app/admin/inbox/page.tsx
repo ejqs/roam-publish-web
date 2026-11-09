@@ -8,7 +8,8 @@ import { db } from "@/db";
 import { inboxReply } from "@/db/schema";
 import { requireAdminPage } from "@/lib/admin";
 import { inboxClient, parseAddress } from "@/lib/inbox";
-import { fmtDate, param, STACKED_TABLE } from "../ui";
+import { param, STACKED_TABLE } from "../ui";
+import { AdminTime } from "../admin-time";
 
 export const metadata = { title: "Inbox · Admin" };
 
@@ -93,7 +94,7 @@ export default async function AdminInboxPage(props: PageProps<"/admin/inbox">) {
                   <TableCell data-label="To" className="text-muted-foreground">
                     {e.to.join(", ")}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{fmtDate(new Date(e.created_at))}</TableCell>
+                  <TableCell className="text-muted-foreground"><AdminTime d={e.created_at} /></TableCell>
                   <TableCell>{replied.has(e.id) && <Badge variant="secondary">Replied</Badge>}</TableCell>
                 </TableRow>
               );

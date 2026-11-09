@@ -7,9 +7,9 @@ import { requireAdminPage } from "@/lib/admin";
 import { jobStatus } from "@/lib/jobs";
 import { jobByName } from "@/lib/jobs-registry";
 import { BANNER_HOLD_MS, BANNER_WINDOW_MS, IMPACTS, RUNS_TO_SHOW } from "@/lib/status-banner";
-import { fmtDate } from "../ui";
 import { AnnouncementForm } from "./announcement-form";
 import { RowButtons } from "./row-buttons";
+import { AdminTime } from "../admin-time";
 
 export const metadata = { title: "Announcement · Admin" };
 
@@ -45,9 +45,9 @@ export default async function AdminAnnouncementPage() {
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <Badge variant="outline">{a.source === "auto" ? "Automatic" : "Posted by an admin"}</Badge>
                 <span>{a.audience === "everyone" ? "Everyone" : "Signed in only"}</span>
-                <span>· since {fmtDate(a.startsAt)}</span>
-                <span>· {a.source === "auto" && a.tone !== "info" ? "renewed while the problem lasts" : `ends ${fmtDate(a.endsAt)}`}</span>
-                {muted && <Badge variant="secondary">Muted until {fmtDate(a.mutedUntil)}</Badge>}
+                <span>· since <AdminTime d={a.startsAt} inline /></span>
+                <span>· {a.source === "auto" && a.tone !== "info" ? "renewed while the problem lasts" : <>ends <AdminTime d={a.endsAt} inline /></>}</span>
+                {muted && <Badge variant="secondary">Muted until <AdminTime d={a.mutedUntil} inline /></Badge>}
               </div>
               <div className={muted ? "opacity-50" : undefined}>
                 <div className="overflow-hidden rounded-sm border">
@@ -64,7 +64,7 @@ export default async function AdminAnnouncementPage() {
             <ul className="mt-2 flex flex-col gap-1">
               {ended.map((a) => (
                 <li key={a.id} className="text-muted-foreground">
-                  {fmtDate(a.startsAt)} – {fmtDate(a.endsAt)} · {a.tone} · {a.message}
+                  <AdminTime d={a.startsAt} inline /> – <AdminTime d={a.endsAt} inline /> · {a.tone} · {a.message}
                 </li>
               ))}
             </ul>

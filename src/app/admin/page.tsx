@@ -12,7 +12,8 @@ import { plainText } from "@/lib/slug";
 import { ModerateDialog } from "./moderate-dialog";
 import { GraphDescriptionAction, ProfileActions } from "./description-actions";
 import { CollectionActions, GraphActions, PublicationActions, UserActions } from "./target-actions";
-import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage } from "./ui";
+import { ADMIN_PAGE_SIZE, FilterLinks, Pager, param, parsePage } from "./ui";
+import { AdminTime } from "./admin-time";
 
 const STATUSES = ["open", "actioned", "dismissed"] as const;
 type Status = (typeof STATUSES)[number];
@@ -145,7 +146,7 @@ export default async function ReportsPage(props: PageProps<"/admin">) {
                 {list.slice(0, 5).map(({ r }) => (
                   <li key={r.id} className="flex flex-col gap-0.5 py-2">
                     <span className="text-xs text-muted-foreground">
-                      {fmtDate(r.createdAt)} · {REPORT_REASONS[r.reason]}
+                      <AdminTime d={r.createdAt} inline /> · {REPORT_REASONS[r.reason]}
                       {r.reporterEmail && (
                         <> · {r.reporterEmail.includes("@") ? r.reporterEmail : `deleted account ${r.reporterEmail.slice(0, 8)}`}</>
                       )}

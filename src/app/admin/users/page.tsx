@@ -6,8 +6,9 @@ import { db } from "@/db";
 import { graph, profile, user, usernameAlias } from "@/db/schema";
 import { isAdmin, requireAdminPage } from "@/lib/admin";
 import { UserActions } from "../target-actions";
-import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
+import { ADMIN_PAGE_SIZE, FilterLinks, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
 import { FormerUsernames, UsernameControls } from "./username-controls";
+import { AdminTime } from "../admin-time";
 
 const FILTERS = ["all", "banned", "unverified"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -113,7 +114,7 @@ export default async function AdminUsersPage(props: PageProps<"/admin/users">) {
                     {graphs}
                   </Link>
                 </TableCell>
-                <TableCell data-label="Joined" className="text-muted-foreground">{fmtDate(u.createdAt)}</TableCell>
+                <TableCell data-label="Joined" className="text-muted-foreground"><AdminTime d={u.createdAt} /></TableCell>
                 <TableCell className="text-right max-sm:text-left">
                   {!isAdmin(u) && <UserActions owner={u} />}
                 </TableCell>

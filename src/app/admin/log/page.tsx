@@ -4,7 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { db } from "@/db";
 import { moderationAction, user } from "@/db/schema";
 import { requireAdminPage } from "@/lib/admin";
-import { ADMIN_PAGE_SIZE, fmtDate, Pager, param, parsePage, STACKED_TABLE } from "../ui";
+import { ADMIN_PAGE_SIZE, Pager, param, parsePage, STACKED_TABLE } from "../ui";
+import { AdminTime } from "../admin-time";
 
 export default async function AdminLogPage(props: PageProps<"/admin/log">) {
   await requireAdminPage("/admin/log");
@@ -36,7 +37,7 @@ export default async function AdminLogPage(props: PageProps<"/admin/log">) {
         <TableBody>
           {rows.map(({ a, adminEmail }) => (
             <TableRow key={a.id} className="align-top">
-              <TableCell className="text-muted-foreground">{fmtDate(a.createdAt)}</TableCell>
+              <TableCell className="text-muted-foreground"><AdminTime d={a.createdAt} /></TableCell>
               <TableCell>{adminEmail ?? "—"}</TableCell>
               <TableCell>
                 <Badge variant="outline">{a.action.replace("_", " ")}</Badge>

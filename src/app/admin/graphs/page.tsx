@@ -7,7 +7,8 @@ import { graph, publication, report, user } from "@/db/schema";
 import { requireAdminPage } from "@/lib/admin";
 import { graphPath } from "@/lib/graphs";
 import { GraphActions, UserActions } from "../target-actions";
-import { ADMIN_PAGE_SIZE, FilterLinks, fmtDate, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
+import { ADMIN_PAGE_SIZE, FilterLinks, Pager, param, parsePage, SearchForm, STACKED_TABLE } from "../ui";
+import { AdminTime } from "../admin-time";
 
 const FILTERS = ["all", "suspended", "reported"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -102,7 +103,7 @@ export default async function AdminGraphsPage(props: PageProps<"/admin/graphs">)
               <TableCell data-label="Reports">
                 {reports > 0 ? <Badge variant="destructive">{reports} open</Badge> : <span className="text-muted-foreground">0</span>}
               </TableCell>
-              <TableCell data-label="Created" className="text-muted-foreground">{fmtDate(g.createdAt)}</TableCell>
+              <TableCell data-label="Created" className="text-muted-foreground"><AdminTime d={g.createdAt} /></TableCell>
               <TableCell>
                 <div className="flex justify-end gap-2 max-sm:justify-start">
                   <GraphActions g={g} />
