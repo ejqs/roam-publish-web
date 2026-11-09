@@ -6,6 +6,13 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.28.3 (2026-11-09)
+
+### Site
+- Fixed: **Upcoming changes** no longer says Password pages must be encrypted in Roam. That change isn't planned:
+  roam.pub keeps accepting Password pages from every extension version, and a page is end-to-end encrypted when its
+  password has 10 or more characters.
+
 ## 0.28.2 (2026-11-08)
 
 ### Publishing
