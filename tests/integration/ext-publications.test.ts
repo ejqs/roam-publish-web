@@ -48,6 +48,20 @@ describe("collapsed blocks", () => {
   });
 });
 
+describe("the published list", () => {
+  test("says each page's access in its graph: the graph's default, or the page's own", async () => {
+    expect((await publish(ownerKey, payload({ rootUid: "acc1" }))).status).toBe(200);
+    expect((await publish(ownerKey, payload({ rootUid: "acc2" }))).status).toBe(200);
+    await db.update(publication).set({ access: "inherit" }).where(eq(publication.rootUid, "acc1"));
+    await db.update(publication).set({ access: "password" }).where(eq(publication.rootUid, "acc2"));
+    await db.update(graph).set({ defaultAccess: "members" }).where(eq(graph.id, g.id));
+    const list = await (await GET(extRequest("/api/ext/publications", ownerKey))).json();
+    const access = (uid: string) => list.publications.find((x: { rootUid: string }) => x.rootUid === uid).access;
+    expect(access("acc1")).toBe("members");
+    expect(access("acc2")).toBe("password");
+  });
+});
+
 describe("API key", () => {
   test("missing or wrong key is 401", async () => {
     expect((await publish(null, payload())).status).toBe(401);
