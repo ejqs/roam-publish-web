@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { cn } from "cn";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { buttonVariants } from "@/components/ui/button";
 import { UnseenDot } from "@/components/whats-new-anchor";
 import { UPCOMING } from "@/lib/upcoming";
 import {
-  type Entry,
   type Kind,
   KIND_LABEL,
   KINDS,
@@ -19,7 +20,10 @@ import {
   SOURCE_LABEL,
   whatsNew,
 } from "@/lib/whats-new";
+import { byRelease, heatmap, pageCount, pageOf, pageSlice, parsePage } from "@/lib/whats-new-pages";
 import { ChangeText } from "./change-text";
+import { HashJump } from "./hash-jump";
+import { Heatmap } from "./heatmap";
 import { MarkSeen } from "./mark-seen";
 import { ReleaseTime } from "./release-time";
 
@@ -49,24 +53,14 @@ const CHIP: Record<Source, string> = {
   ext: "bg-chart-5/15 text-chart-5",
 };
 
-/** One group per release: the entries that went live together. */
-function byRelease(entries: Entry[]) {
-  const groups: { at: Date; entries: Entry[] }[] = [];
-  for (const e of entries) {
-    const last = groups.at(-1);
-    if (last && last.at.getTime() === e.stampedAt.getTime()) last.entries.push(e);
-    else groups.push({ at: e.stampedAt, entries: [e] });
-  }
-  return groups;
-}
-
-/** The query string for a filter combination. */
-function filterHref(source: Source | null, kind: Kind | null) {
+/** The URL for a filter combination, on its first page unless `page` says otherwise. */
+function filterHref(source: Source | null, kind: Kind | null, page = 1, hash?: string) {
   const q = new URLSearchParams();
   if (source) q.set("source", source);
   if (kind) q.set("kind", kind);
+  if (page > 1) q.set("page", String(page));
   const s = q.toString();
-  return s ? `/updates?${s}` : "/updates";
+  return `${s ? `/updates?${s}` : "/updates"}${hash ? `#${hash}` : ""}`;
 }
 
 function FilterNav({ label, items }: { label: string; items: { key: string; label: string; href: string; active: boolean }[] }) {
@@ -97,13 +91,25 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
   const [all, jar] = await Promise.all([whatsNew(), cookies()]);
   const fresh = newSince(all, parseSeen(jar.get(SEEN_COOKIE)?.value));
   const entries = all.filter((e) => (!source || e.source === source) && (!kind || e.kind === kind));
-  const days = byRelease(entries);
+  const releases = byRelease(entries);
+  const pages = pageCount(releases.length);
+  // ?entry= (from links made before pages, via HashJump) opens the page holding that entry.
+  const entryId = typeof sp.entry === "string" ? sp.entry : null;
+  let page = parsePage(sp.page, pages);
+  if (entryId) {
+    const at = pageOf(releases, entryId);
+    if (at) page = at;
+    else if ((source || kind) && all.some((e) => e.id === entryId)) redirect(`/updates?entry=${encodeURIComponent(entryId)}`);
+  }
+  const days = pageSlice(releases, page);
+  const heat = heatmap(entries, new Date(), (e) => (e.version ? `${SOURCE_LABEL[e.source]} ${e.version}` : null));
   const firstOld = days.findIndex((d) => !d.entries.some((e) => fresh.has(e.id)));
 
   return (
     <>
       <SiteHeader />
       <MarkSeen value={seenValue(all)} />
+      <HashJump />
       <main className="flex-1 px-3 py-4 sm:px-4 sm:py-12">
         <article className="mx-auto flex w-full max-w-[760px] flex-col gap-6 rounded-sm bg-card px-5 py-8 shadow-[0_0_0_1px_rgba(17,20,24,0.15),0_1px_1px_rgba(17,20,24,0.2)] sm:px-10 sm:py-10">
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -135,6 +141,15 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
               />
             </div>
           </div>
+
+          {entries.length > 0 && (
+            <Heatmap
+              weeks={heat}
+              hrefs={Object.fromEntries(
+                heat.flat().flatMap((d) => (d.first ? [[d.first, filterHref(source, kind, pageOf(releases, d.first) ?? 1, d.first)]] : [])),
+              )}
+            />
+          )}
 
           {fresh.size > 0 && firstOld !== 0 && days.length > 0 && (
             <p className="flex items-center gap-2 text-xs text-primary after:h-px after:flex-1 after:bg-primary/35">
@@ -183,6 +198,28 @@ export default async function UpdatesPage(props: PageProps<"/updates">) {
               );
             })}
           </div>
+
+          {pages > 1 && (
+            <nav className="flex items-center justify-between border-t pt-5 text-sm" aria-label="Pagination">
+              {page > 1 ? (
+                <Link href={filterHref(source, kind, page - 1)} rel="prev" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  ← Newer
+                </Link>
+              ) : (
+                <span />
+              )}
+              <span className="text-muted-foreground tabular-nums">
+                Page {page} of {pages}
+              </span>
+              {page < pages ? (
+                <Link href={filterHref(source, kind, page + 1)} rel="next" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  Older →
+                </Link>
+              ) : (
+                <span />
+              )}
+            </nav>
+          )}
         </article>
       </main>
       <SiteFooter />

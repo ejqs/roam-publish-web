@@ -16,7 +16,7 @@ export const GET = withRoute("GET /updates/feed.xml", async () => {
       const label = e.kind ? `${SOURCE_LABEL[e.source]} · ${KIND_LABEL[e.kind]}` : SOURCE_LABEL[e.source];
       return {
         title: `${label}: ${text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX - 1)}…` : text}`,
-        path: `/updates#${e.id}`,
+        path: `/updates?entry=${e.id}#${e.id}`,
         date: e.stampedAt,
         category: e.area || undefined,
         description: text,
