@@ -16,7 +16,8 @@ import {
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type Blocker, isUnlocked } from "@/lib/gates";
-import { ENCRYPT_PASSWORD_MIN } from "./encryption-rules";
+import { ENCRYPT_PASSWORD_MIN, type EncryptionVersion } from "./encryption-rules";
+import { indexFields } from "./tags";
 import { type SealedPage, type SealedTitle, UNLOCK_PROOF_INFO } from "./reader-crypto";
 import { entryPlacePath, placePath } from "./publications";
 import { SITE_VERSION } from "./version";
@@ -199,6 +200,52 @@ export const hiddenTitle = (kind: "page" | "block") => (kind === "page" ? "Encry
 
 /** What an encrypted page's `tree` holds: nothing. */
 export const emptyTree = (rootUid: string): Node => ({ uid: rootUid, string: "", children: [] });
+
+/**
+ * How a page's content is stored: readable, or sealed (encrypted by roam.pub, version 1, or in Roam,
+ * version 2). Every write of a page's content sets its columns through `plainColumns` or
+ * `sealedColumns`, so `encrypted`, `cipher`, the encryption version and the readable columns always
+ * agree; the database checks it too (publication_content_state).
+ */
+export type SealedContentState = {
+  version: EncryptionVersion;
+  /** `publication.encryptedBy`: "extension 0.2.0", or ENCRYPTED_BY_SERVER. */
+  by: string;
+  cipher: string;
+  titleCipher: string | null;
+  /** Some place it's shown has no key to open it until it's republished. */
+  needsRepublish: boolean;
+  rootUid: string;
+  /** Sealed under the server secret (version 1), or the extension's keyed hash (version 2). */
+  contentHash: string;
+};
+
+/** The columns of a readable page: its tree, what search and tags read from it, nothing encrypted. */
+export const plainColumns = (tree: Node, contentHash: string, edits?: Parameters<typeof indexFields>[1]) => ({
+  tree,
+  ...indexFields(tree, edits),
+  contentHash,
+  encrypted: false,
+  cipher: null,
+  titleCipher: null,
+  encryptionVersion: null,
+  encryptedBy: null,
+  needsRepublish: false,
+});
+
+/** The columns of an encrypted page: the cipher, and nothing readable beside it. Its `title` is set apart. */
+export const sealedColumns = (c: SealedContentState) => ({
+  tree: emptyTree(c.rootUid),
+  searchText: "",
+  tags: [] as string[],
+  contentHash: c.contentHash,
+  encrypted: true,
+  cipher: c.cipher,
+  titleCipher: c.titleCipher,
+  encryptionVersion: c.version,
+  encryptedBy: c.by,
+  needsRepublish: c.needsRepublish,
+});
 
 /** An encrypted page's content hash is stored encrypted, so a leaked database can't confirm guesses. */
 export const sealHash = (publicationId: string, hash: string) =>
@@ -693,17 +740,16 @@ export async function encryptPage(tx: Tx, pub: typeof publication.$inferSelect) 
   await tx
     .update(publication)
     .set({
-      encrypted: true,
-      cipher,
-      titleCipher,
+      ...sealedColumns({
+        version: 1,
+        by: ENCRYPTED_BY_SERVER,
+        cipher,
+        titleCipher,
+        needsRepublish,
+        rootUid: pub.rootUid,
+        contentHash: sealHash(pub.id, plainHash(pub)),
+      }),
       title: hiddenTitle(pub.kind),
-      encryptionVersion: 1,
-      encryptedBy: ENCRYPTED_BY_SERVER,
-      needsRepublish,
-      tree: emptyTree(pub.rootUid),
-      searchText: "",
-      tags: [],
-      contentHash: sealHash(pub.id, plainHash(pub)),
     })
     .where(eq(publication.id, pub.id));
 }
@@ -715,8 +761,8 @@ export async function encryptPage(tx: Tx, pub: typeof publication.$inferSelect) 
  */
 export const wantsEncryption = (graphAsks: boolean, aCollectionAsks: boolean) => graphAsks || aCollectionAsks;
 
-export async function encryptNewPageIfWanted(publicationId: string): Promise<boolean> {
-  return db.transaction(async (tx) => {
+export async function encryptNewPageIfWanted(publicationId: string, on: typeof db | Tx = db): Promise<boolean> {
+  return on.transaction(async (tx) => {
     const [row] = await tx
       .select({ pub: publication, g: graph })
       .from(publication)

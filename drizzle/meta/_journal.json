@@ -351,6 +351,20 @@
       "when": 1793585897020,
       "tag": "0049_unlisted_link_id",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1794404138838,
+      "tag": "0050_changelog_claimed_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1794404323486,
+      "tag": "0051_publication_content_state",
+      "breakpoints": true
     }
   ]
 }
