@@ -1,5 +1,6 @@
-import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, EyeOffIcon, FolderIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, FolderIcon } from "lucide-react";
 import Link from "next/link";
+import { PRIVACY_ICONS } from "@/components/privacy-icons";
 import { buttonVariants } from "@/components/ui/button";
 
 export type SectionTab = { href: string; label: string; count?: number };
@@ -89,7 +90,7 @@ export function UnlistedElsewhere({ n, from, href }: { n: number; from: string; 
   if (!n) return null;
   return (
     <Link href={href} className="-mt-2 flex w-fit max-w-full items-center gap-1.5 text-sm text-link hover:underline">
-      <EyeOffIcon className="size-3.5 shrink-0" />
+      <PRIVACY_ICONS.unlisted className="size-3.5 shrink-0" />
       <span className="truncate">
         {n.toLocaleString("en-US")} Unlisted {n === 1 ? "page" : "pages"} from {from}
       </span>

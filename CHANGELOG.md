@@ -8,6 +8,11 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 
 ## 0.29.1 (2026-11-11)
 
+### Site
+- Improved: Unlisted pages show a link icon (only people with the link can open them) instead of a crossed-out eye,
+  which read like "not published". It matches the Roam Publish extension, and the crossed-out eye now only marks
+  hidden view counts.
+
 ### Dashboard
 - Fixed: An invite or ownership transfer nobody answered within 7 days no longer stops you from sending a new one.
   Before, inviting the same person again said they already had an invite, even though it had expired.
