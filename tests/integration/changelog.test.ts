@@ -285,3 +285,34 @@ describe("change log options", () => {
     expect((await setChangeLogOptions(g.id, { off: [], merge: true, byDay: true }))?.ok).toBe(false);
   });
 });
+
+describe("change log delivery states", () => {
+  test("a send that never finished becomes failed after the lease, and is never sent again", async () => {
+    const { g, pub } = await loggedPage();
+    const { logChange, SEND_LEASE_MS } = await import("@/lib/changelog");
+    logChange({ graphId: g.id, rootUid: pub.rootUid }, "listing", "Made public");
+    await runAfter();
+    // Claimed by a run that stopped before Roam answered.
+    const claimedAt = new Date();
+    await db.update(changelogEntry).set({ status: "sending", claimedAt });
+    await flushChangeLog(new Date(claimedAt.getTime() + 60_000));
+    expect((await queued())[0].status).toBe("sending");
+    await flushAfter(SEND_LEASE_MS / 60_000 + 1);
+    expect((await queued())[0].status).toBe("failed");
+    expect(roam.calls).toHaveLength(0);
+  });
+
+  test("Roam refusing the block is the same as the extension finding it gone", async () => {
+    roam.restore();
+    roam = fakeRoam(400);
+    const { g, pub } = await loggedPage();
+    const { logChange } = await import("@/lib/changelog");
+    logChange({ graphId: g.id, rootUid: pub.rootUid }, "listing", "Made public");
+    await runAfter();
+    await flushAfter(5);
+    const link = await db.query.shortlink.findFirst({ where: eq(shortlink.graphId, g.id) });
+    expect(link?.anchorUid).toBeNull();
+    expect(link?.anchorMissingAt).toBeInstanceOf(Date);
+    expect((await queued())[0].status).toBe("failed");
+  });
+});

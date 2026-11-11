@@ -6,6 +6,20 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
+## 0.29.1 (2026-11-11)
+
+### Dashboard
+- Fixed: An invite or ownership transfer nobody answered within 7 days no longer stops you from sending a new one.
+  Before, inviting the same person again said they already had an invite, even though it had expired.
+
+### Publishing
+- Fixed: When Roam refuses to add to a page's Roam Publish Status link because the block is gone, the dashboard now
+  says the link was deleted, as it does when the extension finds it missing.
+- Fixed: Change log entries that were being sent when roam.pub restarted no longer stay unsent forever. They're
+  marked as not sent, so nothing is added to Roam twice.
+- Fixed: A new page published with encryption is either stored encrypted or not stored at all. Before, a failure
+  while encrypting could leave it stored readable behind its password.
+
 ## 0.29.0 (2026-11-09)
 
 ### Site

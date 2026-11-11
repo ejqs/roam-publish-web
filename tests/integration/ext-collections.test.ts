@@ -31,6 +31,10 @@ beforeEach(async () => {
   ownerKey = await keyFor(owner.id, g);
 });
 
+
+/** Marks a page encrypted without real keys: enough for what the extension is offered and refused. */
+const FAKE_SEALED = { encrypted: true, cipher: "v1.iv.tag.body", encryptionVersion: 1 } as const;
+
 describe("listing collections for a page", () => {
   test("shows the holder's collections, how a page starts in each, and which already have it", async () => {
     const open = await makeCollection(owner.id, { name: "Writing" });
@@ -110,7 +114,7 @@ describe("adding a page to a collection", () => {
     expect((await add(ownerKey, p.rootUid, mine.id)).status).toBe(409);
     const q = payload();
     await publish(ownerKey, q);
-    await db.update(publication).set({ encrypted: true }).where(eq(publication.rootUid, q.rootUid));
+    await db.update(publication).set(FAKE_SEALED).where(eq(publication.rootUid, q.rootUid));
     const other = await makeCollection(owner.id);
     const res = await add(ownerKey, q.rootUid, other.id);
     expect(res.status).toBe(409);
@@ -121,7 +125,7 @@ describe("adding a page to a collection", () => {
     const p = payload();
     await publish(ownerKey, p);
     // Encrypted pages only use Password: with no graph place shown, it has nowhere open.
-    await db.update(publication).set({ encrypted: true, inGraph: false }).where(eq(publication.rootUid, p.rootUid));
+    await db.update(publication).set({ ...FAKE_SEALED, inGraph: false }).where(eq(publication.rootUid, p.rootUid));
     await makeCollection(owner.id, { name: "Open" });
     const locked = await makeCollection(owner.id, { name: "Locked", passwordHash: hashPassword("collection-pw-1") });
     const choices = async () =>

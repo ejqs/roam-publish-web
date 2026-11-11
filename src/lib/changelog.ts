@@ -161,6 +161,11 @@ export const CONFIRM_WINDOW_MS = 10 * 60_000;
 const QUEUE_MAX_AGE_MS = 7 * 24 * 60 * 60_000;
 const BACKOFF_BASE_MS = 60_000;
 const BACKOFF_MAX_MS = 30 * 60_000;
+/**
+ * A claim ("sending") older than this never got an answer: the process stopped mid-send. Roam may
+ * have applied it, so it becomes "failed" rather than going back to the queue.
+ */
+export const SEND_LEASE_MS = 15 * 60_000;
 
 /**
  * Sends queued entries: per graph, the page waiting longest, once it's quiet (or has waited
@@ -172,6 +177,16 @@ export async function flushChangeLog(now = new Date()) {
     .update(changelogEntry)
     .set({ status: "dropped" })
     .where(and(eq(changelogEntry.status, "pending"), lte(changelogEntry.createdAt, new Date(now.getTime() - QUEUE_MAX_AGE_MS))));
+  await db
+    .update(changelogEntry)
+    .set({ status: "failed" })
+    .where(
+      and(
+        eq(changelogEntry.status, "sending"),
+        // Null: claimed before claims were stamped, so long ago.
+        or(isNull(changelogEntry.claimedAt), lte(changelogEntry.claimedAt, new Date(now.getTime() - SEND_LEASE_MS))),
+      ),
+    );
   const ready = await db.execute<{ shortlink_id: string; graph_id: string }>(sql`
     select distinct on (s.graph_id) s.id as shortlink_id, s.graph_id
     from ${changelogEntry} e
@@ -279,7 +294,7 @@ async function sendPage(shortlinkId: string, graphId: string, now: Date) {
   const link = await db.query.shortlink.findFirst({ where: eq(shortlink.id, shortlinkId) });
   const claimed = await db
     .update(changelogEntry)
-    .set({ status: "sending" })
+    .set({ status: "sending", claimedAt: now })
     .where(and(eq(changelogEntry.shortlinkId, shortlinkId), eq(changelogEntry.status, "pending")))
     .returning({ id: changelogEntry.id, text: changelogEntry.text, createdAt: changelogEntry.createdAt });
   const confirmed =
@@ -361,8 +376,8 @@ async function sendFailed(
   // Anything else may or may not have been applied; never risk sending it twice.
   await setStatus(ids, "failed");
   if (res.status === 400) {
-    // Most likely the shortlink block was deleted in Roam; the extension writes a new one on the next publish.
-    await db.update(shortlink).set({ anchorUid: null }).where(eq(shortlink.id, shortlinkId));
+    // Most likely the shortlink block was deleted in Roam: the same as the extension finding it gone.
+    await markAnchorsGone([shortlinkId]);
   }
 }
 
@@ -426,14 +441,14 @@ export function changeLogStatus(g: {
   appendTokenOkAt: Date | null;
   changeLogPaused: boolean;
 }): ChangeLogStatus {
-  const status = !g.appendTokenEnc
-    ? "none"
-    : g.changeLogPaused
-      ? "paused"
-      : g.appendTokenStatus === "invalid"
-        ? "invalid"
-        : "ok";
+  const token = tokenState(g);
+  const status = token === "none" ? "none" : g.changeLogPaused ? "paused" : token;
   return { status, lastOkAt: g.appendTokenOkAt };
+}
+
+/** The stored token alone, paused or not: none stored, working, or rejected by Roam. */
+export function tokenState(g: { appendTokenEnc: string | null; appendTokenStatus: "ok" | "invalid" | null }) {
+  return !g.appendTokenEnc ? ("none" as const) : g.appendTokenStatus === "invalid" ? ("invalid" as const) : ("ok" as const);
 }
 
 export async function changeLogStatusOf(graphId: string) {
@@ -485,16 +500,29 @@ export async function recordAnchorCheck(graphId: string, present: AnchorCheck[],
       .where(and(eq(shortlink.graphId, graphId), match(present)));
   if (missing.length) {
     const gone = await db
-      .update(shortlink)
-      .set({ anchorUid: null, anchorConfirmedAt: null, anchorMissingAt: now, anchorMissingDismissedAt: null })
-      .where(and(eq(shortlink.graphId, graphId), match(missing)))
-      .returning({ id: shortlink.id });
-    if (gone.length)
-      await db
-        .update(changelogEntry)
-        .set({ status: "dropped" })
-        .where(and(inArray(changelogEntry.shortlinkId, gone.map((g) => g.id)), eq(changelogEntry.status, "pending")));
+      .select({ id: shortlink.id })
+      .from(shortlink)
+      .where(and(eq(shortlink.graphId, graphId), match(missing)));
+    await markAnchorsGone(gone.map((g) => g.id), now);
   }
+}
+
+/**
+ * A status link block is gone from Roam, whether the extension found it missing or Roam refused to
+ * append under it: the page's change log stops, what was queued for it is dropped (it continues
+ * from when the block is added back, never backfilled), and it shows on the dashboard until it's
+ * republished or dismissed. The only way into that state.
+ */
+export async function markAnchorsGone(shortlinkIds: string[], now = new Date()) {
+  if (!shortlinkIds.length) return;
+  await db
+    .update(shortlink)
+    .set({ anchorUid: null, anchorConfirmedAt: null, anchorMissingAt: now, anchorMissingDismissedAt: null })
+    .where(inArray(shortlink.id, shortlinkIds));
+  await db
+    .update(changelogEntry)
+    .set({ status: "dropped" })
+    .where(and(inArray(changelogEntry.shortlinkId, shortlinkIds), eq(changelogEntry.status, "pending")));
 }
 
 /** Pages this person manages whose Changelog block went missing, not dismissed: for the dashboard. */
