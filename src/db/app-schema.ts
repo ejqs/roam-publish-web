@@ -298,6 +298,11 @@ export const publication = pgTable(
   },
   (t) => [
     uniqueIndex("publication_graph_root_idx").on(t.graphId, t.rootUid),
+    // Readable or encrypted, never something in between (lib/encryption.ts plainColumns, sealedColumns).
+    check(
+      "publication_content_state",
+      sql`${t.encrypted} = (${t.cipher} is not null) and ${t.encrypted} = (${t.encryptionVersion} is not null) and (${t.encrypted} or (${t.titleCipher} is null and ${t.encryptedBy} is null and not ${t.needsRepublish}))`,
+    ),
     index("publication_graph_visibility_idx").on(t.graphId, t.visibility),
     index("publication_tags_idx").using("gin", t.tags),
     index("publication_search_idx").using("gin", t.search),
@@ -630,7 +635,8 @@ export const invite = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
     invitedBy: text("invited_by").references(() => user.id, { onDelete: "set null" }),
-    status: text("status", { enum: ["pending", "accepted", "declined", "cancelled"] })
+    /** "expired": it ran out unanswered (lib/invites.ts expireStaleInvites); until marked, a pending invite past expiresAt is expired too. */
+    status: text("status", { enum: ["pending", "accepted", "declined", "cancelled", "expired"] })
       .notNull()
       .default("pending"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -696,7 +702,8 @@ export const changelogEntry = pgTable(
     text: text("text").notNull(),
     /**
      * Every entry is the page's history on its status page; status is only about Roam. Queued as
-     * "pending", claimed as "sending" by the background sender, then "sent" or "failed". Only
+     * "pending", claimed as "sending" by the background sender, then "sent" or "failed" (also when a
+     * claim outlives SEND_LEASE_MS without an answer, since Roam may have applied it). Only
      * entries Roam definitely didn't apply (429) go back to pending, so nothing is sent twice.
      * "dropped" entries were queued for a block that turned out to be gone, or waited too long.
      * "local" entries were never for Roam: no token, change log off (or this kind of change left
@@ -705,6 +712,11 @@ export const changelogEntry = pgTable(
     status: text("status", { enum: ["pending", "sending", "sent", "failed", "dropped", "local", "merged"] })
       .notNull()
       .default("pending"),
+    /**
+     * When the background sender claimed it ("sending"). A send that never finished (the process
+     * stopped mid-send) is moved to "failed" once this is old (lib/changelog.ts SEND_LEASE_MS).
+     */
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
     /** What kind of change it is (`ChangeCategory`); null on entries from before kinds existed. */
     category: text("category"),
     /** The line as written to Roam, after merging and without its time stamp. */

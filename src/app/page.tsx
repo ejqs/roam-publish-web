@@ -14,7 +14,7 @@ const outline = [
     block("Only what you publish is public. The rest of your graph stays where it is."),
     block("Page refs, block refs, embeds and ^^highlights^^ render the way they do in Roam."),
   ]),
-  block("New here? Start with [[Setting it up]]"),
+  block("New here? Start with [[Setting it up]], or watch the [[Tutorials]]"),
 ];
 
 const links = new PageLinks([...siteLinks, ["costs", "/costs"]]);

@@ -22,6 +22,7 @@ import {
   locksOf,
   newLockKey,
   passwordOpener,
+  plainColumns,
   plainHash,
   spotsOf,
   unprotectedSpots,
@@ -30,7 +31,6 @@ import {
 import { verifyPassword } from "@/lib/gates";
 import { manageablePublications } from "@/lib/graph-access";
 import { rateLimit } from "@/lib/rate-limit";
-import { indexFields } from "@/lib/tags";
 import { withAction } from "@/lib/telemetry";
 
 export type EncryptionResult = {
@@ -75,16 +75,8 @@ async function storeReadable(tx: Tx, pub: typeof publication.$inferSelect, tree:
   await tx
     .update(publication)
     .set({
-      tree,
-      ...indexFields(tree, pub),
+      ...plainColumns(tree, plainHash(pub), pub),
       ...(title !== null && { title }),
-      contentHash: plainHash(pub),
-      encrypted: false,
-      cipher: null,
-      titleCipher: null,
-      encryptionVersion: null,
-      encryptedBy: null,
-      needsRepublish: false,
     })
     .where(eq(publication.id, pub.id));
   await tx.delete(publicationKey).where(eq(publicationKey.publicationId, pub.id));

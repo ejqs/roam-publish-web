@@ -492,3 +492,18 @@ describe("New Password pages are encrypted when the password can encrypt", () =>
     expect(await publishNew()).toMatchObject({ encrypted: true, inGraph: true });
   });
 });
+
+describe("a page's content state", () => {
+  test("the database refuses a page left half encrypted or half readable", async () => {
+    const owner = await makeUser();
+    const g = await makeGraph(owner.id);
+    const pub = await makePublication(g.id, owner.id);
+    const set = async (v: Partial<typeof publication.$inferInsert>) => await db.update(publication).set(v).where(eq(publication.id, pub.id));
+    // Encrypted with nothing to decrypt, or a cipher on a readable page.
+    await expect(set({ encrypted: true })).rejects.toThrow();
+    await expect(set({ cipher: "v1.a.b.c" })).rejects.toThrow();
+    await expect(set({ needsRepublish: true })).rejects.toThrow();
+    await set({ encrypted: true, cipher: "v1.a.b.c", encryptionVersion: 1 });
+    await expect(set({ encryptionVersion: null })).rejects.toThrow();
+  });
+});

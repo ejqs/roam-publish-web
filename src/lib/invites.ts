@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { collection, collectionMember, graph, graphMember, invite, user } from "@/db/schema";
 import { sendEmail } from "./email";
@@ -45,6 +45,25 @@ async function isMember(tx: Tx | typeof db, type: TargetType, targetId: string, 
   return !!row;
 }
 
+/**
+ * Marks invites on this graph or collection that ran out while still unanswered as "expired". Nothing
+ * else moves them out of "pending", and the one-pending-invite indexes would otherwise refuse a new
+ * invite (or any new transfer) for as long as the old one sat there, unseen by owner and invitee alike.
+ */
+export function expireStaleInvites(tx: Tx | typeof db, type: TargetType, targetId: string, now = new Date()) {
+  return tx
+    .update(invite)
+    .set({ status: "expired" })
+    .where(
+      and(
+        eq(invite.targetType, type),
+        eq(invite.targetId, targetId),
+        eq(invite.status, "pending"),
+        lte(invite.expiresAt, now),
+      ),
+    );
+}
+
 const label = (type: TargetType, name: string) => (type === "graph" ? `the graph ${name}` : `the collection ${name}`);
 const emailTarget = (type: TargetType, name: string) => ({
   type,
@@ -76,6 +95,7 @@ export async function createInvite(opts: {
   if (opts.kind === "transfer" && !member)
     return { ok: false, message: "You can only transfer ownership to a member." };
 
+  await expireStaleInvites(db, opts.type, opts.targetId);
   const inserted = await db
     .insert(invite)
     .values({
@@ -151,7 +171,10 @@ export async function respondToInvite(inviteId: string, userId: string, accept: 
       .where(and(eq(invite.id, inviteId), eq(invite.inviteeUserId, userId)))
       .for("update");
     if (!i || i.status !== "pending") return { ok: false, message: "That invite is no longer open." };
-    if (i.expiresAt < new Date()) return { ok: false, message: "That invite expired. Ask for a new one." };
+    if (i.expiresAt <= new Date()) {
+      await tx.update(invite).set({ status: "expired" }).where(eq(invite.id, i.id));
+      return { ok: false, message: "That invite expired. Ask for a new one." };
+    }
 
     if (!accept) {
       await tx.update(invite).set({ status: "declined", respondedAt: new Date() }).where(eq(invite.id, i.id));

@@ -1,0 +1,1 @@
+ALTER TABLE "changelog_entry" ADD COLUMN "claimed_at" timestamp with time zone;

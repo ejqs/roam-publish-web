@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { and, eq } from "drizzle-orm";
 import { GET as COLLECTION, PATCH as PATCH_COLLECTION } from "@/app/api/ext/collections/[id]/route";
-import { PATCH as PATCH_PAGE } from "@/app/api/ext/publications/[rootUid]/route";
+import { DELETE as UNPIN, POST as PIN } from "@/app/api/ext/publications/[rootUid]/pin/route";
+import { DELETE as UNPUBLISH, PATCH as PATCH_PAGE } from "@/app/api/ext/publications/[rootUid]/route";
 import { DELETE as REMOVE_ENTRY, PATCH as PATCH_ENTRY } from "@/app/api/ext/publications/[rootUid]/collections/[collectionId]/route";
 import { GET as SETTINGS } from "@/app/api/ext/publications/[rootUid]/settings/route";
 import { GET as PAGE_STATS } from "@/app/api/ext/publications/[rootUid]/stats/route";
@@ -115,6 +116,51 @@ describe("changing a page's settings", () => {
     expect((await patchPage(key, p.rootUid, { showAuthor: "maybe" })).status).toBe(400);
   });
 
+});
+
+describe("pinning a page's link", () => {
+  const pin = (k: string, rootUid: string, body: unknown) =>
+    PIN(extRequest(`/api/ext/publications/${rootUid}/pin`, k, { method: "POST", body }), page(rootUid));
+  const unpin = (k: string, rootUid: string) =>
+    UNPIN(extRequest(`/api/ext/publications/${rootUid}/pin`, k, { method: "DELETE" }), page(rootUid));
+
+  test("pins, edits where it's shared, refuses unpublishing, then unpins", async () => {
+    const p = await makePublication(g.id, owner.id, { visibility: "public" });
+    expect((await (await settings(key, p.rootUid)).json()).graph).toMatchObject({ pin: null, pinBlocks: expect.stringContaining(g.name) });
+
+    const res = await pin(key, p.rootUid, { sharedAt: ["https://x.com/a"] });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ message: "Link pinned.", pin: { sharedAt: ["https://x.com/a"] } });
+    expect((await (await settings(key, p.rootUid)).json()).graph.pin).toEqual({ sharedAt: ["https://x.com/a"] });
+
+    const edited = await (await pin(key, p.rootUid, { sharedAt: ["https://x.com/a", "https://blog.example.com/b"] })).json();
+    expect(edited).toMatchObject({ message: "Saved where it's shared.", pin: { sharedAt: ["https://x.com/a", "https://blog.example.com/b"] } });
+
+    const refused = await UNPUBLISH(extRequest(`/api/ext/publications/${p.rootUid}`, key, { method: "DELETE" }), page(p.rootUid));
+    expect(refused.status).toBe(409);
+
+    const off = await unpin(key, p.rootUid);
+    expect(await off.json()).toMatchObject({ message: "Link unpinned.", pin: null });
+    expect((await (await settings(key, p.rootUid)).json()).graph.pin).toBeNull();
+  });
+
+  test("refuses places that aren't links, and pages someone else published", async () => {
+    const p = await makePublication(g.id, owner.id);
+    const bad = await pin(key, p.rootUid, { sharedAt: ["javascript:alert(1)"] });
+    expect(bad.status).toBe(400);
+    expect((await pin(key, p.rootUid, { sharedAt: [] })).status).toBe(400);
+
+    const member = await makeUser();
+    await addGraphMember(g.id, member.id);
+    const memberKey = await keyFor(member.id, g);
+    expect((await pin(memberKey, p.rootUid, { sharedAt: ["https://x.com/a"] })).status).toBe(403);
+    expect((await unpin(memberKey, p.rootUid)).status).toBe(403);
+  });
+
+  test("a page only in collections has no graph link to pin", async () => {
+    const p = await makePublication(g.id, owner.id, { inGraph: false });
+    expect((await pin(key, p.rootUid, { sharedAt: ["https://x.com/a"] })).status).toBe(403);
+  });
 });
 
 describe("a page in a collection", () => {

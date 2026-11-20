@@ -18,6 +18,7 @@ const outline = [
   block("Install Roam Publish from Roam Depot, then paste your API key from the dashboard into its settings."),
   block("Shared graph? Whoever connects it first owns it here and invites everyone else, who each get their own key."),
   block("Right-click any page or block → **Publish**."),
+  block("Then see the [[Tutorials]] for each feature."),
 ];
 
 export default function SetupPage() {

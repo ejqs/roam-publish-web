@@ -5,9 +5,8 @@ import { collectionEntry, graph, LOCK_SCOPES, type Node, publication, shortlink 
 import { contentHash } from "@/lib/content-hash";
 import { destinationBlocked, newPagePlacement, parseDestinations, type SealedContent, sealPlan, sealsMatch, storeSealedKeys } from "@/lib/e2e-publish";
 import { foldedUids } from "@/lib/folds";
-import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, encryptPage, hiddenTitle, plainHash, sealHash, sealNewContent } from "@/lib/encryption";
+import { emptyTree, ENCRYPTED_BY_SERVER, encryptNewPageIfWanted, encryptPage, hiddenTitle, plainColumns, plainHash, sealedColumns, sealHash, sealNewContent } from "@/lib/encryption";
 import { keyedHash } from "@/lib/keyed-hash";
-import { indexFields } from "@/lib/tags";
 import { json, preflight } from "@/lib/cors";
 import { changeLogStatusOf, logChange, validTimeZone } from "@/lib/changelog";
 import { addEntry, collectionsOf } from "@/lib/collections";
@@ -246,28 +245,24 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
       // An encrypted page stays encrypted: the new content is sealed to its passwords' public keys,
       // in Roam by newer extensions, here for older ones.
       const content = sealed
-        ? {
+        ? sealedColumns({
+            version: 2,
+            by: `extension ${ctx.extVersion ?? "0.2.0"}`,
             cipher: sealed.cipher,
             titleCipher: sealed.titleCipher ?? null,
-            encryptionVersion: 2,
-            encryptedBy: `extension ${ctx.extVersion ?? "0.2.0"}`,
             needsRepublish: await storeSealedKeys(tx, plan as typeof plan & { encrypt: true }, sealed),
-            tree,
-            searchText: "",
-            tags: [],
+            rootUid: existing.rootUid,
             contentHash: hash,
-          }
+          })
         : existing.encrypted
-        ? {
+        ? sealedColumns({
             ...(await sealNewContent(tx, existing.id, tree, title)),
-            encryptionVersion: 1,
-            encryptedBy: ENCRYPTED_BY_SERVER,
-            tree: emptyTree(existing.rootUid),
-            searchText: "",
-            tags: [],
+            version: 1,
+            by: ENCRYPTED_BY_SERVER,
+            rootUid: existing.rootUid,
             contentHash: sealHash(existing.id, hash),
-          }
-        : { tree, ...indexFields(tree, existing), contentHash: hash };
+          })
+        : plainColumns(tree, hash, existing);
       await tx
         .update(publication)
         .set(
@@ -302,50 +297,56 @@ export const POST = withRoute("POST /api/ext/publications", async (req: Request)
   // Never published readable when it was asked to be encrypted.
   if (blocked) return json(req, { error: blocked }, 400);
 
-  const [created] = await db
-    .insert(publication)
-    .values({
-      ...(sealed && {
-        id: sealed.publicationId,
-        encrypted: true,
-        cipher: sealed.cipher,
-        titleCipher: sealed.titleCipher ?? null,
-        encryptionVersion: 2,
-        encryptedBy: `extension ${ctx.extVersion ?? "0.2.0"}`,
-      }),
-      graphId: ctx.graphId,
-      rootUid: p.rootUid,
-      kind: p.kind,
-      title,
-      tree,
-      folded,
-      ...(sealed ? { tags: [], searchText: "" } : indexFields(tree)),
-      contentHash: hash,
-      publishedBy: ctx.userId,
-      authorName,
-      inGraph,
-      // Who can read starts as the graph's current default; changing the default later doesn't move it.
-      access,
-    })
-    .returning();
-  for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId);
-  const encrypted = sealed
-    ? await db.transaction(async (tx) => {
-        const waits = await storeSealedKeys(tx, plan as typeof plan & { encrypt: true }, sealed);
-        if (waits) await tx.update(publication).set({ needsRepublish: true }).where(eq(publication.id, created.id));
-        return true;
+  // One transaction: the page, its collections and its encryption are stored together or not at all,
+  // so a page asked to be encrypted is never left stored readable.
+  const { created, encrypted } = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(publication)
+      .values({
+        ...(sealed && { id: sealed.publicationId }),
+        ...(sealed
+          ? sealedColumns({
+              version: 2,
+              by: `extension ${ctx.extVersion ?? "0.2.0"}`,
+              cipher: sealed.cipher,
+              titleCipher: sealed.titleCipher ?? null,
+              // Set below, once its keys are stored.
+              needsRepublish: false,
+              rootUid: p.rootUid,
+              contentHash: hash,
+            })
+          : plainColumns(tree, hash)),
+        graphId: ctx.graphId,
+        rootUid: p.rootUid,
+        kind: p.kind,
+        title,
+        folded,
+        publishedBy: ctx.userId,
+        authorName,
+        inGraph,
+        // Who can read starts as the graph's current default; changing the default later doesn't move it.
+        access,
       })
-    : encrypt
-      ? // Asked for, from a Roam that can't encrypt: encrypted here, as the plan said it could be.
-        await db.transaction(async (tx) => {
-          await encryptPage(tx, created);
-          return true;
-        })
-      : // The page is published either way; a failure here leaves it readable behind its password.
-      await encryptNewPageIfWanted(created.id).catch((e) => {
-        console.error("Couldn't encrypt a new page", created.id, e);
-        return false;
-      });
+      .returning();
+    for (const collectionId of collections) await addEntry(collectionId, created.id, ctx.userId, tx);
+    if (sealed) {
+      const waits = await storeSealedKeys(tx, plan as typeof plan & { encrypt: true }, sealed);
+      if (waits) await tx.update(publication).set({ needsRepublish: true }).where(eq(publication.id, created.id));
+      return { created, encrypted: true };
+    }
+    if (encrypt) {
+      // Asked for, from a Roam that can't encrypt: encrypted here, as the plan said it could be.
+      await encryptPage(tx, created);
+      return { created, encrypted: true };
+    }
+    // Not asked for: the page is published either way, and a failure here (undone on its own) leaves it
+    // readable behind its password.
+    const wanted = await encryptNewPageIfWanted(created.id, tx).catch((e) => {
+      console.error("Couldn't encrypt a new page", created.id, e);
+      return false;
+    });
+    return { created, encrypted: wanted };
+  });
   // Encrypted on arrival: its title was too.
   const url = (await primaryUrls(ctx.graphName, [encrypted && !sealed ? { ...created, title: hiddenTitle(created.kind) } : created])).get(created.id);
   logChange(page, "publishing", `Published as ${created.visibility}: ${url}`, `published:${created.id}`);

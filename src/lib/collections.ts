@@ -74,8 +74,10 @@ export async function addEntry(
   collectionId: string,
   publicationId: string,
   addedBy: string,
+  /** A transaction to add it in, so it's undone with the rest (the publish that creates the page). */
+  on: typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0] = db,
 ) {
-  return db.transaction(async (tx) => {
+  return on.transaction(async (tx) => {
     const [row] = await tx
       .select({ pub: publication, graphName: graph.name, featured: collection.featured, defaultAccess: collection.defaultAccess, open: sql<boolean>`${collection.indexAccess} = 'open' and ${collection.defaultAccess} = 'open'` })
       .from(publication)

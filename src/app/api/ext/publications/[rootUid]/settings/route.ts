@@ -5,6 +5,7 @@ import { json, preflight } from "@/lib/cors";
 import { entryDiscoverBlocked, graphListingBlocked } from "@/lib/control-rules";
 import { ownPage, requireExtKey } from "@/lib/ext-auth";
 import { listingOf, pageDiscoverBlocked } from "@/lib/listing";
+import { pagePinBlocks } from "@/lib/pin-rules";
 import { type ContainerDefaults, manageDataFor } from "@/lib/manage-data";
 import { withRoute } from "@/lib/telemetry";
 
@@ -22,7 +23,8 @@ const defaults = (c: ContainerDefaults) => ({
 /**
  * The extension's Page settings dialog: the page's own settings in its graph and in each collection,
  * what "As the graph" or "As the collection" stands for, and why a choice is unavailable, from the
- * same rules the website uses. Access and passwords are shown, not changed, here.
+ * same rules the website uses. Access and passwords are shown, not changed, here. From extension
+ * 0.5.0 it also pins the page's link in its graph (./pin), so `graph.pin` says where it's shared.
  */
 export const GET = withRoute("GET /api/ext/publications/[rootUid]/settings", async (
   req: Request,
@@ -54,6 +56,10 @@ export const GET = withRoute("GET /api/ext/publications/[rootUid]/settings", asy
       views: gp.state.views,
       pdfDownload: gp.state.pdfDownload,
       defaults: defaults(gp.container),
+      /** Where its owner shared its link in the graph, when it's pinned (null when it isn't). */
+      pin: gp.pin,
+      /** What the pin refuses, in a sentence. */
+      pinBlocks: pagePinBlocks(gp.container.label),
     },
     collections: m.entries.map((e) => {
       const access = e.state.access === "inherit" ? e.container.defaultAccess : e.state.access;

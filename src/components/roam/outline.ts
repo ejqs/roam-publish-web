@@ -10,6 +10,7 @@ export function block(string: string, children: Node[] = []): Node {
 export const siteLinks: PageLinks = new Map([
   ["discover", "/discover"],
   ["setting it up", "/setup"],
+  ["tutorials", "/tutorials"],
 ]);
 
 // Roam's outline geometry, in em so it scales with the text: the bullet's centre sits 0.625em in,

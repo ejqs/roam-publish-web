@@ -57,6 +57,9 @@ export function pinBlocked(link: string, pin: Pin | null | undefined) {
 /** The words for a page's link in one place: its graph, or a collection. */
 export const placeLink = (place: string) => `Its link in ${place}`;
 export const frontPageLink = (graph: string) => `The ${graph} front page`;
+/** What a pin on a page's link in one place refuses, in a sentence, under the pin. */
+export const pagePinBlocks = (place: string) =>
+  `It can't be removed from ${place}, unpublished, or moved to Password or Members while it's pinned, and its password stays as it is.`;
 export const collectionPageLink = (collection: string) => `${collection}'s page`;
 
 /**

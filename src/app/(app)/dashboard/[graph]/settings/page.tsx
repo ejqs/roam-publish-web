@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { graph, graphDefaultCollection, publication } from "@/db/schema";
 import { collectionsOf } from "@/lib/collections";
+import { tokenState } from "@/lib/changelog";
 import { graphUnderModeration } from "@/lib/deletion";
 import { requireSession } from "@/lib/session";
 import { ChangeLogForm } from "./change-log-form";
@@ -31,6 +32,7 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
     db.select().from(graphDefaultCollection).where(eq(graphDefaultCollection.graphId, g.id)),
   ]);
 
+  const token = tokenState(g);
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:py-12">
       <ResourceHeader
@@ -62,7 +64,7 @@ export default async function GraphSettingsPage(props: PageProps<"/dashboard/[gr
         />
         <ChangeLogForm
           graphId={g.id}
-          status={g.appendTokenStatus === "invalid" ? "invalid" : g.appendTokenEnc ? "ok" : null}
+          status={token === "none" ? null : token}
           paused={g.changeLogPaused}
           options={{ off: g.changeLogOff, merge: g.changeLogMerge, byDay: g.changeLogByDay }}
           addedAt={g.appendTokenAddedAt?.toISOString() ?? null}

@@ -27,7 +27,7 @@ import { PlacePasswordForm, type PlaceState } from "./place-access-form";
 import { usePasswordPrompt } from "./password-prompt";
 import { TagsEditor } from "./tags-editor";
 import { NEEDS_REPUBLISH } from "@/lib/encryption-rules";
-import { pinBlocked, placeLink } from "@/lib/pin-rules";
+import { pagePinBlocks, pinBlocked, placeLink } from "@/lib/pin-rules";
 import { PinControl } from "./pin-control";
 
 const noop = () => () => {};
@@ -98,8 +98,6 @@ export function ManageDialog({
   const gPinned = pinBlocked(placeLink(data.origin.graphName), g.pin);
   const entryPinned = (e: ManageData["entries"][number]) => pinBlocked(placeLink(e.collectionName), e.pin);
   const unpublishPinned = gPinned ?? data.entries.map(entryPinned).find(Boolean);
-  const pinBlocks = (place: string) =>
-    `It can't be removed from ${place}, unpublished, or moved to Password or Members while it's pinned, and its password stays as it is.`;
   const encryptionPanel = data.canManagePage ? <EncryptionSection data={data} onChanged={refresh} compact /> : null;
   // Page-wide, so every place shows the same switch under Public, saying whether
   // search reaches the page through that place.
@@ -185,7 +183,7 @@ export function ManageDialog({
                     target={{ kind: "page", publicationId: data.publicationId }}
                     pin={g.pin}
                     url={absolute(g.path)}
-                    blocks={pinBlocks(data.origin.graphName)}
+                    blocks={pagePinBlocks(data.origin.graphName)}
                     canChange={data.canManagePage}
                     onChanged={refresh}
                   />
@@ -276,7 +274,7 @@ export function ManageDialog({
                       target={{ kind: "entry", entryId: e.entryId }}
                       pin={e.pin}
                       url={absolute(e.path)}
-                      blocks={pinBlocks(e.collectionName)}
+                      blocks={pagePinBlocks(e.collectionName)}
                       canChange={e.canManage || data.canManagePage}
                       onChanged={refresh}
                     />
