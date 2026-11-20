@@ -6,7 +6,12 @@ for the people who use the site. Add a bullet with each pull request that change
 tests, refactors and internal tooling. Start each bullet with its kind: **Breaking:**, **New:**, **Improved:** or
 **Fixed:**.
 
-## 0.29.1 (2026-11-11)
+## 0.30.0 (2026-11-20)
+
+### Publishing
+- New: Pin a page's link from the Roam Publish extension. In the page's Settings tab, paste where you shared the
+  link; until you unpin it, nothing can unpublish the page, take it out of its graph or change its access or
+  password there. Needs extension 0.5.0.
 
 ### Site
 - Improved: Unlisted pages show a link icon (only people with the link can open them) instead of a crossed-out eye,
