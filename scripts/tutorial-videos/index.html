@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="node_modules/@blueprintjs/core/lib/css/blueprint.css">
+<link rel="stylesheet" href="node_modules/@blueprintjs/icons/lib/css/blueprint-icons.css">
+<link rel="stylesheet" href="node_modules/@fontsource/inter/400.css">
+<link rel="stylesheet" href="node_modules/@fontsource/inter/600.css">
+<link rel="stylesheet" href="node_modules/@fontsource/inter/700.css">
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { font-family: Inter, sans-serif; font-size: 16px; color: #202b33; background: #fff; }
+  .roam-app { display: flex; height: 100%; }
+  .roam-sidebar-container { width: 218px; background: #30404d; flex: none; }
+  .roam-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .rm-topbar { height: 48px; border-bottom: 1px solid #e1e8ed; display: flex; align-items: center; justify-content: flex-end; padding: 0 16px; gap: 10px; color: #5c7080; flex: none; }
+  .rm-topbar .bp3-icon { color: #5c7080; }
+  .rm-topbar .bp3-icon::before { font-size: 18px; }
+  .roam-body-main { flex: 1; overflow: auto; }
+  .roam-article { padding: 30px 66px 60px; max-width: 900px; }
+  h1.rm-title-display { font-size: 42px; font-weight: 700; margin: 10px 0 18px; color: #202b33; line-height: 1.2; letter-spacing: -0.5px; }
+  .rm-block-children { margin-left: 0; }
+  .rm-block-children .rm-block-children { margin-left: 30px; }
+  .rm-block-main { display: flex; align-items: flex-start; padding: 4px 0; }
+  .controls { width: 24px; flex: none; display: flex; justify-content: center; padding-top: 8px; }
+  .rm-bullet { display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; }
+  .rm-bullet__inner { width: 6px; height: 6px; border-radius: 50%; background: #5c7080; }
+  .roam-block { line-height: 1.5; padding: 2px 0; flex: 1; }
+  .rm-page-ref__brackets { color: #a7b6c2; }
+  .rm-page-ref--link { color: #106ba3; cursor: pointer; }
+  .rm-page-ref--tag { color: #5c7080; }
+  .rm-attr-ref { font-weight: 600; color: #202b33; }
+  body.dark { background: #182026; color: #f5f8fa; }
+  body.dark .roam-body-main, body.dark .roam-article { background: #182026; }
+  body.dark h1.rm-title-display { color: #f5f8fa; }
+  body.dark .rm-topbar { border-color: #30404d; background: #182026; }
+  body.dark .rm-page-ref--link { color: #48aff0; }
+  .sb { padding: 52px 10px; color: #ced9e0; font-size: 14px; }
+  .sb-item { display: flex; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 3px; }
+  .sb-item .bp3-icon { color: #a7b6c2; }
+  .sb-head { font-size: 11px; letter-spacing: 1px; color: #8a9ba8; margin: 22px 8px 6px; }
+  .sb-sc { padding-left: 12px; }
+</style>
+</head>
+<body>
+<div class="roam-app">
+  <div class="roam-sidebar-container"><div class="sb">
+    <div class="sb-item"><span class="bp3-icon bp3-icon-standard bp3-icon-calendar"></span>Daily Notes</div>
+    <div class="sb-item"><span class="bp3-icon bp3-icon-standard bp3-icon-graph"></span>Graph Overview</div>
+    <div class="sb-item"><span class="bp3-icon bp3-icon-standard bp3-icon-list"></span>All Pages</div>
+    <div class="sb-head">SHORTCUTS</div>
+    <div class="sb-item sb-sc">Reading notes</div><div class="sb-item sb-sc">The Dispossessed</div><div class="sb-item sb-sc">Projects</div>
+  </div></div>
+  <div class="roam-main">
+    <div class="rm-topbar"><span class="bp3-icon bp3-icon-standard bp3-icon-menu"></span></div>
+    <div class="roam-body-main"><div class="roam-article" id="article"></div></div>
+  </div>
+</div>
+<script type="module" src="harness.js"></script>
+</body>
+</html>

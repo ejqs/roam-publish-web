@@ -17,6 +17,7 @@ const SOURCE_LINKS = [
 
 const LINKS = [
   { label: "About", href: "/#about" },
+  { label: "Tutorials", href: "/tutorials" },
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
 ];
@@ -43,7 +44,7 @@ const ejqs = (className: string) => (
 );
 
 /**
- * The disclaimer on the left, About, Privacy, Terms, What's new and a Source code popup (web, extension, docs) on the right. `full` is the home page's
+ * The disclaimer on the left, About, Tutorials, Privacy, Terms, What's new and a Source code popup (web, extension, docs) on the right. `full` is the home page's
  * footer. Everywhere else gets the quiet one: no border, small muted text, and the background of
  * whatever it sits under (pass `className="bg-card"` on card pages).
  */

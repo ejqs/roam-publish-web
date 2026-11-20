@@ -8,6 +8,10 @@ tests, refactors and internal tooling. Start each bullet with its kind: **Breaki
 
 ## 0.30.0 (2026-11-20)
 
+### Site
+- New: **Tutorials** at roam.pub/tutorials: a short video and the steps for each main feature, from setting up to
+  visibility, passwords, collections and PDF download. Linked from the footer, the home page and Setting it up.
+
 ### Publishing
 - New: Pin a page's link from the Roam Publish extension. In the page's Settings tab, paste where you shared the
   link; until you unpin it, nothing can unpublish the page, take it out of its graph or change its access or
